@@ -4,7 +4,8 @@ FROM ubuntu@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987
 ARG TARGETARCH=amd64
 ARG DIM_WORKSPACE_UID=1000
 ARG DIM_WORKSPACE_GID=1000
-ENV PATH="/home/dim-agent/.local/bin:${PATH}"
+ENV HOME=/home/dim-agent \
+    PATH="/home/dim-agent/.local/bin:${PATH}"
 
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -52,5 +53,6 @@ COPY start.sh /usr/local/bin/start-single-app
 RUN ln -s /usr/local/lib/dim/controller-proxy/development-service-cli.js \
       /usr/local/bin/dim-development-service
 
+USER dim-agent
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["sh", "/usr/local/bin/start-single-app"]

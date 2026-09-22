@@ -57,5 +57,5 @@ docker compose \
   --file .dim/docker-compose.yml --file "$compose_host_aliases" \
   up --detach --build --force-recreate agent
 docker compose \
-  --file .dim/docker-compose.yml exec --no-TTY agent \
+  --file .dim/docker-compose.yml exec --no-TTY --user root agent \
   chown -R "$(id -u):$(id -g)" /home/dim-agent
