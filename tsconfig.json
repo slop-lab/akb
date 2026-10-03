@@ -12,6 +12,7 @@
     "noPropertyAccessFromIndexSignature": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,
+    "rewriteRelativeImportExtensions": true,
     "isolatedModules": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
