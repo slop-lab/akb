@@ -10,17 +10,24 @@ the behavior is available.
 
 ## Repository reality and the first slice
 
-The repository currently runs an untyped `app/server.mjs` DIM sample that returns plain text. It
-does not yet contain the product API, domain modules, retrieval service, runtime protocol, worker,
-or persistence adapters.
+The repository currently runs a strict-TypeScript Work Item HTTP server composed by the small
+`app/server.mjs` entrypoint. It contains a bounded product API and an in-memory persistence adapter;
+it does not contain the planned retrieval service, runtime protocol, worker, or durable adapter.
 
-The accepted first-slice persistence boundary is an in-memory adapter with no database. This is a
-development adapter for the initial vertical slice, not the intended deployment architecture. It
-must sit behind application-owned repository and unit-of-work ports so that domain and application
-code do not depend on maps, process globals, or adapter-specific behavior. Its data is process-local
-and disposable; it does not satisfy durability, migration, backup, concurrency, multi-process,
-search, or production-readiness requirements. Until that adapter exists in code, "first-slice
-in-memory adapter" names an accepted implementation constraint, not an implemented component.
+The accepted first-slice persistence boundary is an in-memory adapter with no database. The adapter
+exists behind the application-owned `WorkItemStore` port, and each command is all-or-nothing within
+that process. Domain and HTTP code therefore do not own its maps or depend on adapter-specific data
+structures. Its data is process-local and disposable; it does not satisfy durability, migration,
+backup, cross-process concurrency, search, or production-readiness requirements. Durable repository
+and unit-of-work ports, database transaction semantics, and an outbox remain R3 work.
+
+The in-memory adapter defaults to at most 10,000 current Work Items and 100,000 audit records. Each
+effective create or patch consumes one immutable revision/event record pair, and history is never
+evicted to make room. Before any command subject to an exhausted admission budget can mutate current
+state, history, events, idempotency records, the clock, or generated IDs, it is rejected. The HTTP
+mapping is `507 budget_exceeded` with the truthful `resource` (`items` or `audit_records`) and
+configured `capacity`. Idempotent create replay and semantic no-op patch do not consume another
+revision/event pair.
 
 The planned durable adapter is PostgreSQL. PostgreSQL will be canonical for entities, normalized
 domain records, relations, revisions, ACL state, events, outbox records, full-text search, and
@@ -94,9 +101,11 @@ must perform this sequence as one logical unit:
 7. commit.
 
 In the planned PostgreSQL adapter, steps 3 through 6 must be committed in the same database
-transaction. Authorization and revision failure must commit none of them. The in-memory adapter must
-model the same all-or-nothing result so tests do not normalize partial writes. The command result
-must identify the command, event, resulting value, and revision as applicable.
+transaction. Authorization and revision failure must commit none of them. The current in-memory
+adapter already performs its narrower current-state, revision, and event operation all-or-nothing;
+it has no durable transaction or outbox. The command result must identify the command, event,
+resulting value, and revision as applicable. Durable repository, unit-of-work, transaction, and
+outbox guarantees are R3 exit work, not properties of the current process-local adapter.
 
 External delivery, webhooks, indexing, embedding, summary generation, and other remote calls occur
 after commit through the outbox and worker. They must never run inside the domain transaction.
