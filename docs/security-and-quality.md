@@ -2,11 +2,19 @@
 
 ## Status
 
-This document defines mandatory security invariants and planned quality gates. The current
-repository is only an untyped plain-text Node.js bootstrap, so the product controls and CI entrypoints
-described here are not yet implemented. A documented control does not satisfy its gate; executable
-evidence is required. The [canonical v1 design](../agent-first-workspace-v1-design.md) remains the
-authoritative baseline.
+This document defines mandatory security invariants and quality gates. The current repository has a
+strict-TypeScript, bounded in-memory Work Item HTTP slice and stable npm quality entrypoints, but no
+authentication or ACL enforcement. A documented or partially tested control does not satisfy a
+phase gate; executable end-to-end evidence is required. The
+[canonical v1 design](../agent-first-workspace-v1-design.md) remains authoritative.
+
+The current process-local adapter defaults to 10,000 current Work Items and 100,000 audit records.
+Each effective create or patch consumes one immutable revision/event record pair; history is not
+evicted. If an applicable admission budget is exhausted, the command fails before state, history,
+events, idempotency records, clock, or ID mutation. HTTP returns `507 budget_exceeded` with the
+truthful resource and configured capacity. This is an in-memory all-or-nothing guarantee behind the
+application-owned `WorkItemStore`, not the durable repository, unit-of-work, transaction, or outbox
+guarantee required in R3.
 
 ## Security invariants
 
@@ -123,8 +131,13 @@ npm run build
 Product execution uses the native `node` executable; alternative runtimes are not a hidden CI or
 production requirement. `typecheck` runs strict TypeScript with no emitted output. Every command
 must exit zero with no ignored type errors, lint errors, focused tests, or silently skipped required
-suites. The current repository has none of these npm entrypoints; their listing here is a future CI
-contract, not a claim that they pass today.
+suites. The repository exposes these entrypoints plus `test:unit` and `test:integration`. Their
+current success is evidence for the bounded slice, not a claim that R1 or R2 has passed.
+
+The current OpenAPI contract is checked structurally against the exact representable constraints of
+the shared Zod input and response schemas. Integration tests exercise stable HTTP statuses and
+typed envelopes. These checks cover the current HTTP surface only; agent retrieval and its
+snapshot, receipt, cursor, ACL, and runtime contracts remain future work.
 
 Every change must also satisfy these review gates:
 
