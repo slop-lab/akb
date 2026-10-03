@@ -1,0 +1,647 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Agent-First Workspace R2 API", "version": "0.1.0" },
+  "servers": [{ "url": "/" }],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "responses": {
+          "200": { "$ref": "#/components/responses/Health" }
+        }
+      }
+    },
+    "/api/workspaces/{workspaceId}/work-items": {
+      "post": {
+        "operationId": "createWorkItem",
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateWorkItem" } }
+          }
+        },
+        "responses": {
+          "201": { "$ref": "#/components/responses/WorkItem" },
+          "400": { "$ref": "#/components/responses/InvalidArgument" },
+          "409": { "$ref": "#/components/responses/IdempotencyConflict" },
+          "413": { "$ref": "#/components/responses/BodyBudgetExceeded" },
+          "500": { "$ref": "#/components/responses/Internal" },
+          "507": { "$ref": "#/components/responses/CapacityExceeded" }
+        }
+      },
+      "get": {
+        "operationId": "listWorkItems",
+        "parameters": [{ "$ref": "#/components/parameters/WorkspaceId" }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/WorkItemList" },
+          "400": { "$ref": "#/components/responses/InvalidArgument" },
+          "500": { "$ref": "#/components/responses/Internal" }
+        }
+      }
+    },
+    "/api/work-items/{id}": {
+      "get": {
+        "operationId": "getWorkItem",
+        "parameters": [{ "$ref": "#/components/parameters/WorkItemId" }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/WorkItem" },
+          "400": { "$ref": "#/components/responses/InvalidArgument" },
+          "404": { "$ref": "#/components/responses/WorkItemNotFound" },
+          "500": { "$ref": "#/components/responses/Internal" }
+        }
+      },
+      "patch": {
+        "operationId": "patchWorkItem",
+        "parameters": [{ "$ref": "#/components/parameters/WorkItemId" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/PatchWorkItem" } }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/WorkItem" },
+          "400": { "$ref": "#/components/responses/InvalidArgument" },
+          "404": { "$ref": "#/components/responses/WorkItemNotFound" },
+          "409": { "$ref": "#/components/responses/RevisionConflict" },
+          "413": { "$ref": "#/components/responses/BodyBudgetExceeded" },
+          "500": { "$ref": "#/components/responses/Internal" },
+          "507": { "$ref": "#/components/responses/CapacityExceeded" }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "WorkspaceId": {
+        "name": "workspaceId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "allOf": [
+            { "type": "string", "pattern": "^[^/\\\\]*$" },
+            { "type": "string", "minLength": 1, "pattern": "\\S", "maxLength": 128 }
+          ]
+        }
+      },
+      "WorkItemId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "allOf": [
+            { "type": "string", "pattern": "^[^/\\\\]*$" },
+            { "type": "string", "minLength": 1, "pattern": "\\S", "maxLength": 128 }
+          ]
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^[!-~]+$"
+        }
+      }
+    },
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": { "status": { "type": "string", "const": "ok" } },
+        "required": ["status"],
+        "additionalProperties": false
+      },
+      "CreateWorkItem": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S" },
+          "accountableOwnerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "\\S"
+          },
+          "actorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" }
+        },
+        "required": ["title", "accountableOwnerId", "actorId"],
+        "additionalProperties": false
+      },
+      "PatchWorkItem": {
+        "type": "object",
+        "properties": {
+          "actorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+          "baseRevision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+          "title": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S" },
+          "state": {
+            "type": "string",
+            "enum": ["backlog", "unstarted", "started", "completed", "canceled"]
+          }
+        },
+        "required": ["actorId", "baseRevision"],
+        "additionalProperties": false,
+        "anyOf": [{ "required": ["title"] }, { "required": ["state"] }]
+      },
+      "WorkItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+          "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S" },
+          "state": {
+            "type": "string",
+            "enum": ["backlog", "unstarted", "started", "completed", "canceled"]
+          },
+          "accountableOwnerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "\\S"
+          },
+          "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+          }
+        },
+        "required": [
+          "id",
+          "workspaceId",
+          "title",
+          "state",
+          "accountableOwnerId",
+          "revision",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "WorkItemEnvelope": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+              "workspaceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "\\S"
+              },
+              "title": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S" },
+              "state": {
+                "type": "string",
+                "enum": ["backlog", "unstarted", "started", "completed", "canceled"]
+              },
+              "accountableOwnerId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "\\S"
+              },
+              "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+              }
+            },
+            "required": [
+              "id",
+              "workspaceId",
+              "title",
+              "state",
+              "accountableOwnerId",
+              "revision",
+              "createdAt",
+              "updatedAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": ["item"],
+        "additionalProperties": false
+      },
+      "WorkItemCard": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+          "kind": { "type": "string", "const": "work_item" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S" },
+          "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+          "state": {
+            "type": "string",
+            "enum": ["backlog", "unstarted", "started", "completed", "canceled"]
+          },
+          "accountableOwnerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "\\S"
+          },
+          "estimatedTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "revision",
+          "state",
+          "accountableOwnerId",
+          "estimatedTokens"
+        ],
+        "additionalProperties": false
+      },
+      "ListCompleteness": {
+        "type": "object",
+        "properties": {
+          "returned": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "matched": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "truncated": { "type": "boolean" }
+        },
+        "required": ["returned", "matched", "truncated"],
+        "additionalProperties": false
+      },
+      "ListOmission": {
+        "type": "object",
+        "properties": {
+          "category": { "type": "string", "const": "work_item" },
+          "count": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+          "reason": { "type": "string", "const": "budget" }
+        },
+        "required": ["category", "count", "reason"],
+        "additionalProperties": false
+      },
+      "WorkItemList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+                "kind": { "type": "string", "const": "work_item" },
+                "title": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S" },
+                "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+                "state": {
+                  "type": "string",
+                  "enum": ["backlog", "unstarted", "started", "completed", "canceled"]
+                },
+                "accountableOwnerId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "\\S"
+                },
+                "estimatedTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+              },
+              "required": [
+                "id",
+                "kind",
+                "title",
+                "revision",
+                "state",
+                "accountableOwnerId",
+                "estimatedTokens"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "completeness": {
+            "type": "object",
+            "properties": {
+              "returned": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "matched": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "truncated": { "type": "boolean" }
+            },
+            "required": ["returned", "matched", "truncated"],
+            "additionalProperties": false
+          },
+          "omitted": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "category": { "type": "string", "const": "work_item" },
+                "count": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+                "reason": { "type": "string", "const": "budget" }
+              },
+              "required": ["category", "count", "reason"],
+              "additionalProperties": false
+            }
+          },
+          "nextCursor": { "type": "null" },
+          "estimatedTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        },
+        "required": ["items", "completeness", "omitted", "nextCursor", "estimatedTokens"],
+        "additionalProperties": false
+      },
+      "FieldError": {
+        "type": "object",
+        "properties": {
+          "field": { "type": "string", "minLength": 1 },
+          "message": { "type": "string", "minLength": 1 }
+        },
+        "required": ["field", "message"],
+        "additionalProperties": false
+      },
+      "InvalidArgumentError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "const": "invalid_argument" },
+              "message": { "type": "string", "minLength": 1 },
+              "retryable": { "type": "boolean", "const": false },
+              "fieldErrors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": { "type": "string", "minLength": 1 },
+                    "message": { "type": "string", "minLength": 1 }
+                  },
+                  "required": ["field", "message"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["code", "message", "retryable", "fieldErrors"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      },
+      "WorkItemNotFoundError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "const": "not_found" },
+              "message": { "type": "string", "minLength": 1 },
+              "retryable": { "type": "boolean", "const": false },
+              "details": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["code", "message", "retryable", "details"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      },
+      "RouteNotFoundError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "const": "not_found" },
+              "message": { "type": "string", "minLength": 1 },
+              "retryable": { "type": "boolean", "const": false },
+              "details": {
+                "type": "object",
+                "properties": {
+                  "method": { "type": "string", "minLength": 1 },
+                  "path": { "type": "string", "minLength": 1 }
+                },
+                "required": ["method", "path"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["code", "message", "retryable", "details"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      },
+      "IdempotencyConflictError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "const": "idempotency_conflict" },
+              "message": { "type": "string", "minLength": 1 },
+              "retryable": { "type": "boolean", "const": false },
+              "details": {
+                "type": "object",
+                "properties": {
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[!-~]+$"
+                  }
+                },
+                "required": ["idempotencyKey"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["code", "message", "retryable", "details"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      },
+      "RevisionConflictError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "const": "revision_conflict" },
+              "message": { "type": "string", "minLength": 1 },
+              "retryable": { "type": "boolean", "const": false },
+              "details": {
+                "type": "object",
+                "properties": {
+                  "expected": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+                  "actual": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+                },
+                "required": ["expected", "actual"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["code", "message", "retryable", "details"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      },
+      "BodyBudgetExceededError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "const": "budget_exceeded" },
+              "message": { "type": "string", "minLength": 1 },
+              "retryable": { "type": "boolean", "const": false },
+              "details": {
+                "type": "object",
+                "properties": {
+                  "limit": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 }
+                },
+                "required": ["limit"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["code", "message", "retryable", "details"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      },
+      "CapacityExceededError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "const": "budget_exceeded" },
+              "message": { "type": "string", "minLength": 1 },
+              "retryable": { "type": "boolean", "const": false },
+              "details": {
+                "type": "object",
+                "properties": {
+                  "resource": { "type": "string", "enum": ["items", "audit_records"] },
+                  "capacity": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+                },
+                "required": ["resource", "capacity"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["code", "message", "retryable", "details"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      },
+      "InternalError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "const": "internal" },
+              "message": { "type": "string", "minLength": 1 },
+              "retryable": { "type": "boolean", "const": false },
+              "details": { "type": "object", "properties": {}, "additionalProperties": false }
+            },
+            "required": ["code", "message", "retryable", "details"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      }
+    },
+    "responses": {
+      "Health": {
+        "description": "Server is healthy",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } }
+        }
+      },
+      "WorkItemList": {
+        "description": "Bounded current-process Work Item list",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/WorkItemList" } }
+        }
+      },
+      "WorkItem": {
+        "description": "Current Work Item",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/WorkItemEnvelope" } }
+        }
+      },
+      "InvalidArgument": {
+        "description": "Invalid request",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/InvalidArgumentError" } }
+        }
+      },
+      "WorkItemNotFound": {
+        "description": "Work Item absent",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/WorkItemNotFoundError" } }
+        }
+      },
+      "RouteNotFound": {
+        "description": "Route absent",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/RouteNotFoundError" } }
+        }
+      },
+      "IdempotencyConflict": {
+        "description": "Key reused for a different command",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/IdempotencyConflictError" }
+          }
+        }
+      },
+      "RevisionConflict": {
+        "description": "Revision stale",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/RevisionConflictError" } }
+        }
+      },
+      "BodyBudgetExceeded": {
+        "description": "Body exceeds 65536 bytes",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/BodyBudgetExceededError" }
+          }
+        }
+      },
+      "CapacityExceeded": {
+        "description": "In-memory capacity exhausted",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/CapacityExceededError" } }
+        }
+      },
+      "Internal": {
+        "description": "Unexpected server failure",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/InternalError" } }
+        }
+      }
+    }
+  }
+}
