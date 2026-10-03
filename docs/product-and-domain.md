@@ -8,10 +8,10 @@ when this summary is incomplete or ambiguous. Delivery state and evidence are tr
 
 ## Current Reality
 
-The repository is a greenfield DIM sample. As recorded in the
-[README](../README.md#current-status), the only executable application is a plain-text Node.js
-bootstrap. **No product behavior is implemented yet.** In particular, design text, this summary,
-roadmap entries, schemas, and test plans are not evidence that a behavioral exit gate has passed.
+The repository now contains a bounded strict-TypeScript Work Item HTTP slice backed by disposable
+memory. It implements exploratory R1/R2 behavior, but **no roadmap phase gate has passed**. Design
+text, schemas, local tests, and this partial slice do not prove R1, R2, or a canonical section
+complete.
 
 ## Product Definition
 
@@ -111,8 +111,10 @@ That first API slice is **narrower than v1** and explicitly excludes:
 - authentication;
 - ACL enforcement;
 - full progressive expansion, snapshot, omission, receipt, and delta retrieval;
-- runtime execution, leases, heartbeat, cancellation, and capabilities; and
-- proposal and review workflows.
+- runtime execution, leases, heartbeat, cancellation, and capabilities;
+- proposal and review workflows;
+- Project and Space administration, search, human board/list views, comments, and outbox delivery;
+- all other v1 completeness behavior not required by the minimal Work Item contract.
 
 Those exclusions are sequencing boundaries, not changes to the canonical v1 requirements. They
 must be delivered in later phases and cannot be represented as implemented by the first slice.

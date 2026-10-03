@@ -3,9 +3,10 @@
 ## Status
 
 This document defines planned contracts for agent retrieval, runtime control, proposals, and
-reviews. None of these surfaces is implemented by the current plain-text Node.js bootstrap. Field
-names and transport schemas remain subject to approved ADRs, but implementations must preserve the
-semantics below. The [canonical v1 design](../agent-first-workspace-v1-design.md) is authoritative
+reviews. None of these agent surfaces is implemented by the current bounded Work Item HTTP slice.
+The current workspace list is not agent retrieval and intentionally has no snapshot or receipt.
+Field names and transport schemas remain subject to approved ADRs, but implementations must preserve
+the semantics below. The [canonical v1 design](../agent-first-workspace-v1-design.md) is authoritative
 when this summary is incomplete.
 
 Human and agent surfaces will share domain, authorization, and query semantics. They will not share
