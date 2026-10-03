@@ -9,13 +9,12 @@ working in the same typed, revisioned graph.
 The product is **not implemented yet**. The repository currently contains:
 
 - the canonical English v1 design specification;
-- a minimal Node.js HTTP bootstrap at [`app/server.mjs`](app/server.mjs); and
+- a strict TypeScript Node.js health endpoint at [`src/server.ts`](src/server.ts), launched by [`app/server.mjs`](app/server.mjs); and
 - preserved Dev Infra Manager (DIM) environment infrastructure under [`.dim/`](.dim/).
 
-The bootstrap server only returns a plain-text sample response. It is not the planned API,
-web application, worker, retrieval layer, runtime protocol, or any other product feature.
-Future product code is expected to use strict TypeScript; the existing `.mjs` file is only
-the current environment entrypoint and does not establish the application architecture.
+The bootstrap server exposes `GET /health` with the stable JSON response `{ "status": "ok" }`.
+It is not the planned API, web application, worker, retrieval layer, runtime protocol, or any
+other product feature. The composable factory is intentionally minimal for the next vertical slice.
 
 ## Documentation
 
@@ -56,3 +55,14 @@ only DIM-specific project infrastructure. It is intentionally preserved and is n
 source, a product module, or evidence that the planned system has been implemented. Product
 development should replace the sample application entrypoint as the architecture is established,
 without treating `.dim/` as code to migrate or redesign.
+
+## Development Commands
+
+Use Node 24 and npm:
+
+```sh
+npm ci
+npm run check
+npm run build
+npm start
+```
