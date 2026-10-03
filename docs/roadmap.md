@@ -7,7 +7,8 @@ remains authoritative for product requirements. Current evidence is recorded in 
 
 ## Status and Gate Rules
 
-- A phase starts only after every dependency phase has passed its exit gate.
+- Exploratory implementation for a phase may begin while dependency work is still in progress.
+- A phase cannot pass its exit gate, or claim completion, before every dependency phase passes.
 - An exit gate passes only with executable evidence committed at the listed evidence paths.
 - Documentation, schemas, generated specifications, mocks, and test plans do not satisfy a
   behavioral gate by themselves.
@@ -15,9 +16,12 @@ remains authoritative for product requirements. Current evidence is recorded in 
   explicit and scheduled.
 - Security, revision safety, and tenant isolation are gates, not cleanup work.
 
-At present, **no product behavior is implemented and no behavioral phase gate has passed**. The
-plain-text bootstrap described in the [README](../README.md#current-status) is environment evidence
-only.
+This exploratory allowance lets work begin early enough to expose interface and integration risks;
+it does not relax dependency ordering. No phase can pass or claim completion before every dependency
+phase passes.
+
+At present, a bounded Work Item HTTP slice provides exploratory R1/R2 implementation evidence, but
+**no behavioral phase gate has passed**. Passing local tests does not complete R1 or R2.
 
 ## Dependency Sequence
 
@@ -92,6 +96,8 @@ R8 integrates and validates the full v1 scenarios rather than adding an unrelate
 - Require idempotency on creation and `baseRevision` or `If-Match` on patch.
 - Return typed invalid-input, not-found, idempotency-conflict, and revision-conflict responses.
 - Record enough in-memory revision history to prove monotonic revisions and stale-write rejection.
+- Bound the development adapter explicitly and reject exhausted item or audit-record admission
+  budgets without partial mutation.
 
 **Explicit exclusions**
 
@@ -99,6 +105,13 @@ This first API slice is narrower than v1. It excludes PostgreSQL, UI, authentica
 enforcement, full progressive expansion, runtime execution, and proposal/review. It also excludes
 Project, Space administration, search, board/list views, comments, events/outbox delivery, and all
 other v1 completeness behavior unless strictly required by the minimal Work Item contract.
+
+The current adapter defaults to 10,000 current Work Items and 100,000 audit records. Each effective
+create or patch consumes one immutable revision/event record pair; history is not evicted. An
+exhausted applicable budget rejects the command before state, history, events, idempotency records,
+clock, or ID mutation and maps to `507 budget_exceeded` with truthful resource and capacity details.
+These process-local all-or-nothing semantics do not provide the durable repository, unit-of-work,
+transaction, or outbox guarantees assigned to R3.
 
 **Exit gate**
 
