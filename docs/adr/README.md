@@ -8,9 +8,9 @@ explicitly does not approve them. A candidate becomes an accepted architecture d
 its dedicated ADR is reviewed, records consequences and alternatives, and changes status to
 `accepted` in this registry.
 
-No dedicated ADR files exist yet. The entries below are a decision-status ledger, not claims of
-implemented functionality. Product behavior remains planned unless the README and executable code
-also show that it exists.
+Dedicated records now accept ADR-002 and the current-HTTP portion of ADR-004. Their scope is the
+bounded in-memory Work Item command model and its current HTTP contract. Acceptance is a binding
+design decision, not a claim that R1, R2, or any future roadmap gate is complete.
 
 ## Status vocabulary
 
@@ -26,16 +26,14 @@ Changing a status requires review and a recorded rationale. Editing a title in t
 approve a proposal. Implementation does not silently create an architecture decision; if shipped
 behavior conflicts with an accepted ADR, the code or the decision must be reconciled explicitly.
 
-## Proposed ADRs
-
-All twelve canonical ADR candidates remain proposed:
+## ADR Registry
 
 | ADR | Title | Status |
 | --- | --- | --- |
 | ADR-001 | Entity registry plus specialized tables | `proposed` |
-| ADR-002 | Current state plus revision and event | `proposed` |
+| [ADR-002](ADR-002-current-state-revision-event.md) | Current state plus revision and event | `accepted` |
 | ADR-003 | Stable blocks plus Markdown | `proposed` |
-| ADR-004 | JSON Schema and OpenAPI plus agent retrieval protocol | `proposed` |
+| [ADR-004](ADR-004-openapi-and-agent-retrieval.md) | OpenAPI now, agent retrieval protocol later | `accepted` |
 | ADR-005 | Optimistic HTTP plus events | `proposed` |
 | ADR-006 | PostgreSQL-first search | `proposed` |
 | ADR-007 | Scoped, out-of-process runtime | `proposed` |
@@ -45,28 +43,25 @@ All twelve canonical ADR candidates remain proposed:
 | ADR-011 | Space-owned Cycles and cross-Space Projects | `proposed` |
 | ADR-012 | Inherited and private ACL evaluated before retrieval | `proposed` |
 
-These entries preserve the candidate status from the canonical design. References to their intended
-behavior in other engineering contracts do not promote them to `accepted`.
+The accepted ADR-004 scope is intentionally partial: current HTTP OpenAPI is accepted and present;
+agent retrieval remains future R6 work. The other entries preserve their proposed status.
 
 ## Accepted bootstrap decisions
 
-The following repository bootstrap decisions are accepted constraints. They are intentionally
-recorded separately from ADR-001 through ADR-012 and do not imply that any proposed ADR is accepted.
-They may later be expanded into numbered ADRs without retroactively changing the status of the
-canonical candidates.
+The following repository bootstrap decisions are accepted constraints recorded separately from the
+numbered ADRs.
 
 | Decision | Status | Scope and consequence |
 | --- | --- | --- |
 | Node.js 24 | `accepted` | Node.js 24 is the supported execution and CI major version for product work. Pinning and upgrade policy must preserve this major-version contract. |
 | npm | `accepted` | npm is the package manager. Dependency installation uses the committed npm lockfile and `npm ci` in CI; another package manager must not create a competing lockfile. |
-| Native Node.js execution | `accepted` | Product entrypoints run with the native `node` executable. The current `app/server.mjs` is only a DIM bootstrap and does not define the future product architecture. |
+| Native Node.js execution | `accepted` | Product entrypoints run with the native `node` executable. `app/server.mjs` composes the current TypeScript server but does not define the future product architecture. |
 | Native Node.js tests | `accepted` | The test harness uses Node's native test runner, `node --test`, directly or behind `npm test`. Introducing another test runner requires a decision change. |
-| Strict TypeScript | `accepted` | Future product code is strict TypeScript. The existing untyped `.mjs` sample is a temporary environment entrypoint, not precedent for product source. |
+| Strict TypeScript | `accepted` | Product source and tests use strict TypeScript; the small `.mjs` entrypoint only composes the server. |
 | No database in the first slice | `accepted` | The first vertical slice uses an in-memory persistence adapter behind application ports. Data is disposable and this does not satisfy durability or production-readiness requirements. PostgreSQL remains the planned durable adapter. |
 
-The accepted bootstrap decisions define toolchain and initial-slice constraints only. They do not
-claim that a package manifest, TypeScript scaffold, test harness, in-memory adapter, product API, or
-PostgreSQL adapter currently exists.
+The accepted bootstrap decisions define toolchain and initial-slice constraints only. Current
+artifacts are listed in the repository README; PostgreSQL and later product surfaces remain future.
 
 ## ADR file requirements
 
