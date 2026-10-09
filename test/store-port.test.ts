@@ -42,7 +42,7 @@ test("HTTP composition accepts an application-owned store implementation", async
     create: () => ({ kind: "capacity_exceeded", resource: "items", capacity: 0 }),
     patch: (command) => ({ kind: "not_found", id: command.id }),
     get: () => undefined,
-    list: () => {
+    list: async () => {
       listCalls += 1
       return { items: [], matched: 0 }
     },
@@ -97,9 +97,7 @@ test("workspace list reports the named 100-item R2 budget truthfully", async (co
 test("unexpected writable failures return the stable internal error", async (context) => {
   // Given
   const store: WorkItemStore = {
-    create: () => {
-      throw new Error("adapter failed")
-    },
+    create: async () => Promise.reject(new Error("adapter failed")),
     patch: (command) => ({ kind: "not_found", id: command.id }),
     get: () => undefined,
     list: () => ({ items: [], matched: 0 }),

@@ -8,11 +8,11 @@ import type { WorkItemCard } from "./work-item-response-schemas.ts"
 
 export const WORK_ITEM_LIST_LIMIT = 100
 
-export function writeWorkItemList(
+export async function writeWorkItemList(
   response: ServerResponse,
   store: WorkItemStore,
   rawWorkspaceId: string | undefined,
-): void {
+): Promise<void> {
   const workspace = parsePathSegment(rawWorkspaceId, "workspaceId", WorkspacePathSchema)
   switch (workspace.kind) {
     case "invalid":
@@ -23,7 +23,7 @@ export function writeWorkItemList(
     default:
       assertNever(workspace)
   }
-  const result = store.list(workspace.value, WORK_ITEM_LIST_LIMIT)
+  const result = await store.list(workspace.value, WORK_ITEM_LIST_LIMIT)
   const items = result.items.map(toCard)
   const omittedCount = result.matched - items.length
   writeJson(response, 200, {

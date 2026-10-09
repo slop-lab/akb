@@ -6,9 +6,11 @@ export type WorkItemList = {
   readonly matched: number
 }
 
+type StoreResult<T> = T | Promise<T>
+
 export interface WorkItemStore {
-  create(command: CreateWorkItem): CreateResult
-  patch(command: PatchWorkItem): PatchResult
-  get(id: WorkItemId): WorkItem | undefined
-  list(workspaceId: WorkspaceId, limit: number): WorkItemList
+  create(command: CreateWorkItem): StoreResult<CreateResult>
+  patch(command: PatchWorkItem): StoreResult<PatchResult>
+  get(id: WorkItemId): StoreResult<WorkItem | undefined>
+  list(workspaceId: WorkspaceId, limit: number): StoreResult<WorkItemList>
 }

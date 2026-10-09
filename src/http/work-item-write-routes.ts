@@ -72,7 +72,7 @@ export async function createWorkItem(
     return
   }
 
-  const result = store.create({
+  const result = await store.create({
     workspaceId: workspace.value,
     title: parsedBody.data.title,
     accountableOwnerId: parsedBody.data.accountableOwnerId,
@@ -134,7 +134,7 @@ export async function patchWorkItem(
     return
   }
 
-  const result = store.patch({
+  const result = await store.patch({
     id: id.value,
     actorId: parsedBody.data.actorId,
     baseRevision: parsedBody.data.baseRevision,

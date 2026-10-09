@@ -24,7 +24,7 @@ export async function routeWorkItems(
       return true
     }
     if (request.method === "GET") {
-      writeWorkItemList(response, store, workspaceMatch[1])
+      await writeWorkItemList(response, store, workspaceMatch[1])
       return true
     }
   }
@@ -32,7 +32,7 @@ export async function routeWorkItems(
   const itemMatch = /^\/api\/work-items\/([^/]+)$/.exec(path)
   if (itemMatch !== null) {
     if (request.method === "GET") {
-      getWorkItem(response, store, itemMatch[1])
+      await getWorkItem(response, store, itemMatch[1])
       return true
     }
     if (request.method === "PATCH") {
@@ -43,11 +43,11 @@ export async function routeWorkItems(
   return false
 }
 
-function getWorkItem(
+async function getWorkItem(
   response: ServerResponse,
   store: WorkItemStore,
   rawId: string | undefined,
-): void {
+): Promise<void> {
   const id = parsePathSegment(rawId, "id", WorkItemPathSchema)
   switch (id.kind) {
     case "invalid":
@@ -58,7 +58,7 @@ function getWorkItem(
     default:
       assertNever(id)
   }
-  const item = store.get(id.value)
+  const item = await store.get(id.value)
   if (item === undefined) {
     notFound(response, id.value)
     return
