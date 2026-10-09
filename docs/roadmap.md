@@ -20,8 +20,9 @@ This exploratory allowance lets work begin early enough to expose interface and 
 it does not relax dependency ordering. No phase can pass or claim completion before every dependency
 phase passes.
 
-At present, a bounded Work Item HTTP slice provides exploratory R1/R2 implementation evidence, but
-**no behavioral phase gate has passed**. Passing local tests does not complete R1 or R2.
+At present, a bounded Work Item HTTP slice provides exploratory R1/R2 evidence, and an opt-in
+PostgreSQL Work Item adapter provides the first partial R3 persistence evidence. **No behavioral
+phase gate has passed**. Passing local or database tests does not complete R1, R2, or R3.
 
 ## Dependency Sequence
 
@@ -129,6 +130,11 @@ transaction, or outbox guarantees assigned to R3.
 **Depends on:** R2.
 
 **Deliverables**
+
+Current partial evidence is limited to versioned Work Item persistence, transaction rollback,
+optimistic concurrency, scoped idempotency, durable history/events, and a local opt-in HTTP
+entrypoint. Authentication, ACLs, entity/relation breadth, outbox delivery, replay, retention,
+telemetry, and backup/restore remain outstanding.
 
 - Introduce PostgreSQL migrations for Workspace, Principal, Membership, Entity, Revision,
   Relation, domain event, outbox, and persisted Work Item state.

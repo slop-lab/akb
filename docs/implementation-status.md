@@ -15,8 +15,9 @@ current evidence. It must be updated when evidence changes, not when intent chan
 
 Statuses describe product delivery, not document completion. Documentation and schemas do not
 satisfy behavioral gates. The [README](../README.md#current-status) records the bounded in-memory
-Work Item API now present. R1 and R2 are `In progress`: executable evidence exists, but their full
-exit gates have not passed. No canonical section is `Implemented`.
+Work Item API and opt-in PostgreSQL adapter now present. R1, R2, and R3 are `In progress`:
+executable evidence exists, but their full exit gates have not passed. No canonical section is
+`Implemented`.
 
 The [R1/R2 verification and CI deferral record](r1-r2-verification.md) distinguishes
 clean-checkout and pinned-container results from the still-unexecuted Actions gate.
@@ -42,7 +43,7 @@ canonical section.
 | 8 | Progressive Retrieval | Planned | R6 | [Design §8](../agent-first-workspace-v1-design.md#8-progressive-retrieval); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 9 | Human UX | Planned | R4-R8 | [Design §9](../agent-first-workspace-v1-design.md#9-human-ux); [R4](roadmap.md#r4-project-management-core) |
 | 10 | API | In progress | R1 contracts, R2 narrow API, completed through R7 | [HTTP routes](../src/http/work-item-routes.ts); [OpenAPI](openapi.json); [black-box tests](../test/work-item-http.test.ts) |
-| 11 | Data Model | Planned | R3 | [Design §11](../agent-first-workspace-v1-design.md#11-data-model); [R3](roadmap.md#r3-persistent-tenant-identity-event-and-acl-foundation) |
+| 11 | Data Model | In progress | R3 | [Work Item migration](../migrations/001_work_item_persistence.sql); [PostgreSQL tests](../test/postgres-store.test.ts); broader R3 model remains planned |
 | 12 | Search and Indexing | Planned | R4 lexical baseline; R6 full retrieval pipeline | [Design §12](../agent-first-workspace-v1-design.md#12-search-and-indexing); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 13 | Runtime Protocol | Planned | R6 | [Design §13](../agent-first-workspace-v1-design.md#13-runtime-protocol); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 14 | Automation and Extensibility | Planned | R8 | [Design §14](../agent-first-workspace-v1-design.md#14-automation-and-extensibility); [R8](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
@@ -66,25 +67,27 @@ canonical section.
 | Classification | Canonical sections | Behavioral meaning |
 | --- | --- | --- |
 | Documented | 21, 28 | Reference material exists; neither section is itself a product behavior. |
-| Planned | 0-2, 5-9, 11-14, 16, 18, 22-23, 25, 27 | Roadmap ownership and gates exist; implementation evidence has not started for these sections. |
-| In progress | 3, 4, 10, 15, 17, 19, 20, 24, 26 | Narrow R1/R2 evidence exists; each canonical section retains substantial planned scope. |
+| Planned | 0-2, 5-9, 12-14, 16, 18, 22-23, 25, 27 | Roadmap ownership and gates exist; implementation evidence has not started for these sections. |
+| In progress | 3, 4, 10-11, 15, 17, 19-20, 24, 26 | Narrow R1/R2 and partial R3 evidence exists; each canonical section retains substantial planned scope. |
 | Implemented | None | No behavioral gate has passed. |
 
 ## First API Slice Status Boundary
 
-R1 and R2 are in progress, not complete phase gates. The current slice is limited to a
-revision-safe Work Item API backed by disposable process memory. Its list response is a bounded R2
-envelope without R6 snapshot or receipt claims. PostgreSQL, UI, authentication, ACL enforcement,
-full progressive expansion, runtime execution, and proposal/review remain `Planned`; canonical
-section 26 remains `In progress` until the later full-slice gates pass.
+R1, R2, and R3 are in progress, not complete phase gates. The default slice remains a revision-safe
+Work Item API backed by disposable process memory, while an opt-in PostgreSQL adapter durably covers
+only the same Work Item surface. Its list response is a bounded R2 envelope without R6 snapshot or
+receipt claims. UI, authentication, ACL enforcement, full progressive expansion, runtime execution,
+and proposal/review remain `Planned`; section 26 remains `In progress` through later slice gates.
 
 The current `WorkItemStore` adapter executes commands all-or-nothing in memory. Its hard defaults
 are 10,000 current Work Items and 100,000 audit records, with one immutable revision/event record
 pair for every effective create or patch and no history eviction. Exhausting an applicable budget
 causes a pre-mutation `507 budget_exceeded` response with truthful resource and capacity details.
-Durable repository, unit-of-work, transaction, and outbox semantics remain R3 work. Exact OpenAPI
-constraints are structurally checked against shared Zod schemas, stable statuses are behaviorally
-contract-tested, and agent retrieval remains future R6 work.
+The opt-in PostgreSQL adapter now proves a durable Work Item transaction for current state, revision,
+semantic event, and idempotency records. The full entity model, ACLs, outbox semantics and delivery,
+replay, backup/restore, and the remainder of R3 remain planned. Exact OpenAPI constraints are
+structurally checked against shared Zod schemas, stable statuses are behaviorally contract-tested,
+and agent retrieval remains future R6 work.
 
 The [observed error-example tests](../test/openapi-examples.test.ts) and
 [same-base concurrent PATCH test](../test/work-item-concurrency-http.test.ts)
