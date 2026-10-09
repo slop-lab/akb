@@ -3,10 +3,10 @@ import type { Sql, TransactionSql } from "postgres"
 import {
   AuthenticationRequiredError,
   PermissionDeniedError,
-  WorkspaceNotFoundError,
 } from "../identity/authorization-errors.ts"
+import { authorizeWorkspace, requireWorkspaceGrant } from "../identity/authorize.ts"
 import { lockAuthenticatedPrincipal } from "../identity/authenticate.ts"
-import type { AuthenticatedPrincipal, WorkPermission } from "../identity/types.ts"
+import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import { EventIdSchema, revision } from "./identifiers.ts"
 import type { WorkItemId, WorkspaceId } from "./identifiers.ts"
 import type { StoreDependencies } from "./in-memory-store.ts"
@@ -30,8 +30,8 @@ export class AuthorizedPostgresWorkItemStore implements WorkItemStore {
 
   async create(command: CreateWorkItem): Promise<CreateResult> {
     return this.#sql.begin(async (transaction) => {
-      await this.#authorize(transaction, "work.create", command.workspaceId)
-      await requireGrant(transaction, this.#context, "work.assign")
+      await authorizeWorkspace(transaction, this.#context, "work.create", command.workspaceId)
+      await requireWorkspaceGrant(transaction, this.#context, "work.assign")
       requireActor(command.actorId, this.#context.principalId)
       await transaction`select pg_advisory_xact_lock(
         hashtextextended(${JSON.stringify([command.workspaceId, command.idempotencyKey])}, 0)
@@ -153,7 +153,7 @@ export class AuthorizedPostgresWorkItemStore implements WorkItemStore {
 
   async list(workspaceId: WorkspaceId, limit: number): Promise<WorkItemList> {
     return this.#sql.begin("isolation level read committed", async (transaction) => {
-      await this.#authorize(transaction, "work.read", workspaceId)
+      await authorizeWorkspace(transaction, this.#context, "work.read", workspaceId)
       const rows = await transaction`select * from work_items where workspace_id = ${workspaceId}
         order by created_at, id limit ${limit}`
       const counts = await transaction<{ readonly matched: number }[]>`
@@ -168,33 +168,10 @@ export class AuthorizedPostgresWorkItemStore implements WorkItemStore {
       }
     })
   }
-
-  async #authorize(
-    transaction: TransactionSql,
-    permission: WorkPermission,
-    workspaceId: WorkspaceId,
-  ): Promise<void> {
-    if (!(await lockAuthenticatedPrincipal(transaction, this.#context)))
-      throw new AuthenticationRequiredError()
-    if (String(workspaceId) !== String(this.#context.workspaceId))
-      throw new WorkspaceNotFoundError()
-    await requireGrant(transaction, this.#context, permission)
-  }
 }
 
 function requireActor(actor: string, principalId: string): void {
   if (actor !== principalId) throw new PermissionDeniedError()
-}
-
-async function requireGrant(
-  transaction: TransactionSql,
-  context: AuthenticatedPrincipal,
-  permission: WorkPermission,
-): Promise<void> {
-  const rows = await transaction`select permission from membership_permissions
-    where workspace_id = ${context.workspaceId} and principal_id = ${context.principalId}
-      and permission = ${permission} for share`
-  if (rows.length !== 1) throw new PermissionDeniedError()
 }
 
 async function nextSequence(
