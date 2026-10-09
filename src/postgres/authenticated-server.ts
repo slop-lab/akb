@@ -7,6 +7,8 @@ import {
   WorkspaceNotFoundError,
 } from "../identity/authorization-errors.ts"
 import { authenticateToken } from "../identity/authenticate.ts"
+import { PostgresWorkspaceEventReader } from "../events/postgres-reader.ts"
+import { routeWorkspaceEvents } from "../http/event-routes.ts"
 import {
   authenticationRequired,
   internalError,
@@ -61,6 +63,8 @@ async function handleAuthenticatedRequest(
     const principal = await authenticateToken(sql, token)
     if (principal === undefined) throw new AuthenticationRequiredError()
     const store = new AuthorizedPostgresWorkItemStore(sql, principal, dependencies)
+    const eventReader = new PostgresWorkspaceEventReader(sql, principal)
+    if (await routeWorkspaceEvents(request, response, eventReader)) return
     if (await routeWorkItems(request, response, store)) return
   }
   routeNotFound(response, request.method ?? "UNKNOWN", path)
