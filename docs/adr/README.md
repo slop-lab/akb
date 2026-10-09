@@ -8,9 +8,9 @@ explicitly does not approve them. A candidate becomes an accepted architecture d
 its dedicated ADR is reviewed, records consequences and alternatives, and changes status to
 `accepted` in this registry.
 
-Dedicated records now accept ADR-002 and the current-HTTP portion of ADR-004. Their scope is the
-bounded in-memory Work Item command model and its current HTTP contract. Acceptance is a binding
-design decision, not a claim that R1, R2, or any future roadmap gate is complete.
+Dedicated records accept ADR-002 and the current-HTTP portion of ADR-004. ADR-013 proposes the
+implemented PostgreSQL Work Item persistence boundary for review. Acceptance is a binding decision,
+not a claim that R1, R2, R3, or any future roadmap gate is complete.
 
 ## Status vocabulary
 
@@ -42,6 +42,7 @@ behavior conflicts with an accepted ADR, the code or the decision must be reconc
 | ADR-010 | One accountable human owner plus delegates | `proposed` |
 | ADR-011 | Space-owned Cycles and cross-Space Projects | `proposed` |
 | ADR-012 | Inherited and private ACL evaluated before retrieval | `proposed` |
+| [ADR-013](ADR-013-postgresql-work-item-persistence.md) | PostgreSQL Work Item persistence | `proposed` |
 
 The accepted ADR-004 scope is intentionally partial: current HTTP OpenAPI is accepted and present;
 agent retrieval remains future R6 work. The other entries preserve their proposed status.
