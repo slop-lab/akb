@@ -4,6 +4,7 @@ import {
   EventIdSchema,
   IsoTimestampSchema,
   RevisionSchema,
+  SpaceIdSchema,
   WorkItemIdSchema,
   WorkspaceIdSchema,
 } from "../work-items/identifiers.ts"
@@ -11,6 +12,7 @@ import {
 const EventBase = {
   id: EventIdSchema,
   workspaceId: WorkspaceIdSchema,
+  spaceId: SpaceIdSchema.optional(),
   sequence: z.number().int().positive(),
   time: IsoTimestampSchema,
   actorId: ActorIdSchema,

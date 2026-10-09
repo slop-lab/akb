@@ -48,6 +48,7 @@ function toCard(item: WorkItem): WorkItemCard {
     revision: item.revision,
     state: item.state,
     accountableOwnerId: item.accountableOwnerId,
+    ...(item.spaceId === undefined ? {} : { spaceId: item.spaceId }),
   } satisfies Omit<WorkItemCard, "estimatedTokens">
   return { ...fields, estimatedTokens: estimateTokens(fields) }
 }

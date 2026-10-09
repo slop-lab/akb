@@ -3,6 +3,7 @@ import {
   HumanPrincipalIdSchema,
   IsoTimestampSchema,
   RevisionSchema,
+  SpaceIdSchema,
   WorkItemIdSchema,
   WorkItemTitleSchema,
   WorkspaceIdSchema,
@@ -12,6 +13,7 @@ import { WORK_ITEM_STATES } from "../work-items/model.ts"
 export const WorkItemSchema = z.strictObject({
   id: WorkItemIdSchema,
   workspaceId: WorkspaceIdSchema,
+  spaceId: SpaceIdSchema.optional(),
   title: WorkItemTitleSchema,
   state: z.enum(WORK_ITEM_STATES),
   accountableOwnerId: HumanPrincipalIdSchema,
@@ -29,6 +31,7 @@ export const WorkItemCardSchema = z.strictObject({
   revision: RevisionSchema,
   state: z.enum(WORK_ITEM_STATES),
   accountableOwnerId: HumanPrincipalIdSchema,
+  spaceId: SpaceIdSchema.optional(),
   estimatedTokens: z.number().int().nonnegative(),
 })
 export type WorkItemCard = z.infer<typeof WorkItemCardSchema>
