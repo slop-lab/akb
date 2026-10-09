@@ -109,8 +109,10 @@ In the planned PostgreSQL adapter, steps 3 through 6 must be committed in the sa
 transaction. Authorization and revision failure must commit none of them. The current in-memory
 adapter already performs its narrower current-state, revision, and event operation all-or-nothing;
 it has no durable transaction or outbox. The command result must identify the command, event,
-resulting value, and revision as applicable. Durable repository, unit-of-work, transaction, and
-outbox guarantees are R3 exit work, not properties of the current process-local adapter.
+resulting value, and revision as applicable. The authenticated PostgreSQL Work Item adapter now
+locks and revalidates credential, Workspace, Principal, Membership, and explicit grants in the same
+transaction as each write. Outbox guarantees and the broader R3 entity/ACL model remain exit work,
+not properties of the process-local demo.
 
 External delivery, webhooks, indexing, embedding, summary generation, and other remote calls occur
 after commit through the outbox and worker. They must never run inside the domain transaction.

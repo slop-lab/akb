@@ -48,11 +48,11 @@ canonical section.
 | 13 | Runtime Protocol | Planned | R6 | [Design §13](../agent-first-workspace-v1-design.md#13-runtime-protocol); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 14 | Automation and Extensibility | Planned | R8 | [Design §14](../agent-first-workspace-v1-design.md#14-automation-and-extensibility); [R8](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
 | 15 | Real-Time Behavior, Concurrency, and Consistency | In progress | R2 revision conflict baseline; R3-R6 completion | [stale-write tests](../test/work-item-store.test.ts); [concurrent HTTP PATCH](../test/work-item-concurrency-http.test.ts); durable concurrency remains planned |
-| 16 | Security | Planned | R3 foundation; verified through R8 | [Design §16](../agent-first-workspace-v1-design.md#16-security); [R3](roadmap.md#r3-persistent-tenant-identity-event-and-acl-foundation) |
+| 16 | Security | In progress | R3 foundation; verified through R8 | [identity tests](../test/postgres-identity.test.ts); [authorization race tests](../test/postgres-authorization-races.test.ts); full private-object ACL remains planned |
 | 17 | Architecture | In progress | R1 workspace foundation; R3-R8 components | [server composition](../src/server.ts); [in-memory adapter](../src/work-items/in-memory-store.ts) |
 | 18 | Operations and Performance | Planned | R3 operational baseline; R8 release proof | [Design §18](../agent-first-workspace-v1-design.md#18-operations-and-performance); [R8 gate](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
 | 19 | Test Strategy | In progress | R1 harness; expanded as a gate in every phase | [domain tests](../test/work-item-store.test.ts); [HTTP tests](../test/work-item-http.test.ts) |
-| 20 | Implementation Sequence | In progress | R0 roadmap; R1-R2 underway and all behavioral phases remain unpassed | [Dependency sequence](roadmap.md#dependency-sequence); [current tests](../test/) |
+| 20 | Implementation Sequence | In progress | R0 roadmap; R1-R3 underway and all behavioral phases remain unpassed | [Dependency sequence](roadmap.md#dependency-sequence); [current tests](../test/) |
 | 21 | Estimated Scale of Work | Documented | Reassess at every phase boundary; not a behavior gate | [Design §21](../agent-first-workspace-v1-design.md#21-estimated-scale-of-work) |
 | 22 | v1 Definition of Done | Planned | R8 | [Design §22](../agent-first-workspace-v1-design.md#22-v1-definition-of-done); [R8 gate](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
 | 23 | Priority Backlog | Planned | Scheduled across R1-R8 | [Design §23](../agent-first-workspace-v1-design.md#23-priority-backlog); [Dependency sequence](roadmap.md#dependency-sequence) |
@@ -67,27 +67,26 @@ canonical section.
 | Classification | Canonical sections | Behavioral meaning |
 | --- | --- | --- |
 | Documented | 21, 28 | Reference material exists; neither section is itself a product behavior. |
-| Planned | 0-2, 5-9, 12-14, 16, 18, 22-23, 25, 27 | Roadmap ownership and gates exist; implementation evidence has not started for these sections. |
-| In progress | 3, 4, 10-11, 15, 17, 19-20, 24, 26 | Narrow R1/R2 and partial R3 evidence exists; each canonical section retains substantial planned scope. |
+| Planned | 0-2, 5-9, 12-14, 18, 22-23, 25, 27 | Roadmap ownership and gates exist; implementation evidence has not started for these sections. |
+| In progress | 3, 4, 10-11, 15-17, 19-20, 24, 26 | Narrow R1/R2 and partial R3 evidence exists; each canonical section retains substantial planned scope. |
 | Implemented | None | No behavioral gate has passed. |
 
 ## First API Slice Status Boundary
 
-R1, R2, and R3 are in progress, not complete phase gates. The default slice remains a revision-safe
-Work Item API backed by disposable process memory, while an opt-in PostgreSQL adapter durably covers
-only the same Work Item surface. Its list response is a bounded R2 envelope without R6 snapshot or
-receipt claims. UI, authentication, ACL enforcement, full progressive expansion, runtime execution,
-and proposal/review remain `Planned`; section 26 remains `In progress` through later slice gates.
+R1, R2, and R3 are in progress, not complete phase gates. The loopback default remains a revision-safe
+in-memory demo. PostgreSQL HTTP now authenticates opaque expiring credentials and revalidates active
+Workspace membership plus explicit Work grants inside operation transactions. UI, full Space/private
+ACL inheritance, outbox, progressive expansion, Run credentials, and proposal/review remain planned.
 
 The current `WorkItemStore` adapter executes commands all-or-nothing in memory. Its hard defaults
 are 10,000 current Work Items and 100,000 audit records, with one immutable revision/event record
 pair for every effective create or patch and no history eviction. Exhausting an applicable budget
 causes a pre-mutation `507 budget_exceeded` response with truthful resource and capacity details.
-The opt-in PostgreSQL adapter now proves a durable Work Item transaction for current state, revision,
-semantic event, and idempotency records. The full entity model, ACLs, outbox semantics and delivery,
-replay, backup/restore, and the remainder of R3 remain planned. Exact OpenAPI constraints are
-structurally checked against shared Zod schemas, stable statuses are behaviorally contract-tested,
-and agent retrieval remains future R6 work.
+The PostgreSQL adapter proves durable Work Item transactions plus normalized Workspace, Principal,
+Membership, explicit Work grants, and hash-only credential storage. The full entity model, private
+ACL inheritance, outbox delivery, replay, backup/restore, and the remainder of R3 remain planned.
+Exact OpenAPI constraints are structurally checked against shared Zod schemas, stable statuses are
+behaviorally contract-tested, and agent retrieval remains future R6 work.
 
 The [observed error-example tests](../test/openapi-examples.test.ts) and
 [same-base concurrent PATCH test](../test/work-item-concurrency-http.test.ts)

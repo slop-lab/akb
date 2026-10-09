@@ -2,9 +2,9 @@
 
 ## Status
 
-This document defines mandatory security invariants and quality gates. The current repository has a
-strict-TypeScript, bounded in-memory Work Item HTTP slice and stable npm quality entrypoints, but no
-authentication or ACL enforcement. A documented or partially tested control does not satisfy a
+This document defines mandatory security invariants and quality gates. PostgreSQL Work Item HTTP now
+has mandatory bearer authentication, active Workspace membership, and explicit Work permission
+enforcement. This is partial R3, not full private-object ACL inheritance. A documented control does not satisfy a
 phase gate; executable end-to-end evidence is required. The
 [canonical v1 design](../agent-first-workspace-v1-design.md) remains authoritative.
 
@@ -30,6 +30,11 @@ guarantee required in R3.
    before mutation, then records actor, cause, revision, and event.
 6. Secret values, raw credentials, and privileged trace data are never copied into normal context,
    summaries, activity, errors, analytics, or logs.
+
+The implemented PostgreSQL boundary stores only SHA-256 digests of 256-bit opaque tokens, requires
+expiry, and maps revoked, expired, unknown, disabled, or deactivated identity to one generic `401`.
+It rechecks identity, membership, and grants while holding transaction locks. Runtime Principals
+remain ineligible for general workspace tokens until Run-scoped credentials exist.
 
 ## ACL before retrieval
 
