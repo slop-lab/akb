@@ -7,6 +7,7 @@ import {
 import { createServer } from "../src/server.ts"
 import { actorId, eventId, workItemId } from "../src/work-items/identifiers.ts"
 import { InMemoryWorkItemStore, type StoreLimits } from "../src/work-items/in-memory-store.ts"
+import type { WorkItemStore } from "../src/work-items/store.ts"
 
 export type HttpFixture = {
   readonly request: (path: string, init?: RequestInit) => Promise<Response>
@@ -29,6 +30,10 @@ export async function startHttpFixture(limits?: StoreLimits): Promise<HttpFixtur
     },
     limits,
   )
+  return startHttpFixtureWithStore(store)
+}
+
+export async function startHttpFixtureWithStore(store: WorkItemStore): Promise<HttpFixture> {
   const server = createServer(store)
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
   const address = server.address()

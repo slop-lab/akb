@@ -593,53 +593,176 @@
       "InvalidArgument": {
         "description": "Invalid request",
         "content": {
-          "application/json": { "schema": { "$ref": "#/components/schemas/InvalidArgumentError" } }
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/InvalidArgumentError" },
+            "examples": {
+              "invalidArgument": {
+                "value": {
+                  "error": {
+                    "code": "invalid_argument",
+                    "message": "request arguments are invalid",
+                    "retryable": false,
+                    "fieldErrors": [
+                      {
+                        "field": "body.title",
+                        "message": "Invalid string: must match pattern /\\S/"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
         }
       },
       "WorkItemNotFound": {
         "description": "Work Item absent",
         "content": {
-          "application/json": { "schema": { "$ref": "#/components/schemas/WorkItemNotFoundError" } }
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/WorkItemNotFoundError" },
+            "examples": {
+              "workItemNotFound": {
+                "value": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "work item was not found",
+                    "retryable": false,
+                    "details": { "id": "missing" }
+                  }
+                }
+              }
+            }
+          }
         }
       },
       "RouteNotFound": {
         "description": "Route absent",
         "content": {
-          "application/json": { "schema": { "$ref": "#/components/schemas/RouteNotFoundError" } }
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/RouteNotFoundError" },
+            "examples": {
+              "routeNotFound": {
+                "value": {
+                  "error": {
+                    "code": "not_found",
+                    "message": "route was not found",
+                    "retryable": false,
+                    "details": { "method": "GET", "path": "/missing-route" }
+                  }
+                }
+              }
+            }
+          }
         }
       },
       "IdempotencyConflict": {
         "description": "Key reused for a different command",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/IdempotencyConflictError" }
+            "schema": { "$ref": "#/components/schemas/IdempotencyConflictError" },
+            "examples": {
+              "idempotencyConflict": {
+                "value": {
+                  "error": {
+                    "code": "idempotency_conflict",
+                    "message": "idempotency key was already used for a different command",
+                    "retryable": false,
+                    "details": { "idempotencyKey": "example-create" }
+                  }
+                }
+              }
+            }
           }
         }
       },
       "RevisionConflict": {
         "description": "Revision stale",
         "content": {
-          "application/json": { "schema": { "$ref": "#/components/schemas/RevisionConflictError" } }
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/RevisionConflictError" },
+            "examples": {
+              "revisionConflict": {
+                "value": {
+                  "error": {
+                    "code": "revision_conflict",
+                    "message": "work item revision does not match",
+                    "retryable": false,
+                    "details": { "expected": 1, "actual": 2 }
+                  }
+                }
+              }
+            }
+          }
         }
       },
       "BodyBudgetExceeded": {
         "description": "Body exceeds 65536 bytes",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/BodyBudgetExceededError" }
+            "schema": { "$ref": "#/components/schemas/BodyBudgetExceededError" },
+            "examples": {
+              "bodyBudgetExceeded": {
+                "value": {
+                  "error": {
+                    "code": "budget_exceeded",
+                    "message": "request body exceeds the byte limit",
+                    "retryable": false,
+                    "details": { "limit": 65536 }
+                  }
+                }
+              }
+            }
           }
         }
       },
       "CapacityExceeded": {
         "description": "In-memory capacity exhausted",
         "content": {
-          "application/json": { "schema": { "$ref": "#/components/schemas/CapacityExceededError" } }
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/CapacityExceededError" },
+            "examples": {
+              "itemCapacity": {
+                "value": {
+                  "error": {
+                    "code": "budget_exceeded",
+                    "message": "in-memory work item capacity is exhausted",
+                    "retryable": false,
+                    "details": { "resource": "items", "capacity": 0 }
+                  }
+                }
+              },
+              "auditCapacity": {
+                "value": {
+                  "error": {
+                    "code": "budget_exceeded",
+                    "message": "in-memory work item capacity is exhausted",
+                    "retryable": false,
+                    "details": { "resource": "audit_records", "capacity": 1 }
+                  }
+                }
+              }
+            }
+          }
         }
       },
       "Internal": {
         "description": "Unexpected server failure",
         "content": {
-          "application/json": { "schema": { "$ref": "#/components/schemas/InternalError" } }
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/InternalError" },
+            "examples": {
+              "internal": {
+                "value": {
+                  "error": {
+                    "code": "internal",
+                    "message": "internal server error",
+                    "retryable": false,
+                    "details": {}
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
