@@ -8,6 +8,7 @@ const OutboxEventSchema = z.strictObject({
   job_id: z.string().uuid(),
   event_id: z.string(),
   workspace_id: z.string(),
+  space_id: z.string().nullable(),
   destination_id: z.string(),
   sequence: z.coerce.number().int().positive(),
   event_type: z.enum(["work_item.created", "work_item.updated"]),
@@ -25,6 +26,7 @@ export type ClaimedDelivery = {
   readonly jobId: string
   readonly eventId: string
   readonly workspaceId: string
+  readonly spaceId?: string
   readonly destinationId: string
   readonly sequence: number
   readonly eventType: "work_item.created" | "work_item.updated"
@@ -104,7 +106,7 @@ export class OutboxRepository {
       where j.job_id = c.job_id and e.workspace_id = j.workspace_id and e.event_id = j.event_id
       returning j.job_id, j.event_id, j.workspace_id, j.destination_id, j.sequence,
         e.event_type, e.occurred_at, e.actor_id, e.subject_id, e.subject_revision,
-        e.changed_fields, j.lease_owner, j.lease_generation, j.attempts`
+        e.space_id, e.changed_fields, j.lease_owner, j.lease_generation, j.attempts`
       const record = rows[0]
       if (record === undefined) return undefined
       const row = OutboxEventSchema.parse(record)
@@ -112,6 +114,7 @@ export class OutboxRepository {
         jobId: row.job_id,
         eventId: row.event_id,
         workspaceId: row.workspace_id,
+        ...(row.space_id === null ? {} : { spaceId: row.space_id }),
         destinationId: row.destination_id,
         sequence: row.sequence,
         eventType: row.event_type,
@@ -129,9 +132,9 @@ export class OutboxRepository {
 
   async deliverToInbox(delivery: ClaimedDelivery): Promise<void> {
     await this.#sql`insert into delivery_inbox
-      (destination_id, event_id, workspace_id, sequence, event_type, occurred_at,
+      (destination_id, event_id, workspace_id, space_id, sequence, event_type, occurred_at,
        actor_id, subject_id, subject_revision, changed_fields)
-      values (${delivery.destinationId}, ${delivery.eventId}, ${delivery.workspaceId},
+      values (${delivery.destinationId}, ${delivery.eventId}, ${delivery.workspaceId}, ${delivery.spaceId ?? null},
         ${delivery.sequence}, ${delivery.eventType}, ${delivery.occurredAt}, ${delivery.actorId},
         ${delivery.subjectId}, ${delivery.subjectRevision}, ${delivery.changedFields})
       on conflict (destination_id, event_id) do nothing`
