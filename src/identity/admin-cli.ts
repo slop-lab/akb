@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { createPostgresClient, databaseUrlFromEnvironment } from "../postgres/client.ts"
 import { IdentityAdmin } from "./admin.ts"
+import { SpaceAdmin } from "./space-admin.ts"
 import { MEMBERSHIP_ROLES, PRINCIPAL_KINDS, WORK_PERMISSIONS } from "./types.ts"
 
 const HELP = `Usage: npm run admin -- <command> [options]
@@ -11,6 +12,9 @@ Commands:
   set-permissions --workspace-id ID --principal-id ID [--permissions CSV]
   issue-token --workspace-id ID --principal-id ID [--expires-at ISO]
   revoke-token --credential-id ID
+  create-space --workspace-id ID --space-id ID --space-name NAME --visibility public|private
+  set-space-visibility --workspace-id ID --space-id ID --visibility public|private
+  set-space-permissions --workspace-id ID --space-id ID --principal-id ID [--permissions CSV]
 
 Kinds: ${PRINCIPAL_KINDS.join(", ")}
 Roles: ${MEMBERSHIP_ROLES.join(", ")}
@@ -36,11 +40,15 @@ export async function runAdminCli(
       "set-permissions",
       "issue-token",
       "revoke-token",
+      "create-space",
+      "set-space-visibility",
+      "set-space-permissions",
     ])
     .parse(args[0])
   const options = parseOptions(args.slice(1))
   const sql = createPostgresClient(databaseUrlFromEnvironment(environment))
   const admin = new IdentityAdmin(sql)
+  const spaces = new SpaceAdmin(sql)
   try {
     switch (command) {
       case "bootstrap-workspace": {
@@ -118,6 +126,58 @@ export async function runAdminCli(
         const value = z.strictObject({ "credential-id": z.string() }).parse(options)
         await admin.revokeToken({ credentialId: value["credential-id"] })
         return JSON.stringify({ revoked: value["credential-id"] })
+      }
+      case "create-space": {
+        const value = z
+          .strictObject({
+            "workspace-id": z.string(),
+            "space-id": z.string(),
+            "space-name": z.string(),
+            visibility: z.enum(["public", "private"]),
+          })
+          .parse(options)
+        await spaces.create({
+          workspaceId: value["workspace-id"],
+          spaceId: value["space-id"],
+          spaceName: value["space-name"],
+          visibility: value.visibility,
+        })
+        return JSON.stringify({ created: value["space-id"] })
+      }
+      case "set-space-visibility": {
+        const value = z
+          .strictObject({
+            "workspace-id": z.string(),
+            "space-id": z.string(),
+            visibility: z.enum(["public", "private"]),
+          })
+          .parse(options)
+        await spaces.setVisibility({
+          workspaceId: value["workspace-id"],
+          spaceId: value["space-id"],
+          visibility: value.visibility,
+        })
+        return JSON.stringify({ updated: value["space-id"] })
+      }
+      case "set-space-permissions": {
+        const value = z
+          .strictObject({
+            "workspace-id": z.string(),
+            "space-id": z.string(),
+            "principal-id": z.string(),
+            permissions: PermissionListSchema,
+          })
+          .parse(options)
+        await spaces.setPermissions({
+          workspaceId: value["workspace-id"],
+          spaceId: value["space-id"],
+          principalId: value["principal-id"],
+          permissions: value.permissions,
+        })
+        return JSON.stringify({
+          updated: value["space-id"],
+          principalId: value["principal-id"],
+        })
       }
       default:
         return assertNever(command)
