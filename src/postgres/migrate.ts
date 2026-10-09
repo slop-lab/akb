@@ -12,6 +12,12 @@ const MigrationRowSchema = z.strictObject({
   checksum: z.string().length(64).nullable(),
 })
 
+export type MigrationCatalogEntry = {
+  readonly version: string
+  readonly contents: Buffer
+  readonly checksum: string
+}
+
 export class MigrationIntegrityError extends Error {
   override readonly name = "MigrationIntegrityError"
 }
@@ -20,31 +26,7 @@ export async function migrateDatabase(
   sql: Sql,
   directory = resolve(process.cwd(), "migrations"),
 ): Promise<void> {
-  const names = (await readdir(directory))
-    .filter((name) => MigrationNameSchema.safeParse(name).success)
-    .sort()
-  const versions = new Set<number>()
-  for (const name of names) {
-    const version = migrationVersion(name)
-    if (versions.has(version)) {
-      throw new MigrationIntegrityError(`duplicate migration version ${name.slice(0, 3)}`)
-    }
-    versions.add(version)
-  }
-  const migrations = await Promise.all(
-    names.map(async (version) => {
-      const contents = await readFile(resolve(directory, version))
-      return {
-        version,
-        contents,
-        checksum: createHash("sha256").update(contents).digest("hex"),
-      }
-    }),
-  )
-  const first = migrations.find((migration) => migration.version === FIRST_MIGRATION)
-  if (first?.checksum !== FIRST_MIGRATION_CHECKSUM) {
-    throw new MigrationIntegrityError(`checksum mismatch for ${FIRST_MIGRATION}`)
-  }
+  const migrations = await readMigrationCatalog(directory)
 
   await sql.begin(async (transaction) => {
     await transaction`select pg_advisory_xact_lock(hashtextextended(current_schema(), 0))`
@@ -97,6 +79,37 @@ export async function migrateDatabase(
     }
     await transaction`alter table schema_migrations alter column checksum set not null`
   })
+}
+
+export async function readMigrationCatalog(
+  directory = resolve(process.cwd(), "migrations"),
+): Promise<readonly MigrationCatalogEntry[]> {
+  const names = (await readdir(directory))
+    .filter((name) => MigrationNameSchema.safeParse(name).success)
+    .sort()
+  const versions = new Set<number>()
+  for (const name of names) {
+    const version = migrationVersion(name)
+    if (versions.has(version)) {
+      throw new MigrationIntegrityError(`duplicate migration version ${name.slice(0, 3)}`)
+    }
+    versions.add(version)
+  }
+  const migrations = await Promise.all(
+    names.map(async (version) => {
+      const contents = await readFile(resolve(directory, version))
+      return {
+        version,
+        contents,
+        checksum: createHash("sha256").update(contents).digest("hex"),
+      }
+    }),
+  )
+  const first = migrations.find((migration) => migration.version === FIRST_MIGRATION)
+  if (first?.checksum !== FIRST_MIGRATION_CHECKSUM) {
+    throw new MigrationIntegrityError(`checksum mismatch for ${FIRST_MIGRATION}`)
+  }
+  return migrations
 }
 
 function migrationVersion(name: string): number {
