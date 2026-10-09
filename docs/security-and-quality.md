@@ -40,6 +40,12 @@ expiry, and maps revoked, expired, unknown, disabled, or deactivated identity to
 It rechecks identity, membership, and grants while holding transaction locks. Runtime Principals
 remain ineligible for general workspace tokens until Run-scoped credentials exist.
 
+The schema-004 operator backup writes a private custom-format archive and same-snapshot digest
+manifest. Restore accepts only a confirmed pristine target and revokes all restored active
+credentials while generation-fencing restored leases before activation. These files are not
+encrypted or signed, and this bounded rehearsal does not satisfy the planned PITR, encrypted
+storage, scheduling, or complete release controls in the operator boundary below.
+
 ## ACL before retrieval
 
 ACL evaluation must occur before exact, lexical, semantic, graph, history, or contextual candidate

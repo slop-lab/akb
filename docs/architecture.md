@@ -44,7 +44,8 @@ index, embedding service, summary cache, or object store must never become canon
 The in-memory and PostgreSQL adapters must implement the same observable application contracts:
 stable IDs, monotonic entity revisions, optimistic revision checks, command idempotency, atomic
 command results, ordered events, and explicit authorization. Adapter substitution must not change
-domain semantics. PostgreSQL-specific operational guarantees beyond the tested Work Item slice
+domain semantics. A bounded schema-004 snapshot backup and guarded restore rehearsal now exists;
+PITR, encrypted storage, scheduling, broader recovery, and other PostgreSQL production guarantees
 remain gated.
 
 ## System shape
