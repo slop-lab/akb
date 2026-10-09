@@ -4,6 +4,7 @@ import type {
   HumanPrincipalId,
   IdempotencyKey,
   Revision,
+  SpaceId,
   WorkItemId,
   WorkItemTitle,
   WorkspaceId,
@@ -21,6 +22,7 @@ export type WorkItemState = (typeof WORK_ITEM_STATES)[number]
 export type WorkItem = {
   readonly id: WorkItemId
   readonly workspaceId: WorkspaceId
+  readonly spaceId?: SpaceId
   readonly title: WorkItemTitle
   readonly state: WorkItemState
   readonly accountableOwnerId: HumanPrincipalId
@@ -31,6 +33,7 @@ export type WorkItem = {
 
 export type CreateWorkItem = {
   readonly workspaceId: WorkspaceId
+  readonly spaceId?: SpaceId
   readonly title: WorkItemTitle
   readonly accountableOwnerId: HumanPrincipalId
   readonly actorId: ActorId
@@ -50,6 +53,7 @@ export type WorkItemRevision = WorkItem
 type WorkItemEventBase = {
   readonly id: EventId
   readonly workspaceId: WorkspaceId
+  readonly spaceId?: SpaceId
   readonly sequence: number
   readonly time: string
   readonly actorId: ActorId

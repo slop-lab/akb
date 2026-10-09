@@ -14,6 +14,7 @@ function rawSemanticString(maxLength: number) {
 const rawSemanticId = rawSemanticString(128)
 
 export const RawWorkspaceIdSchema = rawSemanticId
+export const RawSpaceIdSchema = rawSemanticId
 export const RawWorkItemIdSchema = rawSemanticId
 export const RawHumanPrincipalIdSchema = rawSemanticId
 export const RawActorIdSchema = rawSemanticId
@@ -21,6 +22,7 @@ export const RawEventIdSchema = rawSemanticId
 export const WorkspaceIdSchema = RawWorkspaceIdSchema.transform((value) => value.trim()).brand(
   "WorkspaceId",
 )
+export const SpaceIdSchema = RawSpaceIdSchema.transform((value) => value.trim()).brand("SpaceId")
 export const WorkItemIdSchema = RawWorkItemIdSchema.transform((value) => value.trim()).brand(
   "WorkItemId",
 )
@@ -43,6 +45,7 @@ export const WorkItemTitleSchema = RawWorkItemTitleSchema.transform((value) => v
 export const IsoTimestampSchema = z.iso.datetime()
 
 export type WorkspaceId = z.infer<typeof WorkspaceIdSchema>
+export type SpaceId = z.infer<typeof SpaceIdSchema>
 export type WorkItemId = z.infer<typeof WorkItemIdSchema>
 export type HumanPrincipalId = z.infer<typeof HumanPrincipalIdSchema>
 export type ActorId = z.infer<typeof ActorIdSchema>
@@ -52,6 +55,7 @@ export type Revision = z.infer<typeof RevisionSchema>
 export type WorkItemTitle = z.infer<typeof WorkItemTitleSchema>
 
 export const workspaceId = (value: string): WorkspaceId => WorkspaceIdSchema.parse(value)
+export const spaceId = (value: string): SpaceId => SpaceIdSchema.parse(value)
 export const workItemId = (value: string): WorkItemId => WorkItemIdSchema.parse(value)
 export const humanPrincipalId = (value: string): HumanPrincipalId =>
   HumanPrincipalIdSchema.parse(value)
