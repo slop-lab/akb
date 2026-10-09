@@ -24,6 +24,8 @@ currently contains:
   and authenticated bounded workspace event replay;
 - a bounded PostgreSQL Space scope with public inheritance, explicit private Work grants, ACL-filtered
   Work Item reads/lists/counts, and fail-closed complete-authority workspace event replay;
+- an operator-driven PostgreSQL 17 snapshot backup, offline integrity verification, and guarded
+  restore rehearsal with mandatory credential and lease quarantine;
 - a 64 KiB JSON request limit and abort-safe HTTP request handling;
 - an OpenAPI 3.1 contract at [`docs/openapi.json`](docs/openapi.json); and
 - preserved Dev Infra Manager (DIM) environment infrastructure under [`.dim/`](.dim/).
@@ -148,6 +150,11 @@ every private Space and otherwise returns `403` without a page or checkpoint.
 `actorId` remains required for compatibility but is deprecated and must equal the authenticated
 Principal. Runtime Principals cannot receive general workspace bearer credentials.
 
+The backup and restore operator commands, restricted artifact handling, fresh-target requirement,
+and activation report are documented in [`docs/backup-recovery.md`](docs/backup-recovery.md).
+This is a bounded schema-004 operational baseline, not PITR, encrypted backup storage, scheduling,
+or a complete R3 operations program.
+
 ## Development Commands
 
 Use Node 24 and npm:
@@ -159,6 +166,7 @@ npm run build
 npm run test:unit
 npm run test:integration
 npm run test:postgres # requires DATABASE_URL and never skips
+npm run test:backup # additionally requires PostgreSQL 17 pg_dump/pg_restore and database creation
 npm start
 ```
 
