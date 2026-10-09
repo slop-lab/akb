@@ -42,8 +42,8 @@ canonical section.
 | 7 | Human-Agent Collaboration | Planned | R6 runtime; R7 review completion | [Design §7](../agent-first-workspace-v1-design.md#7-human-agent-collaboration); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 8 | Progressive Retrieval | Planned | R6 | [Design §8](../agent-first-workspace-v1-design.md#8-progressive-retrieval); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 9 | Human UX | Planned | R4-R8 | [Design §9](../agent-first-workspace-v1-design.md#9-human-ux); [R4](roadmap.md#r4-project-management-core) |
-| 10 | API | In progress | R1 contracts, R2 narrow API, completed through R7 | [HTTP routes](../src/http/work-item-routes.ts); [OpenAPI](openapi.json); [black-box tests](../test/work-item-http.test.ts) |
-| 11 | Data Model | In progress | R3 | [Work Item migration](../migrations/001_work_item_persistence.sql); [PostgreSQL tests](../test/postgres-store.test.ts); broader R3 model remains planned |
+| 10 | API | In progress | R1 contracts, R2 narrow API, completed through R7 | [HTTP routes](../src/http/work-item-routes.ts); [event replay](../src/http/event-routes.ts); [OpenAPI](openapi.json); [replay tests](../test/postgres-replay.test.ts) |
+| 11 | Data Model | In progress | R3 | [Work Item migration](../migrations/001_work_item_persistence.sql); [outbox migration](../migrations/003_transactional_outbox.sql); [outbox tests](../test/postgres-outbox.test.ts); broader R3 model remains planned |
 | 12 | Search and Indexing | Planned | R4 lexical baseline; R6 full retrieval pipeline | [Design §12](../agent-first-workspace-v1-design.md#12-search-and-indexing); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 13 | Runtime Protocol | Planned | R6 | [Design §13](../agent-first-workspace-v1-design.md#13-runtime-protocol); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 14 | Automation and Extensibility | Planned | R8 | [Design §14](../agent-first-workspace-v1-design.md#14-automation-and-extensibility); [R8](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
@@ -75,8 +75,11 @@ canonical section.
 
 R1, R2, and R3 are in progress, not complete phase gates. The loopback default remains a revision-safe
 in-memory demo. PostgreSQL HTTP now authenticates opaque expiring credentials and revalidates active
-Workspace membership plus explicit Work grants inside operation transactions. UI, full Space/private
-ACL inheritance, outbox, progressive expansion, Run credentials, and proposal/review remain planned.
+Workspace membership plus explicit Work grants inside operation transactions. The bounded R3
+checkpoint adds transactional Work Item outbox fanout, a durable database-inbox worker, and
+authenticated event replay. Worker drains are capped at 100 claims and report unsuccessful summaries
+with a nonzero exit status. UI, network webhooks, full Space/private ACL inheritance, progressive
+expansion, Run credentials, and proposal/review remain planned.
 
 The current `WorkItemStore` adapter executes commands all-or-nothing in memory. Its hard defaults
 are 10,000 current Work Items and 100,000 audit records, with one immutable revision/event record
@@ -84,7 +87,7 @@ pair for every effective create or patch and no history eviction. Exhausting an 
 causes a pre-mutation `507 budget_exceeded` response with truthful resource and capacity details.
 The PostgreSQL adapter proves durable Work Item transactions plus normalized Workspace, Principal,
 Membership, explicit Work grants, and hash-only credential storage. The full entity model, private
-ACL inheritance, outbox delivery, replay, backup/restore, and the remainder of R3 remain planned.
+ACL inheritance, backup/restore, full production outbox operations, and the remainder of R3 remain planned.
 Exact OpenAPI constraints are structurally checked against shared Zod schemas, stable statuses are
 behaviorally contract-tested, and agent retrieval remains future R6 work.
 

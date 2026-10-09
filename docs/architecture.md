@@ -111,8 +111,11 @@ adapter already performs its narrower current-state, revision, and event operati
 it has no durable transaction or outbox. The command result must identify the command, event,
 resulting value, and revision as applicable. The authenticated PostgreSQL Work Item adapter now
 locks and revalidates credential, Workspace, Principal, Membership, and explicit grants in the same
-transaction as each write. Outbox guarantees and the broader R3 entity/ACL model remain exit work,
-not properties of the process-local demo.
+transaction as each write. Migration 003 now appends a bounded outbox projection and active
+destination jobs from the domain-event trigger in that transaction. A database-inbox worker leases
+only the ordered head and performs sink I/O and fenced acknowledgement after commit. A drain is
+bounded to 100 claims, and its machine-readable summary is unsuccessful if any claim fails or is
+not acknowledged. The broader R3 entity/ACL and production operations model remains exit work.
 
 External delivery, webhooks, indexing, embedding, summary generation, and other remote calls occur
 after commit through the outbox and worker. They must never run inside the domain transaction.

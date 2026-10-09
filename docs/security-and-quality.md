@@ -13,8 +13,11 @@ Each effective create or patch consumes one immutable revision/event record pair
 evicted. If an applicable admission budget is exhausted, the command fails before state, history,
 events, idempotency records, clock, or ID mutation. HTTP returns `507 budget_exceeded` with the
 truthful resource and configured capacity. This is an in-memory all-or-nothing guarantee behind the
-application-owned `WorkItemStore`, not the durable repository, unit-of-work, transaction, or outbox
-guarantee required in R3.
+application-owned `WorkItemStore`. The PostgreSQL adapter separately commits Work Item state,
+revision, semantic event, bounded outbox projection, and destination jobs atomically. Its current
+worker delivers only to the durable database inbox with generation fencing and contains no network
+sink or full production outbox operations. A worker process reports all claimed, delivered, and
+failed counts and exits nonzero whenever a claimed delivery is not durably acknowledged.
 
 ## Security invariants
 
