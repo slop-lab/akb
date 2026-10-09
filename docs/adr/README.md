@@ -41,7 +41,7 @@ behavior conflicts with an accepted ADR, the code or the decision must be reconc
 | ADR-009 | Proposals for high-risk changes | `proposed` |
 | ADR-010 | One accountable human owner plus delegates | `proposed` |
 | ADR-011 | Space-owned Cycles and cross-Space Projects | `proposed` |
-| ADR-012 | Inherited and private ACL evaluated before retrieval | `proposed` |
+| [ADR-012](ADR-012-inherited-private-space-acl.md) | Inherited and private Space ACL before retrieval | `proposed` |
 | [ADR-013](ADR-013-postgresql-work-item-persistence.md) | PostgreSQL Work Item persistence | `proposed` |
 | [ADR-014](ADR-014-workspace-identity-and-work-auth.md) | Workspace identity and authenticated Work Item boundary | `proposed` |
 | [ADR-015](ADR-015-transactional-outbox-and-event-replay.md) | Transactional outbox and workspace event replay | `proposed` |
