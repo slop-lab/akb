@@ -11,16 +11,17 @@
     "lint": "biome lint src test app package.json tsconfig.json biome.json",
     "typecheck": "tsc --noEmit",
     "clean": "node -e \"require('node:fs').rmSync('build',{recursive:true,force:true})\"",
-    "test:unit": "npm run build && node --test build/test/input-contract.test.js build/test/store-limits.test.js build/test/work-item-audit-capacity.test.js build/test/work-item-hardening.test.js build/test/work-item-patch-nonmutation.test.js build/test/work-item-store.test.js",
+    "test:unit": "npm run build && node --test build/test/input-contract.test.js build/test/outbox-unit.test.js build/test/store-limits.test.js build/test/work-item-audit-capacity.test.js build/test/work-item-hardening.test.js build/test/work-item-patch-nonmutation.test.js build/test/work-item-store.test.js",
     "test:integration": "npm run build && node --test build/test/health.test.js build/test/http-hardening.test.js build/test/openapi-contract.test.js build/test/openapi-examples.test.js build/test/openapi-operations.test.js build/test/path-segment-http.test.js build/test/request-boundary.test.js build/test/source-import.test.js build/test/store-port.test.js build/test/work-item-concurrency-http.test.js build/test/work-item-http.test.js build/test/work-item-list-restart.test.js",
-    "test:postgres": "npm run build && node --test --test-concurrency=1 build/test/postgres-migrate.test.js build/test/postgres-identity.test.js build/test/postgres-store.test.js build/test/postgres-authorized-store.test.js build/test/postgres-authorization-races.test.js build/test/postgres-http.test.js",
+    "test:postgres": "npm run build && node --test --test-concurrency=1 build/test/postgres-migrate.test.js build/test/postgres-identity.test.js build/test/postgres-store.test.js build/test/postgres-authorized-store.test.js build/test/postgres-authorization-races.test.js build/test/postgres-http.test.js build/test/postgres-outbox.test.js build/test/postgres-outbox-atomicity.test.js build/test/postgres-outbox-locking.test.js build/test/postgres-replay.test.js",
     "test": "npm run test:unit && npm run test:integration",
     "build": "npm run clean && tsc",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
     "migrate:postgres": "node app/migrate-postgres.mjs",
     "start": "node app/server.mjs",
     "start:postgres": "node app/postgres-server.mjs",
-    "admin": "node app/admin.mjs"
+    "admin": "node app/admin.mjs",
+    "outbox": "node app/outbox.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.0",
