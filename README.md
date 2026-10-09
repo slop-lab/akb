@@ -20,6 +20,8 @@ currently contains:
   Workspace/Principal/Membership identity, explicit Work permissions, and real-database tests;
 - an administrator CLI for identity provisioning, permission replacement, one-time bearer-token
   issuance, and credential-ID revocation;
+- transactional Work Item event outbox fanout, an ordered interruption-safe database-inbox worker,
+  and authenticated bounded workspace event replay;
 - a 64 KiB JSON request limit and abort-safe HTTP request handling;
 - an OpenAPI 3.1 contract at [`docs/openapi.json`](docs/openapi.json); and
 - preserved Dev Infra Manager (DIM) environment infrastructure under [`.dim/`](.dim/).
@@ -30,14 +32,16 @@ The server preserves `GET /health` and exposes the current R2 routes:
 - `GET /api/work-items/:id`;
 - `PATCH /api/work-items/:id`; and
 - `GET /api/workspaces/:workspaceId/work-items`.
+- `GET /api/workspaces/:workspaceId/events?after=N&limit=N` on the authenticated PostgreSQL server.
 
 Each effective create or patch consumes one immutable revision/event record pair. History is never
 evicted to admit another command. When an applicable item or audit-record budget is exhausted, the
 adapter rejects the command before changing current state, history, events, idempotency records, the
 clock, or generated IDs. HTTP reports `507 budget_exceeded` with the truthful `resource` (`items` or
 `audit_records`) and configured `capacity`. The current in-memory adapter performs each command
-all-or-nothing. The PostgreSQL adapter transactionally persists the narrower current state,
-revision, semantic event, and idempotency records; outbox and full R3 semantics remain future work.
+all-or-nothing. The PostgreSQL adapter transactionally persists current state, revision, semantic
+event, idempotency, the bounded immutable outbox projection, and active destination jobs. Full R3
+semantics remain future work.
 
 Exact OpenAPI constraints are structurally tied to the shared Zod schemas, and stable documented
 HTTP statuses are behaviorally contract-tested. This contract covers only the current HTTP surface;
@@ -112,6 +116,21 @@ DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- issue-
 DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- revoke-token \
   --credential-id 00000000-0000-0000-0000-000000000000
 ```
+
+Register and run the only current outbox sink with the bounded worker:
+
+```sh
+DATABASE_URL=postgres://user:password@host:5432/database npm run outbox -- register \
+  --workspace-id example --destination-id local-inbox --sink database-inbox
+DATABASE_URL=postgres://user:password@host:5432/database npm run outbox -- run \
+  --workspace-id example --destination-id local-inbox --sink database-inbox --drain
+```
+
+Registration starts after the current maximum event sequence and does not backfill history.
+Delivery is ordered and at-least-once with durable inbox deduplication; it is not exactly-once. A
+dead-lettered head blocks later events until `retry-dead` is given its job ID. One `--drain` run
+claims at most 100 jobs, leaving additional work for a later run. Every `run` prints a JSON summary;
+the process exits nonzero when any claimed delivery failed or was not acknowledged.
 
 `actorId` remains required for compatibility but is deprecated and must equal the authenticated
 Principal. Runtime Principals cannot receive general workspace bearer credentials.
