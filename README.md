@@ -22,6 +22,8 @@ currently contains:
   issuance, and credential-ID revocation;
 - transactional Work Item event outbox fanout, an ordered interruption-safe database-inbox worker,
   and authenticated bounded workspace event replay;
+- a bounded PostgreSQL Space scope with public inheritance, explicit private Work grants, ACL-filtered
+  Work Item reads/lists/counts, and fail-closed complete-authority workspace event replay;
 - a 64 KiB JSON request limit and abort-safe HTTP request handling;
 - an OpenAPI 3.1 contract at [`docs/openapi.json`](docs/openapi.json); and
 - preserved Dev Infra Manager (DIM) environment infrastructure under [`.dim/`](.dim/).
@@ -49,8 +51,8 @@ agent retrieval remains future work.
 
 This is not the full planned API or first canonical vertical slice. The default in-memory entrypoint
 still loses data on restart; the opt-in PostgreSQL entrypoint preserves the tested Work Item slice.
-Full Space/private-object ACL inheritance, UI, worker/outbox delivery, full R6
-snapshot/receipt retrieval, runtime execution, proposal/review, Project and Space administration,
+The broader entity/object ACL architecture, UI, network outbox delivery, full R6
+snapshot/receipt retrieval, runtime execution, proposal/review, public Project and Space administration APIs,
 search, human board/list views, comments, and all other v1 completeness behavior remain
 unimplemented. The R2 list envelope therefore reports only bounded current-state cards,
 completeness, omissions, a null cursor, and an estimate; it does not invent snapshot or receipt
@@ -115,6 +117,11 @@ DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- issue-
   --workspace-id example --principal-id admin
 DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- revoke-token \
   --credential-id 00000000-0000-0000-0000-000000000000
+DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- create-space \
+  --workspace-id example --space-id private --space-name "Private" --visibility private
+DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- set-space-permissions \
+  --workspace-id example --space-id private --principal-id admin \
+  --permissions work.read,work.create,work.update,work.assign
 ```
 
 Register and run the only current outbox sink with the bounded worker:
@@ -131,6 +138,12 @@ Delivery is ordered and at-least-once with durable inbox deduplication; it is no
 dead-lettered head blocks later events until `retry-dead` is given its job ID. One `--drain` run
 claims at most 100 jobs, leaving additional work for a later run. Every `run` prints a JSON summary;
 the process exits nonzero when any claimed delivery failed or was not acknowledged.
+
+Pass optional `spaceId` on PostgreSQL creates to select an immutable owning Space. Public Spaces
+inherit Workspace grants; private Spaces additionally require matching explicit Space grants.
+Owner/admin roles do not bypass this rule. Existing unscoped records omit `spaceId`, and the
+in-memory HTTP demo rejects scoped creates. Workspace event replay requires read authority for
+every private Space and otherwise returns `403` without a page or checkpoint.
 
 `actorId` remains required for compatibility but is deprecated and must equal the authenticated
 Principal. Runtime Principals cannot receive general workspace bearer credentials.

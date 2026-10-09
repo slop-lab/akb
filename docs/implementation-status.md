@@ -36,7 +36,7 @@ canonical section.
 | 1 | Product Definition | Planned | R8 release proof | [Design §1](../agent-first-workspace-v1-design.md#1-product-definition); [R8](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
 | 2 | v1 Scope and Completeness | Planned | R4-R8, completed at R8 | [Design §2](../agent-first-workspace-v1-design.md#2-v1-scope-and-completeness); [R8 gate](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
 | 3 | Core Principles and Invariants | In progress | R1 contracts; enforced incrementally through R8 | [Work Item model](../src/work-items/model.ts); [store tests](../test/work-item-store.test.ts) |
-| 4 | Conceptual Model | In progress | R1 contracts and R3 persisted foundation | [Work Item model](../src/work-items/model.ts); all other conceptual objects remain planned |
+| 4 | Conceptual Model | In progress | R1 contracts and R3 persisted foundation | [Work Item model](../src/work-items/model.ts); [bounded Workspace identity](../migrations/002_workspace_identity.sql); [Space scope](../migrations/004_space_acl.sql); broader conceptual objects remain planned |
 | 5 | Project Management Requirements | Planned | R4, extended in R5 and R8 | [Design §5](../agent-first-workspace-v1-design.md#5-project-management-requirements); [R4](roadmap.md#r4-project-management-core) |
 | 6 | Document and Knowledge System | Planned | R5 documents and R7 knowledge | [Design §6](../agent-first-workspace-v1-design.md#6-document-and-knowledge-system); [R5](roadmap.md#r5-planning-documents-and-collaboration); [R7](roadmap.md#r7-knowledge-promotion-proposals-and-review) |
 | 7 | Human-Agent Collaboration | Planned | R6 runtime; R7 review completion | [Design §7](../agent-first-workspace-v1-design.md#7-human-agent-collaboration); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
@@ -48,7 +48,7 @@ canonical section.
 | 13 | Runtime Protocol | Planned | R6 | [Design §13](../agent-first-workspace-v1-design.md#13-runtime-protocol); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 14 | Automation and Extensibility | Planned | R8 | [Design §14](../agent-first-workspace-v1-design.md#14-automation-and-extensibility); [R8](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
 | 15 | Real-Time Behavior, Concurrency, and Consistency | In progress | R2 revision conflict baseline; R3-R6 completion | [stale-write tests](../test/work-item-store.test.ts); [concurrent HTTP PATCH](../test/work-item-concurrency-http.test.ts); durable concurrency remains planned |
-| 16 | Security | In progress | R3 foundation; verified through R8 | [identity tests](../test/postgres-identity.test.ts); [authorization race tests](../test/postgres-authorization-races.test.ts); full private-object ACL remains planned |
+| 16 | Security | In progress | R3 foundation; verified through R8 | [identity tests](../test/postgres-identity.test.ts); [Space ACL tests](../test/postgres-space-acl.test.ts); bounded Work Item Space inheritance is implemented while the broader private-object and retrieval ACL remains planned |
 | 17 | Architecture | In progress | R1 workspace foundation; R3-R8 components | [server composition](../src/server.ts); [in-memory adapter](../src/work-items/in-memory-store.ts) |
 | 18 | Operations and Performance | Planned | R3 operational baseline; R8 release proof | [Design §18](../agent-first-workspace-v1-design.md#18-operations-and-performance); [R8 gate](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
 | 19 | Test Strategy | In progress | R1 harness; expanded as a gate in every phase | [domain tests](../test/work-item-store.test.ts); [HTTP tests](../test/work-item-http.test.ts) |
@@ -78,7 +78,9 @@ in-memory demo. PostgreSQL HTTP now authenticates opaque expiring credentials an
 Workspace membership plus explicit Work grants inside operation transactions. The bounded R3
 checkpoint adds transactional Work Item outbox fanout, a durable database-inbox worker, and
 authenticated event replay. Worker drains are capped at 100 claims and report unsuccessful summaries
-with a nonzero exit status. UI, network webhooks, full Space/private ACL inheritance, progressive
+with a nonzero exit status. A bounded Work Item Space ACL now protects current reads, SQL-filtered
+lists/counts, writes, idempotent retries, and workspace replay. UI, network webhooks, the broader
+entity/private-object ACL architecture, progressive
 expansion, Run credentials, and proposal/review remain planned.
 
 The current `WorkItemStore` adapter executes commands all-or-nothing in memory. Its hard defaults
@@ -87,7 +89,8 @@ pair for every effective create or patch and no history eviction. Exhausting an 
 causes a pre-mutation `507 budget_exceeded` response with truthful resource and capacity details.
 The PostgreSQL adapter proves durable Work Item transactions plus normalized Workspace, Principal,
 Membership, explicit Work grants, and hash-only credential storage. The full entity model, private
-ACL inheritance, backup/restore, full production outbox operations, and the remainder of R3 remain planned.
+ACL inheritance beyond this Work Item checkpoint, backup/restore, full production outbox operations,
+and the remainder of R3 remain planned.
 Exact OpenAPI constraints are structurally checked against shared Zod schemas, stable statuses are
 behaviorally contract-tested, and agent retrieval remains future R6 work.
 

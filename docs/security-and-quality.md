@@ -3,8 +3,9 @@
 ## Status
 
 This document defines mandatory security invariants and quality gates. PostgreSQL Work Item HTTP now
-has mandatory bearer authentication, active Workspace membership, and explicit Work permission
-enforcement. This is partial R3, not full private-object ACL inheritance. A documented control does not satisfy a
+has mandatory bearer authentication, active Workspace membership, explicit Workspace Work permission
+enforcement, and bounded public/private Space inheritance for Work Items. This is partial R3, not the
+full private-object or retrieval ACL architecture. A documented control does not satisfy a
 phase gate; executable end-to-end evidence is required. The
 [canonical v1 design](../agent-first-workspace-v1-design.md) remains authoritative.
 
@@ -146,6 +147,11 @@ The current OpenAPI contract is checked structurally against the exact represent
 the shared Zod input and response schemas. Integration tests exercise stable HTTP statuses and
 typed envelopes. These checks cover the current HTTP surface only; agent retrieval and its
 snapshot, receipt, cursor, ACL, and runtime contracts remain future work.
+
+The current workspace event route intentionally fails with `403` before reading a page when the
+Principal lacks `work.read` in any current private Space. Numeric global sequences cannot safely
+represent filtered gaps. Outbox database-inbox delivery is a privileged operator boundary rather
+than an end-user API; revocation cannot retract already delivered copies.
 
 Every change must also satisfy these review gates:
 

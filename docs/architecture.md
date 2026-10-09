@@ -12,9 +12,10 @@ the behavior is available.
 
 The repository currently runs a strict-TypeScript Work Item HTTP server composed by the small
 `app/server.mjs` entrypoint. It contains a bounded product API and an in-memory persistence adapter.
-An opt-in local entrypoint also composes the same API with the first PostgreSQL Work Item adapter;
-it does not contain the planned retrieval service, runtime protocol, worker, ACL foundation, or
-complete durable domain model.
+An opt-in local entrypoint also composes the same API with the PostgreSQL Work Item adapter, bounded
+Space ACL, transactional outbox, and database-inbox worker. It does not contain the planned
+retrieval service, runtime protocol, network delivery worker, general entity ACL, or complete
+durable domain model.
 
 The accepted first-slice persistence boundary is an in-memory adapter with no database. The adapter
 exists behind the application-owned `WorkItemStore` port, and each command is all-or-nothing within
@@ -82,7 +83,9 @@ The shared entity registry provides identity, tenancy, timestamps, current revis
 state. Specialized, normalized tables hold the constraints and query fields of hot domains.
 
 Generic JSON or entity-attribute-value storage is prohibited as a replacement for core Project,
-Work, Cycle, assignment, workflow, relation, or ACL structures. These domains require explicit
+Cycle, workflow, relation, or general entity ACL structures. The current PostgreSQL Work Item slice
+does include nullable Space scope, public inheritance, and explicit private Work permission rows;
+these broader domains still require explicit
 columns, foreign keys, uniqueness constraints, and indexes. JSONB is permitted for bounded extension
 data, custom-field values, immutable snapshots, and versioned schema payloads, provided frequently
 filtered fields can be promoted to indexed columns and domain invariants do not live only in
@@ -110,7 +113,8 @@ transaction. Authorization and revision failure must commit none of them. The cu
 adapter already performs its narrower current-state, revision, and event operation all-or-nothing;
 it has no durable transaction or outbox. The command result must identify the command, event,
 resulting value, and revision as applicable. The authenticated PostgreSQL Work Item adapter now
-locks and revalidates credential, Workspace, Principal, Membership, and explicit grants in the same
+locks and revalidates credential, Workspace, Principal, Membership, Workspace grants, and applicable
+private Space grants in the same
 transaction as each write. Migration 003 now appends a bounded outbox projection and active
 destination jobs from the domain-event trigger in that transaction. A database-inbox worker leases
 only the ordered head and performs sink I/O and fenced acknowledgement after commit. A drain is
