@@ -22,7 +22,26 @@
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/CreateWorkItem" } }
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateWorkItem" },
+              "examples": {
+                "unscoped": {
+                  "value": {
+                    "title": "Ship the slice",
+                    "accountableOwnerId": "human-1",
+                    "actorId": "human-1"
+                  }
+                },
+                "scoped": {
+                  "value": {
+                    "title": "Private plan",
+                    "accountableOwnerId": "human-1",
+                    "actorId": "human-1",
+                    "spaceId": "private"
+                  }
+                }
+              }
+            }
           }
         },
         "responses": {
@@ -184,6 +203,12 @@
             "maxLength": 128,
             "pattern": "\\S",
             "deprecated": true
+          },
+          "spaceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "\\S"
           }
         },
         "required": ["title", "accountableOwnerId", "actorId"],
@@ -215,6 +240,7 @@
         "properties": {
           "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
           "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+          "spaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
           "title": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S" },
           "state": {
             "type": "string",
@@ -258,6 +284,12 @@
             "properties": {
               "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
               "workspaceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "\\S"
+              },
+              "spaceId": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 128,
@@ -319,6 +351,7 @@
             "maxLength": 128,
             "pattern": "\\S"
           },
+          "spaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
           "estimatedTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
         },
         "required": [
@@ -375,6 +408,12 @@
                   "maxLength": 128,
                   "pattern": "\\S"
                 },
+                "spaceId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "\\S"
+                },
                 "estimatedTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
               },
               "required": [
@@ -425,6 +464,7 @@
             "properties": {
               "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
               "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+              "spaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
               "sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
               "time": { "type": "string", "format": "date-time" },
               "actorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
@@ -440,6 +480,7 @@
             "properties": {
               "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
               "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+              "spaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
               "sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
               "time": { "type": "string", "format": "date-time" },
               "actorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
@@ -773,7 +814,7 @@
         }
       },
       "WorkspaceNotFound": {
-        "description": "Workspace absent or inaccessible",
+        "description": "Workspace or Space absent or inaccessible",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/AccessError" },

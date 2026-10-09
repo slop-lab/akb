@@ -7,7 +7,10 @@ const ReferenceSchema = z.strictObject({ $ref: z.string() })
 const RequestBodySchema = z.strictObject({
   required: z.literal(true),
   content: z.strictObject({
-    "application/json": z.strictObject({ schema: ReferenceSchema }),
+    "application/json": z.strictObject({
+      schema: ReferenceSchema,
+      examples: z.record(z.string(), z.strictObject({ value: z.unknown() })).optional(),
+    }),
   }),
 })
 const OperationSchema = z.object({
