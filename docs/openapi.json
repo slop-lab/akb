@@ -14,6 +14,7 @@
     "/api/workspaces/{workspaceId}/work-items": {
       "post": {
         "operationId": "createWorkItem",
+        "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/WorkspaceId" },
           { "$ref": "#/components/parameters/IdempotencyKey" }
@@ -26,6 +27,9 @@
         },
         "responses": {
           "201": { "$ref": "#/components/responses/WorkItem" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/PermissionDenied" },
+          "404": { "$ref": "#/components/responses/WorkspaceNotFound" },
           "400": { "$ref": "#/components/responses/InvalidArgument" },
           "409": { "$ref": "#/components/responses/IdempotencyConflict" },
           "413": { "$ref": "#/components/responses/BodyBudgetExceeded" },
@@ -35,9 +39,13 @@
       },
       "get": {
         "operationId": "listWorkItems",
+        "security": [{ "bearerAuth": [] }],
         "parameters": [{ "$ref": "#/components/parameters/WorkspaceId" }],
         "responses": {
           "200": { "$ref": "#/components/responses/WorkItemList" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/PermissionDenied" },
+          "404": { "$ref": "#/components/responses/WorkspaceNotFound" },
           "400": { "$ref": "#/components/responses/InvalidArgument" },
           "500": { "$ref": "#/components/responses/Internal" }
         }
@@ -46,9 +54,11 @@
     "/api/work-items/{id}": {
       "get": {
         "operationId": "getWorkItem",
+        "security": [{ "bearerAuth": [] }],
         "parameters": [{ "$ref": "#/components/parameters/WorkItemId" }],
         "responses": {
           "200": { "$ref": "#/components/responses/WorkItem" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
           "400": { "$ref": "#/components/responses/InvalidArgument" },
           "404": { "$ref": "#/components/responses/WorkItemNotFound" },
           "500": { "$ref": "#/components/responses/Internal" }
@@ -56,6 +66,7 @@
       },
       "patch": {
         "operationId": "patchWorkItem",
+        "security": [{ "bearerAuth": [] }],
         "parameters": [{ "$ref": "#/components/parameters/WorkItemId" }],
         "requestBody": {
           "required": true,
@@ -65,6 +76,8 @@
         },
         "responses": {
           "200": { "$ref": "#/components/responses/WorkItem" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/PermissionDenied" },
           "400": { "$ref": "#/components/responses/InvalidArgument" },
           "404": { "$ref": "#/components/responses/WorkItemNotFound" },
           "409": { "$ref": "#/components/responses/RevisionConflict" },
@@ -76,6 +89,9 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "afw opaque token" }
+    },
     "parameters": {
       "WorkspaceId": {
         "name": "workspaceId",
@@ -128,7 +144,13 @@
             "maxLength": 128,
             "pattern": "\\S"
           },
-          "actorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" }
+          "actorId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "\\S",
+            "deprecated": true
+          }
         },
         "required": ["title", "accountableOwnerId", "actorId"],
         "additionalProperties": false
@@ -136,7 +158,13 @@
       "PatchWorkItem": {
         "type": "object",
         "properties": {
-          "actorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+          "actorId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "\\S",
+            "deprecated": true
+          },
           "baseRevision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
           "title": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S" },
           "state": {
@@ -552,6 +580,27 @@
         "required": ["error"],
         "additionalProperties": false
       },
+      "AccessError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": ["unauthenticated", "permission_denied", "not_found"]
+              },
+              "message": { "type": "string", "minLength": 1 },
+              "retryable": { "type": "boolean", "const": false },
+              "details": { "type": "object", "properties": {}, "additionalProperties": false }
+            },
+            "required": ["code", "message", "retryable", "details"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      },
       "InternalError": {
         "type": "object",
         "properties": {
@@ -588,6 +637,54 @@
         "description": "Current Work Item",
         "content": {
           "application/json": { "schema": { "$ref": "#/components/schemas/WorkItemEnvelope" } }
+        }
+      },
+      "Unauthenticated": {
+        "description": "Missing or invalid bearer credential",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/AccessError" },
+            "example": {
+              "error": {
+                "code": "unauthenticated",
+                "message": "authentication required",
+                "retryable": false,
+                "details": {}
+              }
+            }
+          }
+        }
+      },
+      "PermissionDenied": {
+        "description": "Authenticated principal lacks authority",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/AccessError" },
+            "example": {
+              "error": {
+                "code": "permission_denied",
+                "message": "permission denied",
+                "retryable": false,
+                "details": {}
+              }
+            }
+          }
+        }
+      },
+      "WorkspaceNotFound": {
+        "description": "Workspace absent or inaccessible",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/AccessError" },
+            "example": {
+              "error": {
+                "code": "not_found",
+                "message": "workspace was not found",
+                "retryable": false,
+                "details": {}
+              }
+            }
+          }
         }
       },
       "InvalidArgument": {

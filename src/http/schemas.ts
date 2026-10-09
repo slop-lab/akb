@@ -17,18 +17,18 @@ import { RawPathSegmentSchema } from "./path-segment.ts"
 export const RawCreateWorkItemBodySchema = z.strictObject({
   title: RawWorkItemTitleSchema,
   accountableOwnerId: RawHumanPrincipalIdSchema,
-  actorId: RawActorIdSchema,
+  actorId: RawActorIdSchema.meta({ deprecated: true }),
 })
 
 export const CreateWorkItemBodySchema = z.strictObject({
   title: WorkItemTitleSchema,
   accountableOwnerId: HumanPrincipalIdSchema,
-  actorId: ActorIdSchema,
+  actorId: ActorIdSchema.meta({ deprecated: true }),
 })
 
 export const RawPatchWorkItemBodySchema = z
   .strictObject({
-    actorId: RawActorIdSchema,
+    actorId: RawActorIdSchema.meta({ deprecated: true }),
     baseRevision: RevisionSchema,
     title: RawWorkItemTitleSchema.optional(),
     state: z.enum(WORK_ITEM_STATES).optional(),
@@ -39,7 +39,7 @@ export const RawPatchWorkItemBodySchema = z
 
 export const PatchWorkItemBodySchema = z
   .strictObject({
-    actorId: ActorIdSchema,
+    actorId: ActorIdSchema.meta({ deprecated: true }),
     baseRevision: RevisionSchema,
     title: WorkItemTitleSchema.optional(),
     state: z.enum(WORK_ITEM_STATES).optional(),

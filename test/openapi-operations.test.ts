@@ -42,7 +42,14 @@ const operationContracts = [
     method: "get",
     parameters: ["WorkspaceId"],
     requestBody: undefined,
-    responses: { "200": "WorkItemList", "400": "InvalidArgument", "500": "Internal" },
+    responses: {
+      "200": "WorkItemList",
+      "400": "InvalidArgument",
+      "401": "Unauthenticated",
+      "403": "PermissionDenied",
+      "404": "WorkspaceNotFound",
+      "500": "Internal",
+    },
   },
   {
     path: "/api/workspaces/{workspaceId}/work-items",
@@ -52,6 +59,9 @@ const operationContracts = [
     responses: {
       "201": "WorkItem",
       "400": "InvalidArgument",
+      "401": "Unauthenticated",
+      "403": "PermissionDenied",
+      "404": "WorkspaceNotFound",
       "409": "IdempotencyConflict",
       "413": "BodyBudgetExceeded",
       "500": "Internal",
@@ -66,6 +76,7 @@ const operationContracts = [
     responses: {
       "200": "WorkItem",
       "400": "InvalidArgument",
+      "401": "Unauthenticated",
       "404": "WorkItemNotFound",
       "500": "Internal",
     },
@@ -78,6 +89,8 @@ const operationContracts = [
     responses: {
       "200": "WorkItem",
       "400": "InvalidArgument",
+      "401": "Unauthenticated",
+      "403": "PermissionDenied",
       "404": "WorkItemNotFound",
       "409": "RevisionConflict",
       "413": "BodyBudgetExceeded",
@@ -129,6 +142,9 @@ test("every response component binds its exact schema", async () => {
     Health: "#/components/schemas/HealthResponse",
     WorkItemList: "#/components/schemas/WorkItemList",
     WorkItem: "#/components/schemas/WorkItemEnvelope",
+    Unauthenticated: "#/components/schemas/AccessError",
+    PermissionDenied: "#/components/schemas/AccessError",
+    WorkspaceNotFound: "#/components/schemas/AccessError",
     InvalidArgument: "#/components/schemas/InvalidArgumentError",
     WorkItemNotFound: "#/components/schemas/WorkItemNotFoundError",
     RouteNotFound: "#/components/schemas/RouteNotFoundError",
