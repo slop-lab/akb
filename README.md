@@ -16,8 +16,10 @@ currently contains:
 - an in-memory adapter behind the application-owned `WorkItemStore`, with optimistic revisions,
   command idempotency, immutable revision history, append-only semantic events, hard defaults of
   10,000 current Work Items and 100,000 audit records, and a separate 100-item list limit;
-- an opt-in PostgreSQL adapter with an explicit versioned migration, durable current/history/event/
-  idempotency records, transactional mutations, scoped concurrency locks, and real-database tests;
+- an authenticated PostgreSQL adapter with checksum-verified migrations, durable Work Item records,
+  Workspace/Principal/Membership identity, explicit Work permissions, and real-database tests;
+- an administrator CLI for identity provisioning, permission replacement, one-time bearer-token
+  issuance, and credential-ID revocation;
 - a 64 KiB JSON request limit and abort-safe HTTP request handling;
 - an OpenAPI 3.1 contract at [`docs/openapi.json`](docs/openapi.json); and
 - preserved Dev Infra Manager (DIM) environment infrastructure under [`.dim/`](.dim/).
@@ -43,7 +45,7 @@ agent retrieval remains future work.
 
 This is not the full planned API or first canonical vertical slice. The default in-memory entrypoint
 still loses data on restart; the opt-in PostgreSQL entrypoint preserves the tested Work Item slice.
-Authentication, ACL enforcement, UI, worker/outbox delivery, full R6
+Full Space/private-object ACL inheritance, UI, worker/outbox delivery, full R6
 snapshot/receipt retrieval, runtime execution, proposal/review, Project and Space administration,
 search, human board/list views, comments, and all other v1 completeness behavior remain
 unimplemented. The R2 list envelope therefore reports only bounded current-state cards,
@@ -77,7 +79,7 @@ The current application entrypoint is:
 node app/server.mjs
 ```
 
-It listens on `0.0.0.0:3000`. DIM starts that command through
+It is an unauthenticated historical demo listening on `127.0.0.1:3000`. DIM starts that command through
 [`.dim/agent/start.sh`](.dim/agent/start.sh). The DIM Compose environment mounts this repository
 at `/workspace`, runs the agent container as the workspace owner, and provides a private Docker
 sidecar; see [`.dim/docker-compose.yml`](.dim/docker-compose.yml).
@@ -89,8 +91,8 @@ source, a product module, or evidence that the planned system has been implement
 entrypoint may evolve with the architecture without treating `.dim/` as code to migrate or
 redesign.
 
-The unauthenticated PostgreSQL mode is an explicit local-development opt-in. It requires a migrated
-database and defaults to `127.0.0.1:3000`; do not expose it publicly:
+The PostgreSQL application requires bearer authentication for every `/api` request and leaves only
+`GET /health` public. It requires a migrated database and defaults to `127.0.0.1:3000`:
 
 ```sh
 DATABASE_URL=postgres://user:password@host:5432/database npm run migrate:postgres
@@ -98,7 +100,21 @@ DATABASE_URL=postgres://user:password@host:5432/database npm run start:postgres
 ```
 
 Startup checks that the migrated Work Item table is reachable and never falls back to memory.
-Changing `HOST` is an explicit operator action; authentication and ACLs remain future R3 work.
+Provision the first workspace and short-lived token through the administrator CLI. The token is
+printed once and only its SHA-256 digest is persisted:
+
+```sh
+DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- bootstrap-workspace \
+  --workspace-id example --workspace-name "Example" --principal-id admin \
+  --principal-name "Example Admin"
+DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- issue-token \
+  --workspace-id example --principal-id admin
+DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- revoke-token \
+  --credential-id 00000000-0000-0000-0000-000000000000
+```
+
+`actorId` remains required for compatibility but is deprecated and must equal the authenticated
+Principal. Runtime Principals cannot receive general workspace bearer credentials.
 
 ## Development Commands
 
