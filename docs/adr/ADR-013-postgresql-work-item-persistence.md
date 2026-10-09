@@ -32,10 +32,10 @@ adapter. Those limits protect process memory and are not a durable-domain quota.
 adapter-specific limits avoids globally serializing every durable mutation on one quota counter.
 
 Migrations run only through `npm run migrate:postgres`; application startup never mutates schema.
-`DATABASE_URL` is mandatory for both migration and PostgreSQL server commands. The database-backed
-HTTP entrypoint defaults to `127.0.0.1`, so this unauthenticated partial-R3 mode is local development
-only unless an operator explicitly changes `HOST`. Committed migration files are immutable. Before
-adding migration `002`, migration tracking must store and verify content checksums.
+`DATABASE_URL` is mandatory for migration, administration, and PostgreSQL server commands. Committed
+migration files are immutable and migration tracking verifies SHA-256 checksums. Legacy metadata may
+backfill only migration 001 at its pinned known digest. ADR-014 proposes the subsequently implemented
+authenticated PostgreSQL HTTP composition.
 
 ## Alternatives Considered
 
@@ -51,10 +51,10 @@ adding migration `002`, migration tracking must store and verify content checksu
 ## Scope and Non-Goals
 
 This decision covers only current Work Item persistence, complete Work Item revision history,
-semantic events, create idempotency, optimistic patch concurrency, list scoping, migration execution,
-and local HTTP composition. It does not implement authentication, ACLs, principals, memberships,
-the canonical entity registry, relations, outbox records or delivery, event replay APIs, retention,
-telemetry, backup/restore, or full R3.
+semantic events, create idempotency, optimistic patch concurrency, list scoping, and migration
+execution. Identity and bounded Work authorization are proposed separately by ADR-014. Neither
+decision implements the canonical entity registry, private ACL inheritance, relations, outbox
+delivery, replay APIs, retention, telemetry, backup/restore, or full R3.
 
 ## Consequences
 
