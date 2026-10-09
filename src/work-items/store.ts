@@ -9,6 +9,7 @@ export type WorkItemList = {
 type StoreResult<T> = T | Promise<T>
 
 export interface WorkItemStore {
+  readonly supportsScopedCreate?: true
   create(command: CreateWorkItem): StoreResult<CreateResult>
   patch(command: PatchWorkItem): StoreResult<PatchResult>
   get(id: WorkItemId): StoreResult<WorkItem | undefined>

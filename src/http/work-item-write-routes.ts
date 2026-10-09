@@ -71,6 +71,12 @@ export async function createWorkItem(
     ])
     return
   }
+  if (parsedBody.data.spaceId !== undefined && store.supportsScopedCreate !== true) {
+    invalidArgument(response, [
+      { field: "body.spaceId", message: "scoped creates require the authenticated PostgreSQL API" },
+    ])
+    return
+  }
 
   const result = await store.create({
     workspaceId: workspace.value,
@@ -78,6 +84,7 @@ export async function createWorkItem(
     accountableOwnerId: parsedBody.data.accountableOwnerId,
     actorId: parsedBody.data.actorId,
     idempotencyKey: key.data,
+    ...(parsedBody.data.spaceId === undefined ? {} : { spaceId: parsedBody.data.spaceId }),
   })
   switch (result.kind) {
     case "created":

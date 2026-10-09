@@ -11,6 +11,7 @@ import type {
   WorkItemRevision,
 } from "./model.ts"
 import type { WorkItemList, WorkItemStore } from "./store.ts"
+import { createFingerprint } from "./create-fingerprint.ts"
 
 export const StoreLimitsSchema = z.strictObject({
   itemCapacity: z.number().finite().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
@@ -54,12 +55,7 @@ export class InMemoryWorkItemStore implements WorkItemStore {
 
   create(command: CreateWorkItem): CreateResult {
     const normalizedTitle = command.title
-    const fingerprint = JSON.stringify({
-      workspaceId: command.workspaceId,
-      title: normalizedTitle,
-      accountableOwnerId: command.accountableOwnerId,
-      actorId: command.actorId,
-    })
+    const fingerprint = createFingerprint(command)
     const workspaceRecords = this.#idempotency.get(command.workspaceId)
     const prior = workspaceRecords?.get(command.idempotencyKey)
     if (prior !== undefined) {

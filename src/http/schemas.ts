@@ -5,10 +5,12 @@ import {
   IdempotencyKeySchema,
   RawActorIdSchema,
   RawHumanPrincipalIdSchema,
+  RawSpaceIdSchema,
   RawWorkItemIdSchema,
   RawWorkItemTitleSchema,
   RawWorkspaceIdSchema,
   RevisionSchema,
+  SpaceIdSchema,
   WorkItemTitleSchema,
 } from "../work-items/identifiers.ts"
 import { WORK_ITEM_STATES } from "../work-items/model.ts"
@@ -18,12 +20,14 @@ export const RawCreateWorkItemBodySchema = z.strictObject({
   title: RawWorkItemTitleSchema,
   accountableOwnerId: RawHumanPrincipalIdSchema,
   actorId: RawActorIdSchema.meta({ deprecated: true }),
+  spaceId: RawSpaceIdSchema.optional(),
 })
 
 export const CreateWorkItemBodySchema = z.strictObject({
   title: WorkItemTitleSchema,
   accountableOwnerId: HumanPrincipalIdSchema,
   actorId: ActorIdSchema.meta({ deprecated: true }),
+  spaceId: SpaceIdSchema.optional(),
 })
 
 export const RawPatchWorkItemBodySchema = z
