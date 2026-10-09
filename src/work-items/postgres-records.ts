@@ -4,6 +4,7 @@ import {
   EventIdSchema,
   HumanPrincipalIdSchema,
   RevisionSchema,
+  SpaceIdSchema,
   WorkItemIdSchema,
   WorkItemTitleSchema,
   WorkspaceIdSchema,
@@ -13,6 +14,7 @@ import { WORK_ITEM_STATES, type WorkItem, type WorkItemEvent } from "./model.ts"
 const WorkItemRecordSchema = z.object({
   id: WorkItemIdSchema,
   workspace_id: WorkspaceIdSchema,
+  space_id: SpaceIdSchema.nullable(),
   title: WorkItemTitleSchema,
   state: z.enum(WORK_ITEM_STATES),
   accountable_owner_id: HumanPrincipalIdSchema,
@@ -24,6 +26,7 @@ const WorkItemRecordSchema = z.object({
 const EventRecordSchema = z.strictObject({
   id: EventIdSchema,
   workspace_id: WorkspaceIdSchema,
+  space_id: SpaceIdSchema.nullable(),
   sequence: z.coerce.number().int().positive(),
   event_type: z.enum(["work_item.created", "work_item.updated"]),
   occurred_at: z.date(),
@@ -38,6 +41,7 @@ export function parseWorkItem(record: unknown): WorkItem {
   return Object.freeze({
     id: value.id,
     workspaceId: value.workspace_id,
+    ...(value.space_id === null ? {} : { spaceId: value.space_id }),
     title: value.title,
     state: value.state,
     accountableOwnerId: value.accountable_owner_id,
@@ -52,6 +56,7 @@ export function parseEvent(record: unknown): WorkItemEvent {
   const base = {
     id: value.id,
     workspaceId: value.workspace_id,
+    ...(value.space_id === null ? {} : { spaceId: value.space_id }),
     sequence: value.sequence,
     time: value.occurred_at.toISOString(),
     actorId: value.actor_id,

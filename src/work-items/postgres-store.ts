@@ -14,6 +14,7 @@ import type {
 } from "./model.ts"
 import { parseEvent, parseWorkItem } from "./postgres-records.ts"
 import type { WorkItemList, WorkItemStore } from "./store.ts"
+import { createFingerprint } from "./create-fingerprint.ts"
 
 const SequenceRecordSchema = z.strictObject({ sequence: z.coerce.number().int().positive() })
 const IdempotencyRecordSchema = z.strictObject({
@@ -21,6 +22,7 @@ const IdempotencyRecordSchema = z.strictObject({
   event_id: EventIdSchema,
   id: z.string(),
   workspace_id: z.string(),
+  space_id: z.string().nullable(),
   title: z.string(),
   state: z.string(),
   accountable_owner_id: z.string(),
@@ -30,6 +32,7 @@ const IdempotencyRecordSchema = z.strictObject({
 })
 
 export class PostgresWorkItemStore implements WorkItemStore {
+  readonly supportsScopedCreate = true
   readonly #sql: Sql
   readonly #dependencies: StoreDependencies
 
@@ -39,18 +42,13 @@ export class PostgresWorkItemStore implements WorkItemStore {
   }
 
   async create(command: CreateWorkItem): Promise<CreateResult> {
-    const fingerprint = JSON.stringify({
-      workspaceId: command.workspaceId,
-      title: command.title,
-      accountableOwnerId: command.accountableOwnerId,
-      actorId: command.actorId,
-    })
+    const fingerprint = createFingerprint(command)
     return this.#sql.begin(async (transaction) => {
       await transaction`select pg_advisory_xact_lock(
         hashtextextended(${JSON.stringify([command.workspaceId, command.idempotencyKey])}, 0)
       )`
       const priorRows = await transaction`
-        select i.fingerprint, i.event_id, r.work_item_id as id, r.workspace_id, r.title,
+        select i.fingerprint, i.event_id, r.work_item_id as id, r.workspace_id, r.space_id, r.title,
           r.state, r.accountable_owner_id, r.revision, r.created_at, r.updated_at
         from work_item_idempotency i
         join domain_events e on e.id = i.event_id and e.subject_id = i.work_item_id
@@ -71,6 +69,7 @@ export class PostgresWorkItemStore implements WorkItemStore {
       const item = Object.freeze({
         id: this.#dependencies.newWorkItemId(),
         workspaceId: command.workspaceId,
+        ...(command.spaceId === undefined ? {} : { spaceId: command.spaceId }),
         title: command.title,
         state: "unstarted",
         accountableOwnerId: command.accountableOwnerId,
@@ -84,9 +83,9 @@ export class PostgresWorkItemStore implements WorkItemStore {
       const sequence = await nextSequence(transaction, item.workspaceId)
       await transaction`
         insert into domain_events
-          (id, workspace_id, sequence, event_type, occurred_at, actor_id, subject_id,
+          (id, workspace_id, space_id, sequence, event_type, occurred_at, actor_id, subject_id,
            subject_revision, changed_fields)
-        values (${eventId}, ${item.workspaceId}, ${sequence}, 'work_item.created', ${now},
+        values (${eventId}, ${item.workspaceId}, ${item.spaceId ?? null}, ${sequence}, 'work_item.created', ${now},
           ${command.actorId}, ${item.id}, ${item.revision}, null)
       `
       await transaction`
@@ -139,9 +138,9 @@ export class PostgresWorkItemStore implements WorkItemStore {
       const sequence = await nextSequence(transaction, next.workspaceId)
       await transaction`
         insert into domain_events
-          (id, workspace_id, sequence, event_type, occurred_at, actor_id, subject_id,
+          (id, workspace_id, space_id, sequence, event_type, occurred_at, actor_id, subject_id,
            subject_revision, changed_fields)
-        values (${eventId}, ${next.workspaceId}, ${sequence}, 'work_item.updated',
+        values (${eventId}, ${next.workspaceId}, ${next.spaceId ?? null}, ${sequence}, 'work_item.updated',
           ${next.updatedAt}, ${command.actorId}, ${next.id}, ${next.revision},
           ${transaction.array([...changedFields])})
       `
@@ -174,7 +173,7 @@ export class PostgresWorkItemStore implements WorkItemStore {
 
   async history(id: WorkItemId): Promise<readonly WorkItemRevision[]> {
     const rows = await this.#sql`
-      select work_item_id as id, workspace_id, title, state, accountable_owner_id,
+      select work_item_id as id, workspace_id, space_id, title, state, accountable_owner_id,
         revision, created_at, updated_at
       from work_item_revisions where work_item_id = ${id} order by revision
     `
@@ -203,8 +202,8 @@ async function nextSequence(
 async function insertCurrent(transaction: TransactionSql, item: WorkItem): Promise<void> {
   await transaction`
     insert into work_items
-      (id, workspace_id, title, state, accountable_owner_id, revision, created_at, updated_at)
-    values (${item.id}, ${item.workspaceId}, ${item.title}, ${item.state},
+      (id, workspace_id, space_id, title, state, accountable_owner_id, revision, created_at, updated_at)
+    values (${item.id}, ${item.workspaceId}, ${item.spaceId ?? null}, ${item.title}, ${item.state},
       ${item.accountableOwnerId}, ${item.revision}, ${item.createdAt}, ${item.updatedAt})
   `
 }
@@ -212,9 +211,9 @@ async function insertCurrent(transaction: TransactionSql, item: WorkItem): Promi
 async function insertRevision(transaction: TransactionSql, item: WorkItem): Promise<void> {
   await transaction`
     insert into work_item_revisions
-      (work_item_id, workspace_id, title, state, accountable_owner_id, revision,
+      (work_item_id, workspace_id, space_id, title, state, accountable_owner_id, revision,
        created_at, updated_at)
-    values (${item.id}, ${item.workspaceId}, ${item.title}, ${item.state},
+    values (${item.id}, ${item.workspaceId}, ${item.spaceId ?? null}, ${item.title}, ${item.state},
       ${item.accountableOwnerId}, ${item.revision}, ${item.createdAt}, ${item.updatedAt})
   `
 }
