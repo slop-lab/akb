@@ -18,6 +18,11 @@ satisfy behavioral gates. The [README](../README.md#current-status) records the 
 Work Item API now present. R1 and R2 are `In progress`: executable evidence exists, but their full
 exit gates have not passed. No canonical section is `Implemented`.
 
+The [R1/R2 verification and CI deferral record](r1-r2-verification.md) distinguishes
+clean-checkout and pinned-container results from the still-unexecuted Actions gate.
+The user authorized skipping the unavailable CI infrastructure check for continued
+work; this is not a passing gate or permission to misreport completion.
+
 ## Canonical Section Matrix
 
 The phase shown is the earliest accountable target; broad concerns continue through later phases.
@@ -41,7 +46,7 @@ canonical section.
 | 12 | Search and Indexing | Planned | R4 lexical baseline; R6 full retrieval pipeline | [Design §12](../agent-first-workspace-v1-design.md#12-search-and-indexing); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 13 | Runtime Protocol | Planned | R6 | [Design §13](../agent-first-workspace-v1-design.md#13-runtime-protocol); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 14 | Automation and Extensibility | Planned | R8 | [Design §14](../agent-first-workspace-v1-design.md#14-automation-and-extensibility); [R8](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
-| 15 | Real-Time Behavior, Concurrency, and Consistency | In progress | R2 revision conflict baseline; R3-R6 completion | [stale-write tests](../test/work-item-store.test.ts); durable concurrency remains planned |
+| 15 | Real-Time Behavior, Concurrency, and Consistency | In progress | R2 revision conflict baseline; R3-R6 completion | [stale-write tests](../test/work-item-store.test.ts); [concurrent HTTP PATCH](../test/work-item-concurrency-http.test.ts); durable concurrency remains planned |
 | 16 | Security | Planned | R3 foundation; verified through R8 | [Design §16](../agent-first-workspace-v1-design.md#16-security); [R3](roadmap.md#r3-persistent-tenant-identity-event-and-acl-foundation) |
 | 17 | Architecture | In progress | R1 workspace foundation; R3-R8 components | [server composition](../src/server.ts); [in-memory adapter](../src/work-items/in-memory-store.ts) |
 | 18 | Operations and Performance | Planned | R3 operational baseline; R8 release proof | [Design §18](../agent-first-workspace-v1-design.md#18-operations-and-performance); [R8 gate](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
@@ -80,6 +85,12 @@ causes a pre-mutation `507 budget_exceeded` response with truthful resource and 
 Durable repository, unit-of-work, transaction, and outbox semantics remain R3 work. Exact OpenAPI
 constraints are structurally checked against shared Zod schemas, stable statuses are behaviorally
 contract-tested, and agent retrieval remains future R6 work.
+
+The [observed error-example tests](../test/openapi-examples.test.ts) and
+[same-base concurrent PATCH test](../test/work-item-concurrency-http.test.ts)
+provide additional R2 evidence. The Actions job remains unassigned, and the
+protected DIM QEMU service socket is unavailable in this workspace. CI is
+explicitly deferred; exploratory follow-on work does not close the dependency gate.
 
 ## Update Rules
 
