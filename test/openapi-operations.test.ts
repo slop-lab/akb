@@ -31,6 +31,20 @@ const DocumentSchema = z.object({
 
 const operationContracts = [
   {
+    path: "/api/workspaces/{workspaceId}/events",
+    method: "get",
+    parameters: ["WorkspaceId", "EventAfter", "EventLimit"],
+    requestBody: undefined,
+    responses: {
+      "200": "EventPage",
+      "400": "InvalidArgument",
+      "401": "Unauthenticated",
+      "403": "PermissionDenied",
+      "404": "WorkspaceNotFound",
+      "500": "Internal",
+    },
+  },
+  {
     path: "/health",
     method: "get",
     parameters: [],
@@ -142,6 +156,7 @@ test("every response component binds its exact schema", async () => {
     Health: "#/components/schemas/HealthResponse",
     WorkItemList: "#/components/schemas/WorkItemList",
     WorkItem: "#/components/schemas/WorkItemEnvelope",
+    EventPage: "#/components/schemas/EventPage",
     Unauthenticated: "#/components/schemas/AccessError",
     PermissionDenied: "#/components/schemas/AccessError",
     WorkspaceNotFound: "#/components/schemas/AccessError",

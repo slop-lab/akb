@@ -146,6 +146,17 @@ test("OpenAPI Idempotency-Key parameter preserves the shared visible ASCII schem
   assert.deepEqual(document.components.parameters.IdempotencyKey.schema, generated)
 })
 
+test("OpenAPI event cursor documents the runtime safe-integer bound", async () => {
+  const document = await readDocument()
+  const { EventAfter } = document.components.parameters
+
+  assert.deepEqual(EventAfter?.schema, {
+    type: "integer",
+    minimum: 0,
+    maximum: Number.MAX_SAFE_INTEGER,
+  })
+})
+
 test("OpenAPI parameters equal the shared semantic input schemas", async () => {
   // Given
   const document = await readDocument()

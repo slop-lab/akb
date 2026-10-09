@@ -51,6 +51,25 @@
         }
       }
     },
+    "/api/workspaces/{workspaceId}/events": {
+      "get": {
+        "operationId": "replayWorkspaceEvents",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceId" },
+          { "$ref": "#/components/parameters/EventAfter" },
+          { "$ref": "#/components/parameters/EventLimit" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/EventPage" },
+          "400": { "$ref": "#/components/responses/InvalidArgument" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/PermissionDenied" },
+          "404": { "$ref": "#/components/responses/WorkspaceNotFound" },
+          "500": { "$ref": "#/components/responses/Internal" }
+        }
+      }
+    },
     "/api/work-items/{id}": {
       "get": {
         "operationId": "getWorkItem",
@@ -125,6 +144,21 @@
           "maxLength": 200,
           "pattern": "^[!-~]+$"
         }
+      },
+      "EventAfter": {
+        "name": "after",
+        "in": "query",
+        "required": true,
+        "description": "Canonical non-negative decimal integer, bounded by JavaScript's maximum safe integer.",
+        "schema": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "example": 0
+      },
+      "EventLimit": {
+        "name": "limit",
+        "in": "query",
+        "required": true,
+        "schema": { "type": "string", "pattern": "^(?:[1-9]|[1-9][0-9]|100)$" },
+        "example": "50"
       }
     },
     "schemas": {
@@ -384,6 +418,51 @@
         "required": ["items", "completeness", "omitted", "nextCursor", "estimatedTokens"],
         "additionalProperties": false
       },
+      "WorkItemEvent": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+              "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+              "sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+              "time": { "type": "string", "format": "date-time" },
+              "actorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+              "subjectId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+              "subjectRevision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "work_item.created" }
+            },
+            "required": ["id", "workspaceId", "sequence", "time", "actorId", "subjectId", "subjectRevision", "type"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+              "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+              "sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+              "time": { "type": "string", "format": "date-time" },
+              "actorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+              "subjectId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+              "subjectRevision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "work_item.updated" },
+              "changedFields": { "type": "array", "items": { "type": "string", "enum": ["title", "state"] } }
+            },
+            "required": ["id", "workspaceId", "sequence", "time", "actorId", "subjectId", "subjectRevision", "type", "changedFields"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "EventPage": {
+        "type": "object",
+        "properties": {
+          "events": { "type": "array", "maxItems": 100, "items": { "$ref": "#/components/schemas/WorkItemEvent" } },
+          "hasMore": { "type": "boolean" },
+          "nextAfter": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        },
+        "required": ["events", "hasMore", "nextAfter"],
+        "additionalProperties": false
+      },
       "FieldError": {
         "type": "object",
         "properties": {
@@ -637,6 +716,28 @@
         "description": "Current Work Item",
         "content": {
           "application/json": { "schema": { "$ref": "#/components/schemas/WorkItemEnvelope" } }
+        }
+      },
+      "EventPage": {
+        "description": "Ordered workspace semantic events after the supplied sequence",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/EventPage" },
+            "example": {
+              "events": [{
+                "id": "event-1",
+                "workspaceId": "example",
+                "sequence": 1,
+                "time": "2026-10-09T12:00:00.000Z",
+                "actorId": "admin",
+                "subjectId": "work-item-1",
+                "subjectRevision": 1,
+                "type": "work_item.created"
+              }],
+              "hasMore": false,
+              "nextAfter": 1
+            }
+          }
         }
       },
       "Unauthenticated": {
