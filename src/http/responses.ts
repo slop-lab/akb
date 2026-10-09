@@ -68,6 +68,31 @@ export function internalError(response: ServerResponse): void {
   writeError(response, 500, "internal", "internal server error", {})
 }
 
+export function authenticationRequired(response: ServerResponse): void {
+  response.writeHead(401, {
+    "content-type": "application/json; charset=utf-8",
+    "www-authenticate": "Bearer",
+  })
+  response.end(
+    JSON.stringify({
+      error: {
+        code: "unauthenticated",
+        message: "authentication required",
+        retryable: false,
+        details: {},
+      },
+    }),
+  )
+}
+
+export function permissionDenied(response: ServerResponse): void {
+  writeError(response, 403, "permission_denied", "permission denied", {})
+}
+
+export function workspaceNotFound(response: ServerResponse): void {
+  writeError(response, 404, "not_found", "workspace was not found", {})
+}
+
 function writeError(
   response: ServerResponse,
   status: number,
