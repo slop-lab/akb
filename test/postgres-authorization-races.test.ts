@@ -9,6 +9,7 @@ import {
   eventId,
   humanPrincipalId,
   idempotencyKey,
+  revision,
   workItemId,
   workItemTitle,
   workspaceId,
@@ -66,6 +67,34 @@ test("get observes read grant revocation committed while waiting for authority l
   )
 
   assert.equal(result, undefined)
+})
+
+test("patch returns the same not-found result after update revocation for existing and absent IDs", async () => {
+  const fixture = await authorizedFixture()
+
+  const existing = await raceAuthorityChange(
+    () =>
+      fixture.store.patch({
+        id: workItemId(fixture.itemId),
+        actorId: actorId("human-one"),
+        baseRevision: revision(1),
+        state: "started",
+      }),
+    async (transaction) => {
+      await transaction`delete from membership_permissions
+        where workspace_id = 'workspace-one' and principal_id = 'human-one'
+          and permission = 'work.update'`
+    },
+  )
+  const absent = await fixture.store.patch({
+    id: workItemId("absent"),
+    actorId: actorId("human-one"),
+    baseRevision: revision(1),
+    state: "started",
+  })
+
+  assert.deepEqual(existing, { kind: "not_found", id: fixture.itemId })
+  assert.deepEqual(absent, { kind: "not_found", id: "absent" })
 })
 
 test("list returns permission denied after grant revocation committed while blocked", async () => {

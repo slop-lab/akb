@@ -93,6 +93,10 @@ export function workspaceNotFound(response: ServerResponse): void {
   writeError(response, 404, "not_found", "workspace was not found", {})
 }
 
+export function scopeNotFound(response: ServerResponse): void {
+  writeError(response, 404, "not_found", "scope was not found", {})
+}
+
 function writeError(
   response: ServerResponse,
   status: number,

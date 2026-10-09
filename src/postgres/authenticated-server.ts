@@ -4,6 +4,7 @@ import type { Sql } from "postgres"
 import {
   AuthenticationRequiredError,
   PermissionDeniedError,
+  SpaceNotFoundError,
   WorkspaceNotFoundError,
 } from "../identity/authorization-errors.ts"
 import { authenticateToken } from "../identity/authenticate.ts"
@@ -14,6 +15,7 @@ import {
   internalError,
   permissionDenied,
   routeNotFound,
+  scopeNotFound,
   workspaceNotFound,
 } from "../http/responses.ts"
 import { routeWorkItems } from "../http/work-item-routes.ts"
@@ -38,6 +40,8 @@ export function createAuthenticatedPostgresServer(
         permissionDenied(response)
       } else if (error instanceof WorkspaceNotFoundError) {
         workspaceNotFound(response)
+      } else if (error instanceof SpaceNotFoundError) {
+        scopeNotFound(response)
       } else {
         internalError(response)
       }

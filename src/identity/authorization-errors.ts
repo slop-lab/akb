@@ -21,3 +21,11 @@ export class WorkspaceNotFoundError extends Error {
     super("workspace not found")
   }
 }
+
+export class SpaceNotFoundError extends Error {
+  override readonly name = "SpaceNotFoundError"
+
+  constructor() {
+    super("scope was not found")
+  }
+}
