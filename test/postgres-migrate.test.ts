@@ -36,6 +36,7 @@ test("concurrent first migrations serialize before creating migration metadata",
     [
       ["001_work_item_persistence.sql", 64],
       ["002_workspace_identity.sql", 64],
+      ["003_transactional_outbox.sql", 64],
     ],
   )
 })
@@ -54,7 +55,7 @@ test("a separate client can repeat completed migrations", async () => {
   `
   assert.deepEqual(
     rows.map((row) => row.version),
-    ["001_work_item_persistence.sql", "002_workspace_identity.sql"],
+    ["001_work_item_persistence.sql", "002_workspace_identity.sql", "003_transactional_outbox.sql"],
   )
 })
 
@@ -166,7 +167,11 @@ test("an unapplied migration cannot be inserted below applied history", async ()
 
 async function copyMigrations(): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), "afw-migrations-"))
-  for (const name of ["001_work_item_persistence.sql", "002_workspace_identity.sql"] as const) {
+  for (const name of [
+    "001_work_item_persistence.sql",
+    "002_workspace_identity.sql",
+    "003_transactional_outbox.sql",
+  ] as const) {
     await writeFile(join(directory, name), await readFile(join(process.cwd(), "migrations", name)))
   }
   return directory
