@@ -1,5 +1,6 @@
 import type { Sql } from "postgres"
 import { authorizeWorkspace } from "../identity/authorize.ts"
+import { requireCompletePrivateSpaceRead } from "../identity/space-authorization.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import type { WorkItemEvent } from "../work-items/model.ts"
 import { parseEvent } from "../work-items/postgres-records.ts"
@@ -22,9 +23,13 @@ export class PostgresWorkspaceEventReader {
   async read(workspaceId: string, after: number, limit: number): Promise<EventPage> {
     return this.#sql.begin("isolation level read committed", async (transaction) => {
       await authorizeWorkspace(transaction, this.#context, "work.read", workspaceId)
-      const rows = await transaction`select * from domain_events
-        where workspace_id = ${workspaceId} and sequence > ${after}
-        order by sequence limit ${limit + 1}`
+      const accessible = await requireCompletePrivateSpaceRead(transaction, this.#context)
+      const rows = await transaction`select e.* from domain_events e
+        join work_items w on w.id = e.subject_id and w.workspace_id = e.workspace_id
+          and w.space_id is not distinct from e.space_id
+        where e.workspace_id = ${workspaceId} and e.sequence > ${after}
+          and (w.space_id is null or w.space_id = any(${transaction.array([...accessible])}))
+        order by e.sequence limit ${limit + 1}`
       const events = rows.slice(0, limit).map(parseEvent)
       return Object.freeze({
         events: Object.freeze(events),
