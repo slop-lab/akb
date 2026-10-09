@@ -44,6 +44,7 @@ behavior conflicts with an accepted ADR, the code or the decision must be reconc
 | ADR-012 | Inherited and private ACL evaluated before retrieval | `proposed` |
 | [ADR-013](ADR-013-postgresql-work-item-persistence.md) | PostgreSQL Work Item persistence | `proposed` |
 | [ADR-014](ADR-014-workspace-identity-and-work-auth.md) | Workspace identity and authenticated Work Item boundary | `proposed` |
+| [ADR-015](ADR-015-transactional-outbox-and-event-replay.md) | Transactional outbox and workspace event replay | `proposed` |
 
 The accepted ADR-004 scope is intentionally partial: current HTTP OpenAPI is accepted and present;
 agent retrieval remains future R6 work. The other entries preserve their proposed status.
