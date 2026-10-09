@@ -6,8 +6,9 @@ working in the same typed, revisioned graph.
 
 ## Current Status
 
-The product is **not complete**. R1 and R2 are in progress through a deliberately bounded,
-in-memory Work Item HTTP slice. The repository currently contains:
+The product is **not complete**. R1 and R2 remain in progress through a deliberately bounded Work
+Item HTTP slice, and the first PostgreSQL persistence work leaves R3 in progress. The repository
+currently contains:
 
 - the canonical English v1 design specification;
 - a strict TypeScript Node.js server at [`src/server.ts`](src/server.ts), launched by [`app/server.mjs`](app/server.mjs);
@@ -15,6 +16,8 @@ in-memory Work Item HTTP slice. The repository currently contains:
 - an in-memory adapter behind the application-owned `WorkItemStore`, with optimistic revisions,
   command idempotency, immutable revision history, append-only semantic events, hard defaults of
   10,000 current Work Items and 100,000 audit records, and a separate 100-item list limit;
+- an opt-in PostgreSQL adapter with an explicit versioned migration, durable current/history/event/
+  idempotency records, transactional mutations, scoped concurrency locks, and real-database tests;
 - a 64 KiB JSON request limit and abort-safe HTTP request handling;
 - an OpenAPI 3.1 contract at [`docs/openapi.json`](docs/openapi.json); and
 - preserved Dev Infra Manager (DIM) environment infrastructure under [`.dim/`](.dim/).
@@ -31,20 +34,21 @@ evicted to admit another command. When an applicable item or audit-record budget
 adapter rejects the command before changing current state, history, events, idempotency records, the
 clock, or generated IDs. HTTP reports `507 budget_exceeded` with the truthful `resource` (`items` or
 `audit_records`) and configured `capacity`. The current in-memory adapter performs each command
-all-or-nothing, but durable repository, unit-of-work, database transaction, and outbox semantics
-remain R3 work.
+all-or-nothing. The PostgreSQL adapter transactionally persists the narrower current state,
+revision, semantic event, and idempotency records; outbox and full R3 semantics remain future work.
 
 Exact OpenAPI constraints are structurally tied to the shared Zod schemas, and stable documented
 HTTP statuses are behaviorally contract-tested. This contract covers only the current HTTP surface;
 agent retrieval remains future work.
 
-This is not the full planned API or first canonical vertical slice. Data is process-local and lost
-on restart. PostgreSQL, authentication, ACL enforcement, UI, worker/outbox delivery, full R6
+This is not the full planned API or first canonical vertical slice. The default in-memory entrypoint
+still loses data on restart; the opt-in PostgreSQL entrypoint preserves the tested Work Item slice.
+Authentication, ACL enforcement, UI, worker/outbox delivery, full R6
 snapshot/receipt retrieval, runtime execution, proposal/review, Project and Space administration,
 search, human board/list views, comments, and all other v1 completeness behavior remain
-unimplemented. The R2 list envelope therefore reports only bounded current-process cards,
+unimplemented. The R2 list envelope therefore reports only bounded current-state cards,
 completeness, omissions, a null cursor, and an estimate; it does not invent snapshot or receipt
-identifiers. R1 and R2 remain in progress; no behavioral phase gate is complete.
+identifiers. R1, R2, and R3 remain in progress; no behavioral phase gate is complete.
 
 ## Documentation
 
@@ -85,6 +89,17 @@ source, a product module, or evidence that the planned system has been implement
 entrypoint may evolve with the architecture without treating `.dim/` as code to migrate or
 redesign.
 
+The unauthenticated PostgreSQL mode is an explicit local-development opt-in. It requires a migrated
+database and defaults to `127.0.0.1:3000`; do not expose it publicly:
+
+```sh
+DATABASE_URL=postgres://user:password@host:5432/database npm run migrate:postgres
+DATABASE_URL=postgres://user:password@host:5432/database npm run start:postgres
+```
+
+Startup checks that the migrated Work Item table is reachable and never falls back to memory.
+Changing `HOST` is an explicit operator action; authentication and ACLs remain future R3 work.
+
 ## Development Commands
 
 Use Node 24 and npm:
@@ -95,5 +110,10 @@ npm run check
 npm run build
 npm run test:unit
 npm run test:integration
+npm run test:postgres # requires DATABASE_URL and never skips
 npm start
 ```
+
+`npm run check` remains the deterministic default in-memory gate. Real PostgreSQL behavior is a
+separate required persistence gate because it needs an external database fixture; CI execution is
+still deferred rather than reported as passing.

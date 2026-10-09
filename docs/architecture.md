@@ -11,8 +11,10 @@ the behavior is available.
 ## Repository reality and the first slice
 
 The repository currently runs a strict-TypeScript Work Item HTTP server composed by the small
-`app/server.mjs` entrypoint. It contains a bounded product API and an in-memory persistence adapter;
-it does not contain the planned retrieval service, runtime protocol, worker, or durable adapter.
+`app/server.mjs` entrypoint. It contains a bounded product API and an in-memory persistence adapter.
+An opt-in local entrypoint also composes the same API with the first PostgreSQL Work Item adapter;
+it does not contain the planned retrieval service, runtime protocol, worker, ACL foundation, or
+complete durable domain model.
 
 The accepted first-slice persistence boundary is an in-memory adapter with no database. The adapter
 exists behind the application-owned `WorkItemStore` port, and each command is all-or-nothing within
@@ -29,17 +31,20 @@ mapping is `507 budget_exceeded` with the truthful `resource` (`items` or `audit
 configured `capacity`. Idempotent create replay and semantic no-op patch do not consume another
 revision/event pair.
 
-The planned durable adapter is PostgreSQL. PostgreSQL will be canonical for entities, normalized
-domain records, relations, revisions, ACL state, events, outbox records, full-text search, and
-metadata. S3-compatible object storage is planned for large artifacts, attachments, and raw traces.
-A search index, embedding service, summary cache, or object store must never become the canonical
-source of domain truth.
+The first PostgreSQL adapter now durably stores Work Item current state, immutable revisions,
+semantic events, workspace event sequences, and create-idempotency records in one transaction. It
+uses target-row locks for patch concurrency, tuple-scoped advisory locks for duplicate creation, and
+per-workspace sequence rows rather than global write serialization. Its explicit migration and
+real-database tests are evidence only for this narrow slice. PostgreSQL remains planned as canonical
+for broader domain records, relations, ACL state, outbox records, full-text search, and metadata.
+S3-compatible object storage is planned for large artifacts, attachments, and raw traces. A search
+index, embedding service, summary cache, or object store must never become canonical domain truth.
 
 The in-memory and PostgreSQL adapters must implement the same observable application contracts:
 stable IDs, monotonic entity revisions, optimistic revision checks, command idempotency, atomic
 command results, ordered events, and explicit authorization. Adapter substitution must not change
-domain semantics. PostgreSQL-specific operational guarantees remain gated until the PostgreSQL
-adapter is implemented and tested.
+domain semantics. PostgreSQL-specific operational guarantees beyond the tested Work Item slice
+remain gated.
 
 ## System shape
 
