@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "clean": "node -e \"require('node:fs').rmSync('build',{recursive:true,force:true})\"",
     "test:unit": "npm run build && node --test build/test/input-contract.test.js build/test/store-limits.test.js build/test/work-item-audit-capacity.test.js build/test/work-item-hardening.test.js build/test/work-item-patch-nonmutation.test.js build/test/work-item-store.test.js",
-    "test:integration": "npm run build && node --test build/test/health.test.js build/test/http-hardening.test.js build/test/openapi-contract.test.js build/test/openapi-operations.test.js build/test/path-segment-http.test.js build/test/request-boundary.test.js build/test/source-import.test.js build/test/store-port.test.js build/test/work-item-http.test.js build/test/work-item-list-restart.test.js",
+    "test:integration": "npm run build && node --test build/test/health.test.js build/test/http-hardening.test.js build/test/openapi-contract.test.js build/test/openapi-examples.test.js build/test/openapi-operations.test.js build/test/path-segment-http.test.js build/test/request-boundary.test.js build/test/source-import.test.js build/test/store-port.test.js build/test/work-item-concurrency-http.test.js build/test/work-item-http.test.js build/test/work-item-list-restart.test.js",
     "test": "npm run test:unit && npm run test:integration",
     "build": "npm run clean && tsc",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
