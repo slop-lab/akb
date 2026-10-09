@@ -37,6 +37,7 @@ test("concurrent first migrations serialize before creating migration metadata",
       ["001_work_item_persistence.sql", 64],
       ["002_workspace_identity.sql", 64],
       ["003_transactional_outbox.sql", 64],
+      ["004_space_acl.sql", 64],
     ],
   )
 })
@@ -55,7 +56,12 @@ test("a separate client can repeat completed migrations", async () => {
   `
   assert.deepEqual(
     rows.map((row) => row.version),
-    ["001_work_item_persistence.sql", "002_workspace_identity.sql", "003_transactional_outbox.sql"],
+    [
+      "001_work_item_persistence.sql",
+      "002_workspace_identity.sql",
+      "003_transactional_outbox.sql",
+      "004_space_acl.sql",
+    ],
   )
 })
 
@@ -171,6 +177,7 @@ async function copyMigrations(): Promise<string> {
     "001_work_item_persistence.sql",
     "002_workspace_identity.sql",
     "003_transactional_outbox.sql",
+    "004_space_acl.sql",
   ] as const) {
     await writeFile(join(directory, name), await readFile(join(process.cwd(), "migrations", name)))
   }

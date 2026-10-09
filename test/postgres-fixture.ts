@@ -53,7 +53,7 @@ export async function createPostgresTestFixture(): Promise<PostgresTestFixture> 
     ...fixture,
     reset: async () => {
       await fixture.sql`truncate delivery_inbox, outbox_jobs, outbox_destinations, outbox_events,
-        principal_credentials, membership_permissions,
+        principal_credentials, space_permissions, spaces, membership_permissions,
         workspace_memberships, principals, workspaces, work_item_idempotency, domain_events,
         work_item_revisions, work_items, workspace_event_sequences`
     },
