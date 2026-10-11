@@ -9,8 +9,9 @@ Architecture records for new boundaries remain proposed until maintainer accepta
 
 The runtime sources now implement the bounded R3/R4 checkpoint described here, but this remains an
 execution contract rather than a phase-completion record. R1-R4 are `In progress`, CI is deferred,
-and the parent live export/archive integration path still returns `400`. No browser, live-service,
-or formal exit gate is reported as passing by this document.
+and no formal exit gate is reported as passing by this document. Recorded native Node 24 live
+export/import/archive evidence and all 10 real-browser scenarios pass their bounded paths; the
+aggregate `npm run test:r4` command remains unreported as a passing aggregate gate.
 
 R3 prerequisite work includes a normalized Entity/Revision/Relation foundation, restrictive
 object ACL, a versioned generic event/outbox stream, archive/retention foundations, structured
@@ -156,4 +157,5 @@ surface, mutation rollback, 100,000-item list/board traversal through concurrent
 binding/expiry/revocation, relation-cycle constraints, complete import/export round trip, both backup
 profiles, and real-browser keyboard-only create/edit/filter/move/peek/comment/archive flows. R5+
 features and deferred CI remain explicitly outside the implemented checkpoint. This list states the
-gate, not that every item has passed; final live and browser proof remains parent-owned.
+gate, not that every item has passed. Recorded live and browser exercises cover the bounded R4 paths,
+but do not complete the dependency-ordered phase gate.

@@ -20,9 +20,11 @@ This exploratory allowance lets work begin early enough to expose interface and 
 it does not relax dependency ordering. No phase can pass or claim completion before every dependency
 phase passes.
 
-At present, a bounded Work Item HTTP slice provides exploratory R1/R2 evidence, and an opt-in
-PostgreSQL Work Item adapter provides the first partial R3 persistence evidence. **No behavioral
-phase gate has passed**. Passing local or database tests does not complete R1, R2, or R3.
+At present, the bounded legacy Work Item slice provides R1/R2 evidence, while the additive
+PostgreSQL entity/ACL/event foundation and PM/query/web checkpoint provide substantial local R3/R4
+evidence. **R1, R2, R3, and R4 remain In progress; no behavioral phase gate has passed**. Passing a
+local, database, or browser command does not complete a phase or substitute for deferred CI and the
+dependency-ordered exit scenarios.
 
 ## Dependency Sequence
 
@@ -131,10 +133,12 @@ transaction, or outbox guarantees assigned to R3.
 
 **Deliverables**
 
-Current partial evidence is limited to versioned Work Item persistence, transaction rollback,
-optimistic concurrency, scoped idempotency, durable history/events, and a local opt-in HTTP
-entrypoint. Authentication, ACLs, entity/relation breadth, outbox delivery, replay, retention,
-telemetry, and backup/restore remain outstanding.
+Current local evidence includes authenticated PostgreSQL persistence, the entity/revision registry,
+restrictive entity ACL, private-Space inheritance, versioned generic event/outbox/replay,
+non-destructive retention inspection, structured request telemetry, and registered schema-004 and
+schema-008 backup/restore profiles. The [foundation inventory](r3-r4-foundation.md) links the source
+and tests. The formal R3 exit gate remains open because dependency, CI, and complete operational
+proof have not been promoted.
 
 - Introduce PostgreSQL migrations for Workspace, Principal, Membership, Entity, Revision,
   Relation, domain event, outbox, and persisted Work Item state.
@@ -158,6 +162,15 @@ telemetry, and backup/restore remain outstanding.
 ## R4: Project-Management Core
 
 **Depends on:** R3.
+
+**Current checkpoint:** Local runtime code exists for all 27 command routes, Project/Space/workflow
+and Work metadata, relations/comments/Saved Views, stable Project/Work/board/search snapshots,
+import/export, and the React/Vite human surface. PM and Human UX are therefore `In progress`, not
+`Planned`. Native Node 24 live checks now cover archived-inclusive export and Project query,
+export/import/replay/re-export, malformed import, archive/restore queries, and snapshot release.
+All 10 real-browser scenarios passed without mocks or skips, and the public 100,000-item list and
+board tests passed individually. The formal gate remains open: CI, the complete end-to-end team
+scenario, and the aggregate `npm run test:r4` command are not reported as passing.
 
 **Deliverables**
 
