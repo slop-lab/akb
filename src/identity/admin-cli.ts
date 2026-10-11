@@ -2,6 +2,7 @@ import { z } from "zod"
 import { createPostgresClient, databaseUrlFromEnvironment } from "../postgres/client.ts"
 import { IdentityAdmin } from "./admin.ts"
 import { SpaceAdmin } from "./space-admin.ts"
+import { runR4AdminCommand } from "./r4-admin-cli.ts"
 import { MEMBERSHIP_ROLES, PRINCIPAL_KINDS, WORK_PERMISSIONS } from "./types.ts"
 
 const HELP = `Usage: npm run admin -- <command> [options]
@@ -15,6 +16,8 @@ Commands:
   create-space --workspace-id ID --space-id ID --space-name NAME --visibility public|private
   set-space-visibility --workspace-id ID --space-id ID --visibility public|private
   set-space-permissions --workspace-id ID --space-id ID --principal-id ID [--permissions CSV]
+  grant-r4-permissions --workspace-id ID --principal-id ID
+  set-entity-access --workspace-id ID --entity-id ID --mode inherit|restricted --principal-id ID [--permissions CSV]
 
 Kinds: ${PRINCIPAL_KINDS.join(", ")}
 Roles: ${MEMBERSHIP_ROLES.join(", ")}
@@ -43,6 +46,8 @@ export async function runAdminCli(
       "create-space",
       "set-space-visibility",
       "set-space-permissions",
+      "grant-r4-permissions",
+      "set-entity-access",
     ])
     .parse(args[0])
   const options = parseOptions(args.slice(1))
@@ -50,6 +55,8 @@ export async function runAdminCli(
   const admin = new IdentityAdmin(sql)
   const spaces = new SpaceAdmin(sql)
   try {
+    const r4Result = await runR4AdminCommand(command, options, sql)
+    if (r4Result !== undefined) return r4Result
     switch (command) {
       case "bootstrap-workspace": {
         const value = z
@@ -179,6 +186,9 @@ export async function runAdminCli(
           principalId: value["principal-id"],
         })
       }
+      case "grant-r4-permissions":
+      case "set-entity-access":
+        throw new TypeError("R4 command dispatch failed")
       default:
         return assertNever(command)
     }
