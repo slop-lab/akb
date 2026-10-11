@@ -34,6 +34,7 @@ export function createPostgresClient(databaseUrl: string, config: PostgresClient
     idle_timeout: 20,
     connect_timeout: 10,
     connection: {
+      timezone: "UTC",
       statement_timeout: 5_000,
       lock_timeout: 2_000,
       ...(config.schema === undefined ? {} : { search_path: config.schema }),
