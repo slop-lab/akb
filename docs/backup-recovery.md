@@ -2,10 +2,13 @@
 
 ## Scope
 
-The operator CLI provides a bounded R3 backup baseline for schema migration 004 on PostgreSQL 17.
-It creates one custom-format archive and a same-snapshot semantic manifest, verifies local artifact
-integrity offline, and restores only to a pre-created pristine database. It is not PITR, scheduling,
-replication, encrypted storage, authenticity signing, or a complete release backup program.
+The operator CLI provides explicit immutable PostgreSQL 17 backup profiles. Existing format-1
+`r3-schema-004-public` artifacts retain their shipped migration, table, fingerprint, and digest
+contract. Databases at migration 008 create format-2 artifacts with profile
+`r4-schema-008-public-v1`. The CLI creates one custom-format archive and a same-snapshot semantic
+manifest, verifies local artifact integrity offline, and restores only to a pre-created pristine
+database. It is not PITR, scheduling, replication, encrypted storage, authenticity signing, or a
+complete release backup program.
 
 The artifact contains all application data, including credential hashes. File permissions are not
 encryption. Treat both artifact files and recovery reports as restricted operational material. A
@@ -18,12 +21,25 @@ from the archive, so restore only artifacts from a trusted operator and source d
 - PostgreSQL 17 source and target servers.
 - PostgreSQL 17 `pg_dump` and `pg_restore` clients, selected with `PG_DUMP_PATH` and
   `PG_RESTORE_PATH` when they are not on `PATH`.
-- A source database with exactly migrations 001 through 004 and the documented public catalog.
+- A source database with exactly the registered 001-004 or 001-008 ledger and documented public
+  catalog. Any intermediate, future, or unknown ledger fails closed.
 - A target database owned by the restore user, encoded UTF-8, created from `template0`, with no
   other sessions or user objects.
 
 Never point restore at an application or worker database. The new target must remain disconnected
 from API and worker configuration until the success report says `activationAllowed: true`.
+
+## Registered profiles
+
+| Profile | Format | Source ledger | Catalog and ownership contract |
+| --- | ---: | --- | --- |
+| `r3-schema-004-public` | 1 | migrations `001`-`004` | Original public schema profile and pinned ownership semantics |
+| `r4-schema-008-public-v1` | 2 | migrations `001`-`008` | 48-table public schema profile; trusted PostgreSQL 17 `pgcrypto` in `public`; application relations, routines, and types owned under the database-owner policy |
+
+The profile source is `src/operations/backup/profiles.ts`; ordered resources are in
+`src/operations/backup/resources.ts`. No user metadata, Space membership, token, or secret is added
+to the profile as an out-of-band side channel: application rows remain ordinary protected backup
+content, while profile metadata contains only the registered operational contract.
 
 Backup database URLs accept no connection query option except one validated `sslmode`. PostgreSQL
 tools receive a reconstructed password-free URI plus `PGPASSWORD`; inherited `PG*` variables are
@@ -59,8 +75,8 @@ PG_RESTORE_PATH=/path/to/pg_restore \
 npm run backup -- verify --artifact-dir /restricted/new-backup
 ```
 
-This checks exact paths and modes, strict manifest structure, the trusted local migration catalog,
-the pinned schema-004 catalog fingerprint, archive bytes and digest, the bound overall digest, the
+This checks exact paths and modes, the strict format/profile union, both immutable local migration
+catalog prefixes, the selected profile's pinned catalog fingerprint, archive bytes and digest, the bound overall digest, the
 PostgreSQL 17 version contract, and `pg_restore --list`. The fingerprint covers public relations,
 columns, all type classes, constraints, indexes, rules, triggers, routines and their configuration,
 RLS state and policies, sequences, operators and related classes, casts, collations, conversions,
@@ -69,10 +85,11 @@ semantics without storing OIDs or role names. Projection and validation run in o
 `search_path` fixed to `pg_catalog, public`; role or user-schema defaults cannot redirect catalog
 lookups. It does not prove authenticity or restored database semantics.
 
-Ownership checks apply to application relations, routines, and types in `public`. The built-in
-`plpgsql` extension is inherited from `template0` and may retain the cluster bootstrap role as its
-owner, so its owner identity is excluded from the fingerprint while its name, version, schema, and
-relocatable state remain pinned. No other extension or public-object ownership exception is made.
+Ownership checks apply to application relations, routines, and types in `public`. Objects managed
+by a trusted extension can retain the cluster bootstrap owner when an ordinary database owner
+installs that extension, so component ownership is normalized while extension identity, version,
+schema, relocatability, and ownership-by-database-owner remain pinned. Profile 008 requires the
+trusted PostgreSQL 17 `pgcrypto` extension in `public` and fingerprints its public routines.
 
 ## Restore
 
@@ -98,16 +115,26 @@ The report path must not exist. Restore never falls back to a source URL and nev
 fails, the populated target is left untouched and the report says `activationAllowed: false`; the
 operator must investigate or discard that owned target manually rather than retry over it.
 
-After the restored baseline matches the backup manifest, one recovery transaction:
+After the restored source baseline matches the backup manifest, one recovery transaction:
 
 - revokes every credential active at snapshot time while preserving earlier revocation timestamps;
 - converts leased jobs at attempts 1 through 4 to pending;
 - converts leased jobs at attempt 5 to dead letter;
 - clears lease owner and expiry and increments lease generation; and
 - verifies protected columns and unchanged tables;
-- proves that no active credential and no leased job remains; and
+- fences the same mutable columns in `entity_outbox_jobs_v1`;
+- clears Human Query snapshots and only `validated` import batches/mappings while preserving
+  committed import identity mappings, generic command idempotency, canonical history, and ACL data;
+- proves that no active credential and no legacy or generic leased job remains; and
 - binds the schema fingerprint, before/after row digests, counts, and zero-count assertions into the
   recovery outcome digest.
+
+A format-1/schema-004 restore first validates and quarantines the exact 004 baseline. It then applies
+only the registered local migrations 005-008, validates the final profile fingerprint and complete
+48-table catalog, performs the R4 transient quarantine, and emits a format-2 recovery report with
+both source and final profiles and baselines. A format-2/schema-008 restore validates its 48-table
+baseline directly. Restore installs `pgcrypto` before loading a format-2 archive because PostgreSQL
+schema-filtered dumps do not include extension-managed objects.
 
 If a failed restore cannot inspect whether the target contains application tables, the failure
 report records `targetPopulated: "unknown"` rather than treating an inspection failure as empty.
@@ -128,6 +155,11 @@ PG_DUMP_PATH=/path/to/pg_dump \
 PG_RESTORE_PATH=/path/to/pg_restore \
 npm run test:backup
 ```
+
+The suite covers both fresh-owner fingerprint equivalence, ordinary-owner format-2 restore, and a
+real format-1 artifact restored and upgraded through profile 008. Recovery operators still need an
+explicit post-restore `grant-r4-permissions` action for existing members; recovery never widens old
+membership grants implicitly.
 
 Use only generated disposable databases. The default PostgreSQL suite remains `npm run
 test:postgres`; the backup suite is separate because it creates and restores whole databases.
