@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto"
 import { z } from "zod"
-import { EXPECTED_MIGRATIONS, TABLES } from "./constants.ts"
 import { backupError } from "./errors.ts"
-import { EXPECTED_SCHEMA_FINGERPRINT } from "./schema-policy.ts"
+import { PROFILE_004, PROFILE_008, profileFromId } from "./profiles.ts"
 
 const HexDigestSchema = z.string().regex(/^[0-9a-f]{64}$/)
 const MigrationSchema = z.strictObject({
@@ -22,9 +21,7 @@ const ArchiveSchema = z.strictObject({
   bytes: z.number().int().nonnegative(),
   sha256: HexDigestSchema,
 })
-const ManifestShapeSchema = z.strictObject({
-  formatVersion: z.literal(1),
-  scope: z.literal("r3-schema-004-public"),
+const ManifestMetadataSchema = {
   snapshotStrategy: z.literal("repeatable-read-exported-snapshot"),
   postgresMajor: z.literal(17),
   pgDumpMajor: z.literal(17),
@@ -33,16 +30,40 @@ const ManifestShapeSchema = z.strictObject({
   migrations: z.array(MigrationSchema).readonly(),
   migrationDigest: HexDigestSchema,
   schemaProjectionVersion: z.literal(2),
-  schemaFingerprint: z.literal(EXPECTED_SCHEMA_FINGERPRINT),
+} as const
+const ManifestContentsSchema = {
   tables: z.array(TableDigestSchema).readonly(),
   archive: ArchiveSchema,
   overallDigest: HexDigestSchema,
+} as const
+
+const Format1ManifestSchema = z.strictObject({
+  formatVersion: z.literal(1),
+  scope: z.literal("r3-schema-004-public"),
+  ...ManifestMetadataSchema,
+  schemaFingerprint: z.literal(PROFILE_004.schemaFingerprint),
+  ...ManifestContentsSchema,
 })
+
+const Format2ManifestSchema = z.strictObject({
+  formatVersion: z.literal(2),
+  profile: z.literal("r4-schema-008-public-v1"),
+  ...ManifestMetadataSchema,
+  schemaFingerprint: z.literal(PROFILE_008.schemaFingerprint),
+  ...ManifestContentsSchema,
+})
+
+const ManifestShapeSchema = z.discriminatedUnion("formatVersion", [
+  Format1ManifestSchema,
+  Format2ManifestSchema,
+])
 
 export type MigrationDigest = z.infer<typeof MigrationSchema>
 export type TableDigest = z.infer<typeof TableDigestSchema>
 export type BackupManifest = z.infer<typeof ManifestShapeSchema>
-export type ManifestInput = Omit<BackupManifest, "overallDigest">
+export type ManifestInput =
+  | Omit<z.infer<typeof Format1ManifestSchema>, "overallDigest">
+  | Omit<z.infer<typeof Format2ManifestSchema>, "overallDigest">
 
 export function sha256(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex")
@@ -55,10 +76,13 @@ export function computeMigrationDigest(migrations: readonly MigrationDigest[]): 
 }
 
 export function computeOverallDigest(manifest: ManifestInput | BackupManifest): string {
+  const identity =
+    manifest.formatVersion === 1
+      ? { formatVersion: manifest.formatVersion, scope: manifest.scope }
+      : { formatVersion: manifest.formatVersion, profile: manifest.profile }
   return sha256(
     JSON.stringify({
-      formatVersion: manifest.formatVersion,
-      scope: manifest.scope,
+      ...identity,
       snapshotStrategy: manifest.snapshotStrategy,
       postgresMajor: manifest.postgresMajor,
       pgDumpMajor: manifest.pgDumpMajor,
@@ -119,14 +143,16 @@ export function assertManifestMigrationCatalog(
 
 function validateManifest(value: unknown): BackupManifest {
   const manifest = ManifestShapeSchema.parse(value)
-  const expectedMigrations = [...EXPECTED_MIGRATIONS]
-  if (manifest.migrations.map(({ name }) => name).join("\0") !== expectedMigrations.join("\0")) {
+  const profile = manifest.formatVersion === 1 ? PROFILE_004 : profileFromId(manifest.profile)
+  if (
+    manifest.migrations.map(({ name }) => name).join("\0") !==
+    profile.migrations.map(({ name }) => name).join("\0")
+  )
     throw backupError("invalid_manifest", "manifest migration catalog is not exact")
-  }
   if (manifest.migrationDigest !== computeMigrationDigest(manifest.migrations)) {
     throw backupError("invalid_manifest", "manifest migration digest is invalid")
   }
-  const expectedTables = TABLES.map(({ name, order }) => ({ name, order }))
+  const expectedTables = profile.tables.map(({ name, order }) => ({ name, order }))
   const actualTables = manifest.tables.map(({ name, order }) => ({ name, order }))
   if (JSON.stringify(actualTables) !== JSON.stringify(expectedTables)) {
     throw backupError("invalid_manifest", "manifest table catalog is not exact")
