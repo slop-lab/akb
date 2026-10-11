@@ -1,0 +1,80 @@
+:root {
+  color-scheme: light;
+  --color-canvas: #f7f6f3;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #f1f0ec;
+  --color-surface-hover: #ecebe6;
+  --color-surface-selected: #e7ecf5;
+  --color-surface-disabled: #eae9e5;
+  --color-ink-1: #202327;
+  --color-ink-2: #555b63;
+  --color-ink-3: #707780;
+  --color-ink-disabled: #8c9299;
+  --color-border-subtle: #e3e1dc;
+  --color-border-default: #d1cfc8;
+  --color-border-strong: #9da2a8;
+  --color-accent-50: #eef3fb;
+  --color-accent-100: #dde8f7;
+  --color-accent-500: #3c67a5;
+  --color-accent-600: #31578e;
+  --color-accent-700: #284875;
+  --color-overlay: rgb(32 35 39 / 48%);
+  --color-success-bg: #e8f3ec;
+  --color-success: #2f6f46;
+  --color-success-ink: #245738;
+  --color-warning-bg: #f8efd9;
+  --color-warning: #946819;
+  --color-warning-ink: #6f4e13;
+  --color-danger-bg: #f8e8e7;
+  --color-danger: #a43e38;
+  --color-danger-ink: #7e302c;
+  --color-info-bg: #e8eff8;
+  --color-info: #3c67a5;
+  --color-info-ink: #31578e;
+  --color-neutral-bg: #ecebe7;
+  --color-neutral: #626970;
+  --color-neutral-ink: #474d53;
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --radius-1: 4px;
+  --radius-2: 6px;
+  --radius-3: 8px;
+  --radius-round: 999px;
+  --control-sm: 28px;
+  --control-md: 36px;
+  --control-lg: 44px;
+  --row-default: 44px;
+  --sidebar-width: 240px;
+  --nav-rail-width: 56px;
+  --peek-width: 440px;
+  --board-column-width: 288px;
+  --login-panel-max: 400px;
+  --reading-measure: 72ch;
+  --focus-ring: 0 0 0 2px var(--color-canvas), 0 0 0 4px var(--color-accent-500);
+  --selection-inset: inset 3px 0 0 var(--color-accent-600);
+  --drop-ring: inset 0 0 0 2px var(--color-accent-500);
+  --shadow-popover: 0 8px 24px rgb(32 35 39 / 12%), 0 1px 3px rgb(32 35 39 / 10%);
+  --shadow-dialog: 0 20px 48px rgb(32 35 39 / 18%), 0 2px 8px rgb(32 35 39 / 10%);
+  --motion-instant: 0ms;
+  --motion-micro: 100ms;
+  --motion-standard: 180ms;
+  --motion-panel: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-panel: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-micro: 0ms;
+    --motion-standard: 0ms;
+    --motion-panel: 0ms;
+  }
+}
