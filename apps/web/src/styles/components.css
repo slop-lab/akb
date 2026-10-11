@@ -1,0 +1,174 @@
+.button {
+  align-items: center;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-2);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 550;
+  gap: var(--space-2);
+  justify-content: center;
+  min-block-size: var(--control-md);
+  padding-inline: var(--space-3);
+  transition:
+    background-color var(--motion-micro) var(--ease-standard),
+    transform var(--motion-micro) var(--ease-standard);
+}
+
+.button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.button:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+.button:disabled {
+  background: var(--color-surface-disabled);
+  color: var(--color-ink-disabled);
+}
+.button--primary {
+  background: var(--color-accent-600);
+  border-color: var(--color-accent-600);
+  color: var(--color-surface-1);
+}
+.button--primary:hover:not(:disabled) {
+  background: var(--color-accent-700);
+}
+.button--quiet {
+  background: transparent;
+  border-color: transparent;
+}
+.button--danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-surface-1);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+.field__label {
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 18px;
+}
+.field input,
+.field select,
+textarea {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-2);
+  min-block-size: var(--control-md);
+  padding: var(--space-2) var(--space-3);
+}
+.field input[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+.field__help {
+  color: var(--color-ink-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+.field__error {
+  color: var(--color-danger-ink);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.badge {
+  align-items: center;
+  background: var(--color-neutral-bg);
+  border-radius: var(--radius-round);
+  color: var(--color-neutral-ink);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 16px;
+  min-block-size: 20px;
+  padding-inline: var(--space-2);
+}
+.badge--info {
+  background: var(--color-info-bg);
+  color: var(--color-info-ink);
+}
+.badge--success {
+  background: var(--color-success-bg);
+  color: var(--color-success-ink);
+}
+.badge--warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-ink);
+}
+.badge--danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-ink);
+}
+
+.empty-state {
+  align-items: center;
+  display: grid;
+  gap: var(--space-3);
+  justify-items: center;
+  padding: var(--space-12) var(--space-6);
+  text-align: center;
+}
+.empty-state p {
+  color: var(--color-ink-2);
+  max-inline-size: var(--reading-measure);
+}
+.status-panel {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-3);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+.status-panel--danger {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
+  color: var(--color-danger-ink);
+}
+.spinner {
+  animation: spin 800ms linear infinite;
+  block-size: 14px;
+  border: 2px solid currentcolor;
+  border-inline-end-color: transparent;
+  border-radius: var(--radius-round);
+  inline-size: 14px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dialog-backdrop {
+  align-items: center;
+  background: var(--color-overlay);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: var(--space-4);
+  position: fixed;
+  z-index: 30;
+}
+.dialog {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-3);
+  box-shadow: var(--shadow-dialog);
+  inline-size: min(560px, 100%);
+  max-block-size: min(760px, calc(100dvh - var(--space-8)));
+  overflow: auto;
+  padding: var(--space-5);
+}
+.dialog::backdrop {
+  background: transparent;
+}
+.dialog__header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-block-end: var(--space-5);
+}
