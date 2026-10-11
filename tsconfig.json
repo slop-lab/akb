@@ -13,6 +13,7 @@
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,
     "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true,
     "isolatedModules": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -22,5 +23,5 @@
     "rootDir": "."
   },
   "include": ["src/**/*.ts", "test/**/*.ts"],
-  "exclude": ["node_modules", "build", "dist"]
+  "exclude": ["node_modules", "build", "dist", "test/browser"]
 }
