@@ -1,20 +1,20 @@
-import { z } from "zod"
 import type { Sql, TransactionSql } from "postgres"
+import { z } from "zod"
+import { lockAuthenticatedPrincipal } from "../identity/authenticate.ts"
 import {
   AuthenticationRequiredError,
   PermissionDeniedError,
 } from "../identity/authorization-errors.ts"
 import { authorizeWorkspace, requireWorkspaceGrant } from "../identity/authorize.ts"
-import { lockAuthenticatedPrincipal } from "../identity/authenticate.ts"
-import { accessibleSpaceIds, requireSpacePermissions } from "../identity/space-authorization.ts"
+import { requireSpacePermissions } from "../identity/space-authorization.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
-import { EventIdSchema, revision } from "./identifiers.ts"
+import { createFingerprint } from "./create-fingerprint.ts"
 import type { WorkItemId, WorkspaceId } from "./identifiers.ts"
+import { EventIdSchema, revision } from "./identifiers.ts"
 import type { StoreDependencies } from "./in-memory-store.ts"
 import type { CreateResult, CreateWorkItem, PatchResult, PatchWorkItem, WorkItem } from "./model.ts"
 import { parseWorkItem } from "./postgres-records.ts"
 import type { WorkItemList, WorkItemStore } from "./store.ts"
-import { createFingerprint } from "./create-fingerprint.ts"
 
 const SequenceSchema = z.object({ sequence: z.coerce.number().int().positive() })
 const ReplaySchema = z.object({ fingerprint: z.string(), event_id: EventIdSchema })
@@ -67,6 +67,11 @@ export class AuthorizedPostgresWorkItemStore implements WorkItemStore {
         if (replayed.spaceId !== undefined) {
           await requireSpacePermissions(transaction, this.#context, replayed.spaceId, ["work.read"])
         }
+        const access = await transaction<
+          { readonly allowed: boolean }[]
+        >`select entity_access_allowed(${command.workspaceId},
+          ${replayed.id}, ${this.#context.principalId}, 'work.read') as allowed`
+        if (access[0]?.allowed !== true) throw new PermissionDeniedError()
         return replay.fingerprint === fingerprint
           ? { kind: "replayed", item: replayed, eventId: replay.event_id }
           : { kind: "idempotency_conflict", idempotencyKey: command.idempotencyKey }
@@ -125,16 +130,8 @@ export class AuthorizedPostgresWorkItemStore implements WorkItemStore {
       requireActor(command.actorId, this.#context.principalId)
       const rows = await transaction`select w.* from work_items w
         where w.id = ${command.id} and w.workspace_id = ${this.#context.workspaceId}
-          and exists (select 1 from membership_permissions g
-            where g.workspace_id = w.workspace_id
-              and g.principal_id = ${this.#context.principalId}
-              and g.permission = 'work.update')
-          and (w.space_id is null or exists (select 1 from spaces s
-            where s.workspace_id = w.workspace_id and s.id = w.space_id
-              and (s.visibility = 'public' or exists (select 1 from space_permissions sp
-                where sp.workspace_id = s.workspace_id and sp.space_id = s.id
-                  and sp.principal_id = ${this.#context.principalId}
-                  and sp.permission = 'work.update'))))
+          and entity_access_allowed(w.workspace_id, w.id,
+            ${this.#context.principalId}, 'work.update')
         for update of w`
       if (rows[0] === undefined) return { kind: "not_found", id: command.id }
       const current = parseWorkItem(rows[0])
@@ -180,16 +177,8 @@ export class AuthorizedPostgresWorkItemStore implements WorkItemStore {
         throw new AuthenticationRequiredError()
       const rows = await transaction`select w.* from work_items w
         where w.id = ${id} and w.workspace_id = ${this.#context.workspaceId}
-          and exists (select 1 from membership_permissions g
-            where g.workspace_id = w.workspace_id
-              and g.principal_id = ${this.#context.principalId}
-              and g.permission = 'work.read')
-          and (w.space_id is null or exists (select 1 from spaces s
-            where s.workspace_id = w.workspace_id and s.id = w.space_id
-              and (s.visibility = 'public' or exists (select 1 from space_permissions sp
-                where sp.workspace_id = s.workspace_id and sp.space_id = s.id
-                  and sp.principal_id = ${this.#context.principalId}
-                  and sp.permission = 'work.read'))))`
+          and entity_access_allowed(w.workspace_id, w.id,
+            ${this.#context.principalId}, 'work.read')`
       return rows[0] === undefined ? undefined : parseWorkItem(rows[0])
     })
   }
@@ -197,13 +186,14 @@ export class AuthorizedPostgresWorkItemStore implements WorkItemStore {
   async list(workspaceId: WorkspaceId, limit: number): Promise<WorkItemList> {
     return this.#sql.begin("isolation level read committed", async (transaction) => {
       await authorizeWorkspace(transaction, this.#context, "work.read", workspaceId)
-      const accessible = await accessibleSpaceIds(transaction, this.#context, "work.read")
       const rows = await transaction`select * from work_items w where workspace_id = ${workspaceId}
-        and (w.space_id is null or w.space_id = any(${transaction.array([...accessible])}))
+        and entity_access_allowed(w.workspace_id, w.id,
+          ${this.#context.principalId}, 'work.read')
         order by created_at, id limit ${limit}`
       const counts = await transaction<{ readonly matched: number }[]>`
         select count(*)::integer as matched from work_items w where workspace_id = ${workspaceId}
-          and (w.space_id is null or w.space_id = any(${transaction.array([...accessible])}))`
+          and entity_access_allowed(w.workspace_id, w.id,
+            ${this.#context.principalId}, 'work.read')`
       return {
         items: Object.freeze(rows.map(parseWorkItem)),
         matched: z

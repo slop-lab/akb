@@ -1,4 +1,5 @@
 import type { Sql } from "postgres"
+import { PermissionDeniedError } from "../identity/authorization-errors.ts"
 import { authorizeWorkspace } from "../identity/authorize.ts"
 import { requireCompletePrivateSpaceRead } from "../identity/space-authorization.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
@@ -24,6 +25,12 @@ export class PostgresWorkspaceEventReader {
     return this.#sql.begin("isolation level read committed", async (transaction) => {
       await authorizeWorkspace(transaction, this.#context, "work.read", workspaceId)
       const accessible = await requireCompletePrivateSpaceRead(transaction, this.#context)
+      const restricted = await transaction`select 1 from entities e
+        join entity_acl_policies p on p.entity_id = e.id and p.mode = 'restricted'
+        where e.workspace_id = ${workspaceId} and e.kind = 'work_item'
+          and not entity_access_allowed(e.workspace_id, e.id,
+            ${this.#context.principalId}, 'work.read') limit 1`
+      if (restricted.length > 0) throw new PermissionDeniedError()
       const rows = await transaction`select e.* from domain_events e
         join work_items w on w.id = e.subject_id and w.workspace_id = e.workspace_id
           and w.space_id is not distinct from e.space_id
