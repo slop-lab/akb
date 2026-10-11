@@ -1,175 +1,131 @@
 # Agent-First Workspace
 
-This repository is the greenfield home for a planned self-hostable collaboration,
-knowledge, and small-project management system designed for people and software agents
-working in the same typed, revisioned graph.
+This repository is the greenfield home for a planned self-hostable collaboration, knowledge, and
+small-project management system for people and software agents working in the same typed,
+revisioned graph.
 
 ## Current Status
 
-The product is **not complete**. R1 and R2 remain in progress through a deliberately bounded Work
-Item HTTP slice, and the first PostgreSQL persistence work leaves R3 in progress. The repository
-currently contains:
+The product is **not complete**. R1, R2, R3, and R4 are all **In progress**: substantial local
+runtime behavior exists, but dependency-ordered phase gates, CI evidence, and the full canonical
+exit scenarios have not passed. No canonical product section is marked `Implemented`.
 
-- the canonical English v1 design specification;
-- a strict TypeScript Node.js server at [`src/server.ts`](src/server.ts), launched by [`app/server.mjs`](app/server.mjs);
-- Zod-validated Work Item create, read, patch, and workspace-list routes;
-- an in-memory adapter behind the application-owned `WorkItemStore`, with optimistic revisions,
-  command idempotency, immutable revision history, append-only semantic events, hard defaults of
-  10,000 current Work Items and 100,000 audit records, and a separate 100-item list limit;
-- an authenticated PostgreSQL adapter with checksum-verified migrations, durable Work Item records,
-  Workspace/Principal/Membership identity, explicit Work permissions, and real-database tests;
-- an administrator CLI for identity provisioning, permission replacement, one-time bearer-token
-  issuance, and credential-ID revocation;
-- transactional Work Item event outbox fanout, an ordered interruption-safe database-inbox worker,
-  and authenticated bounded workspace event replay;
-- a bounded PostgreSQL Space scope with public inheritance, explicit private Work grants, ACL-filtered
-  Work Item reads/lists/counts, and fail-closed complete-authority workspace event replay;
-- an operator-driven PostgreSQL 17 snapshot backup, offline integrity verification, and guarded
-  restore rehearsal with mandatory credential and lease quarantine;
-- a 64 KiB JSON request limit and abort-safe HTTP request handling;
-- an OpenAPI 3.1 contract at [`docs/openapi.json`](docs/openapi.json); and
-- preserved Dev Infra Manager (DIM) environment infrastructure under [`.dim/`](.dim/).
+Two application generations coexist intentionally:
 
-The server preserves `GET /health` and exposes the current R2 routes:
+- `npm start` runs the historical unauthenticated in-memory demo on `127.0.0.1:3000`.
+- `npm run start:postgres` runs the authenticated legacy PostgreSQL Work Item surface.
+- `npm run start:r4` runs the authenticated R3/R4 PostgreSQL application and same-origin web build
+  on `127.0.0.1:3001` by default.
 
-- `POST /api/workspaces/:workspaceId/work-items`;
-- `GET /api/work-items/:id`;
-- `PATCH /api/work-items/:id`; and
-- `GET /api/workspaces/:workspaceId/work-items`.
-- `GET /api/workspaces/:workspaceId/events?after=N&limit=N` on the authenticated PostgreSQL server.
+The locally delivered R3/R4 checkpoint includes:
 
-Each effective create or patch consumes one immutable revision/event record pair. History is never
-evicted to admit another command. When an applicable item or audit-record budget is exhausted, the
-adapter rejects the command before changing current state, history, events, idempotency records, the
-clock, or generated IDs. HTTP reports `507 budget_exceeded` with the truthful `resource` (`items` or
-`audit_records`) and configured `capacity`. The current in-memory adapter performs each command
-all-or-nothing. The PostgreSQL adapter transactionally persists current state, revision, semantic
-event, idempotency, the bounded immutable outbox projection, and active destination jobs. Full R3
-semantics remain future work.
+- checksum-verified additive migrations `005` through `008` over the compatible `001`-`004`
+  baseline;
+- a Workspace-scoped entity/revision registry, restrictive entity ACL, 15 permission atoms, and
+  authority epochs;
+- an independent versioned `entity-v1` event/outbox/replay stream while the legacy
+  `work-item-v1` stream remains unchanged;
+- 27 strict command routes for Space/workflow/state/label administration, Projects, Work Items,
+  relations, comments, Saved Views, and entity access;
+- bearer-derived actors for every new command: the strict command envelope never accepts
+  `actorId`;
+- human bootstrap/read, Project and Work queries, board, paged lexical search, transient signed
+  snapshots, explicit snapshot release, and ACL-first counts and projections;
+- bounded NDJSON export plus validate/commit import with signed byte-bound validation tokens;
+- bounded retention inspection, structured request telemetry, and generic outbox/replay behavior;
+- a React/Vite human surface that consumes server-authoritative projections; and
+- immutable PostgreSQL 17 backup profiles for schema 004 and schema 008, including registered
+  004-to-008 restore upgrade and authority/lease quarantine.
 
-Exact OpenAPI constraints are structurally tied to the shared Zod schemas, and stable documented
-HTTP statuses are behaviorally contract-tested. This contract covers only the current HTTP surface;
-agent retrieval remains future work.
+This is local functional evidence, not a phase-completion claim. The latest native Node 24 live
+exercise returned `200` for an archived-inclusive export (44,441 NDJSON bytes) and Project query
+(8,699 response bytes), completed export -> validate -> commit -> replay -> re-export with `200`
+responses, rejected malformed import with `400`, returned `200` for archive/restore queries, and
+released snapshots with `204`. The real-browser suite passed all 10 scenarios in 23.7 seconds with
+no mocks or skips. Unit (54) and integration (40) tests, TypeScript/DOM checks, `build:r4`, and the
+public 100,000-item list and board scale tests also passed in their recorded runs. CI, the complete
+dependency-ordered exit scenarios, and the aggregate `npm run test:r4` command remain unpromoted;
+this README does not mark any R1-R4 phase as passing.
 
-This is not the full planned API or first canonical vertical slice. The default in-memory entrypoint
-still loses data on restart; the opt-in PostgreSQL entrypoint preserves the tested Work Item slice.
-The broader entity/object ACL architecture, UI, network outbox delivery, full R6
-snapshot/receipt retrieval, runtime execution, proposal/review, public Project and Space administration APIs,
-search, human board/list views, comments, and all other v1 completeness behavior remain
-unimplemented. The R2 list envelope therefore reports only bounded current-state cards,
-completeness, omissions, a null cursor, and an estimate; it does not invent snapshot or receipt
-identifiers. R1, R2, and R3 remain in progress; no behavioral phase gate is complete.
+Later work still includes R5 planning/documents/collaboration, R6 progressive agent retrieval and
+runtime control, R7 knowledge/proposals/review, and R8 release completeness. Network webhooks,
+OIDC, rich documents, PITR, encrypted backup storage, scheduling, full accessibility/release proof,
+and production operations are not delivered by this checkpoint.
+
+## API Contracts
+
+- [`docs/openapi.json`](docs/openapi.json) is the byte-preserved legacy R2 OpenAPI contract.
+- [`docs/openapi-r4.json`](docs/openapi-r4.json) is the generated R3/R4 machine inventory.
+- [`script/generate-api-r4.mjs`](script/generate-api-r4.mjs) generates the R3/R4 document from
+  `COMMAND_ROUTES` and the pure Zod request schemas.
+- [`test/r4-route-inventory.test.ts`](test/r4-route-inventory.test.ts) checks all 27 command routes,
+  17 special R3/R4 routes, strict actor-free envelopes, request-schema equality, generation
+  freshness, and preservation of the legacy OpenAPI bytes.
+
+The R3/R4 API requires bearer authentication for every `/api` request and leaves only
+`GET /health` public. Command paths begin `/api/commands/v1/workspaces/:workspaceId`; human paths
+begin `/api/human/v1/workspaces/:workspaceId`; generic replay is
+`GET /api/events/v1/workspaces/:workspaceId/events`. Exact route and payload details are in the
+[R4 API reference](docs/r4-api-reference.md) and
+[Human Query reference](docs/r4-query-reference.md).
 
 ## Documentation
 
 - [`agent-first-workspace-v1-design.md`](agent-first-workspace-v1-design.md) is the canonical
-  product and engineering design baseline. It defines planned contracts, invariants, scope,
-  phase gates, Definition of Done, backlog, risks, and the first vertical slice. Statements in
-  that document describe requirements and decisions, not completed functionality.
-- [`docs/product-and-domain.md`](docs/product-and-domain.md) summarizes the intended product and
-  domain boundaries.
-- [`docs/roadmap.md`](docs/roadmap.md) defines dependency-ordered delivery phases and exit gates.
-- [`docs/implementation-status.md`](docs/implementation-status.md) maps every canonical design
-  section to its current evidence-based delivery status.
-- [`docs/architecture.md`](docs/architecture.md),
-  [`docs/agent-protocol.md`](docs/agent-protocol.md), and
-  [`docs/security-and-quality.md`](docs/security-and-quality.md) define the engineering contracts
-  that future implementation must satisfy.
-- [`docs/adr/README.md`](docs/adr/README.md) registers accepted and proposed architecture decisions.
-- This README describes only the repository as it exists now and is the source of truth for its
-  current implementation status.
+  product and engineering design baseline. Requirements there are not completion claims.
+- [`docs/roadmap.md`](docs/roadmap.md) defines dependency-ordered phases and exit gates.
+- [`docs/implementation-status.md`](docs/implementation-status.md) maps canonical sections to
+  evidence-based status.
+- [`docs/r3-r4-foundation.md`](docs/r3-r4-foundation.md) inventories the entity foundation,
+  versioned stream, PM/query snapshots, retention, and backup profiles.
+- [`docs/r4-local-runbook.md`](docs/r4-local-runbook.md) gives the supported local setup and named
+  verification gates without embedding secrets.
+- [`docs/backup-recovery.md`](docs/backup-recovery.md) defines profile-aware backup and recovery.
+- [`docs/adr/README.md`](docs/adr/README.md) registers accepted and proposed decisions.
 
-## Entrypoints and Environment
+## Local R4 Startup
 
-The current application entrypoint is:
-
-```sh
-node app/server.mjs
-```
-
-It is an unauthenticated historical demo listening on `127.0.0.1:3000`. DIM starts that command through
-[`.dim/agent/start.sh`](.dim/agent/start.sh). The DIM Compose environment mounts this repository
-at `/workspace`, runs the agent container as the workspace owner, and provides a private Docker
-sidecar; see [`.dim/docker-compose.yml`](.dim/docker-compose.yml).
-
-The [public DIM upstream mirror](https://github.com/slop-lab/dev-infra-manager) documents the
-external infrastructure manager and its environment model. In this repository, `.dim/` is the
-only DIM-specific project infrastructure. It is intentionally preserved and is not application
-source, a product module, or evidence that the planned system has been implemented. The application
-entrypoint may evolve with the architecture without treating `.dim/` as code to migrate or
-redesign.
-
-The PostgreSQL application requires bearer authentication for every `/api` request and leaves only
-`GET /health` public. It requires a migrated database and defaults to `127.0.0.1:3000`:
-
-```sh
-DATABASE_URL=postgres://user:password@host:5432/database npm run migrate:postgres
-DATABASE_URL=postgres://user:password@host:5432/database npm run start:postgres
-```
-
-Startup checks that the migrated Work Item table is reachable and never falls back to memory.
-Provision the first workspace and short-lived token through the administrator CLI. The token is
-printed once and only its SHA-256 digest is persisted:
-
-```sh
-DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- bootstrap-workspace \
-  --workspace-id example --workspace-name "Example" --principal-id admin \
-  --principal-name "Example Admin"
-DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- issue-token \
-  --workspace-id example --principal-id admin
-DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- revoke-token \
-  --credential-id 00000000-0000-0000-0000-000000000000
-DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- create-space \
-  --workspace-id example --space-id private --space-name "Private" --visibility private
-DATABASE_URL=postgres://user:password@host:5432/database npm run admin -- set-space-permissions \
-  --workspace-id example --space-id private --principal-id admin \
-  --permissions work.read,work.create,work.update,work.assign
-```
-
-Register and run the only current outbox sink with the bounded worker:
-
-```sh
-DATABASE_URL=postgres://user:password@host:5432/database npm run outbox -- register \
-  --workspace-id example --destination-id local-inbox --sink database-inbox
-DATABASE_URL=postgres://user:password@host:5432/database npm run outbox -- run \
-  --workspace-id example --destination-id local-inbox --sink database-inbox --drain
-```
-
-Registration starts after the current maximum event sequence and does not backfill history.
-Delivery is ordered and at-least-once with durable inbox deduplication; it is not exactly-once. A
-dead-lettered head blocks later events until `retry-dead` is given its job ID. One `--drain` run
-claims at most 100 jobs, leaving additional work for a later run. Every `run` prints a JSON summary;
-the process exits nonzero when any claimed delivery failed or was not acknowledged.
-
-Pass optional `spaceId` on PostgreSQL creates to select an immutable owning Space. Public Spaces
-inherit Workspace grants; private Spaces additionally require matching explicit Space grants.
-Owner/admin roles do not bypass this rule. Existing unscoped records omit `spaceId`, and the
-in-memory HTTP demo rejects scoped creates. Workspace event replay requires read authority for
-every private Space and otherwise returns `403` without a page or checkpoint.
-
-`actorId` remains required for compatibility but is deprecated and must equal the authenticated
-Principal. Runtime Principals cannot receive general workspace bearer credentials.
-
-The backup and restore operator commands, restricted artifact handling, fresh-target requirement,
-and activation report are documented in [`docs/backup-recovery.md`](docs/backup-recovery.md).
-This is a bounded schema-004 operational baseline, not PITR, encrypted backup storage, scheduling,
-or a complete R3 operations program.
-
-## Development Commands
-
-Use Node 24 and npm:
+Use Node.js 24, npm, a PostgreSQL 17 database, and PostgreSQL 17 backup clients when exercising the
+backup gate. The complete sequence, including operator grants and secret handling, is in the
+[local runbook](docs/r4-local-runbook.md). The abbreviated flow is:
 
 ```sh
 npm ci
-npm run check
-npm run build
-npm run test:unit
-npm run test:integration
-npm run test:postgres # requires DATABASE_URL and never skips
-npm run test:backup # additionally requires PostgreSQL 17 pg_dump/pg_restore and database creation
-npm start
+DATABASE_URL='postgres://operator@host/database' npm run migrate:postgres
+npm run build:r4
+DATABASE_URL='postgres://operator@host/database' \
+R4_CURSOR_SIGNING_KEY="$R4_CURSOR_SIGNING_KEY" \
+npm run start:r4
 ```
 
-`npm run check` remains the deterministic default in-memory gate. Real PostgreSQL behavior is a
-separate required persistence gate because it needs an external database fixture; CI execution is
-still deferred rather than reported as passing.
+Generate `R4_CURSOR_SIGNING_KEY` as at least 32 random bytes encoded with base64url, keep it outside
+the repository, and do not print it into logs or documentation. The R4 server defaults to
+`127.0.0.1:3001` and serves the built web assets and API from the same origin.
+
+The administrator CLI bootstraps the first human credential, adds the R4 permission bundle for an
+existing member, and manages private-Space grants. Tokens are printed once; only SHA-256 digests are
+stored. Do not place bearer tokens in URLs, browser storage, fixtures, or documentation.
+
+The historical `npm start` demo remains unchanged and process-local. `.dim/` remains preserved
+development infrastructure, not application source or evidence of product completion.
+
+## Development and Evidence Gates
+
+```sh
+npm run format:check
+npm run lint
+npm run typecheck
+npm run build
+npm test
+npm run test:postgres   # requires DATABASE_URL and never skips
+npm run test:r4         # requires DATABASE_URL and never skips
+npm run test:commands   # requires DATABASE_URL and never skips
+npm run test:backup     # requires PostgreSQL 17 tools and database creation authority
+node --test build/test/r4-route-inventory.test.js
+node script/generate-api-r4.mjs --check
+```
+
+These are named local gates. A local exit code of zero is evidence for that command only. The latest
+recorded evidence ran the relevant R4 PostgreSQL tests individually; it did not run the aggregate
+`npm run test:r4` command. GitHub Actions/CI remains deferred, and no document may translate local
+checks into a passing formal phase gate.
