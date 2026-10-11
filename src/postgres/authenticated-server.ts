@@ -1,14 +1,8 @@
 import type { IncomingMessage, Server, ServerResponse } from "node:http"
 import { createServer } from "node:http"
 import type { Sql } from "postgres"
-import {
-  AuthenticationRequiredError,
-  PermissionDeniedError,
-  SpaceNotFoundError,
-  WorkspaceNotFoundError,
-} from "../identity/authorization-errors.ts"
-import { authenticateToken } from "../identity/authenticate.ts"
 import { PostgresWorkspaceEventReader } from "../events/postgres-reader.ts"
+import type { AuthenticatedRoute } from "../http/command-v1/router.ts"
 import { routeWorkspaceEvents } from "../http/event-routes.ts"
 import {
   authenticationRequired,
@@ -19,6 +13,13 @@ import {
   workspaceNotFound,
 } from "../http/responses.ts"
 import { routeWorkItems } from "../http/work-item-routes.ts"
+import { authenticateToken } from "../identity/authenticate.ts"
+import {
+  AuthenticationRequiredError,
+  PermissionDeniedError,
+  SpaceNotFoundError,
+  WorkspaceNotFoundError,
+} from "../identity/authorization-errors.ts"
 import { AuthorizedPostgresWorkItemStore } from "../work-items/authorized-postgres-store.ts"
 import type { StoreDependencies } from "../work-items/in-memory-store.ts"
 
@@ -27,25 +28,28 @@ const HEALTH_RESPONSE = JSON.stringify({ status: "ok" })
 export function createAuthenticatedPostgresServer(
   sql: Sql,
   dependencies: StoreDependencies,
+  extraRoutes: readonly AuthenticatedRoute[] = [],
 ): Server {
   return createServer((request, response) => {
-    handleAuthenticatedRequest(request, response, sql, dependencies).catch((error: unknown) => {
-      if (response.headersSent || response.writableEnded) {
-        response.destroy()
-        return
-      }
-      if (error instanceof AuthenticationRequiredError) {
-        authenticationRequired(response)
-      } else if (error instanceof PermissionDeniedError) {
-        permissionDenied(response)
-      } else if (error instanceof WorkspaceNotFoundError) {
-        workspaceNotFound(response)
-      } else if (error instanceof SpaceNotFoundError) {
-        scopeNotFound(response)
-      } else {
-        internalError(response)
-      }
-    })
+    handleAuthenticatedRequest(request, response, sql, dependencies, extraRoutes).catch(
+      (error: unknown) => {
+        if (response.headersSent || response.writableEnded) {
+          response.destroy()
+          return
+        }
+        if (error instanceof AuthenticationRequiredError) {
+          authenticationRequired(response)
+        } else if (error instanceof PermissionDeniedError) {
+          permissionDenied(response)
+        } else if (error instanceof WorkspaceNotFoundError) {
+          workspaceNotFound(response)
+        } else if (error instanceof SpaceNotFoundError) {
+          scopeNotFound(response)
+        } else {
+          internalError(response)
+        }
+      },
+    )
   })
 }
 
@@ -54,6 +58,7 @@ async function handleAuthenticatedRequest(
   response: ServerResponse,
   sql: Sql,
   dependencies: StoreDependencies,
+  extraRoutes: readonly AuthenticatedRoute[],
 ): Promise<void> {
   const path = request.url?.split("?", 1)[0] ?? "/"
   if (request.method === "GET" && path === "/health") {
@@ -68,6 +73,9 @@ async function handleAuthenticatedRequest(
     if (principal === undefined) throw new AuthenticationRequiredError()
     const store = new AuthorizedPostgresWorkItemStore(sql, principal, dependencies)
     const eventReader = new PostgresWorkspaceEventReader(sql, principal)
+    for (const route of extraRoutes) {
+      if (await route(request, response, principal)) return
+    }
     if (await routeWorkspaceEvents(request, response, eventReader)) return
     if (await routeWorkItems(request, response, store)) return
   }
