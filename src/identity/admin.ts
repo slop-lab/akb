@@ -7,14 +7,15 @@ import {
   IdentityNotActiveError,
 } from "./admin-errors.ts"
 import {
+  type CredentialId,
   CredentialIdSchema,
   IdentityWorkspaceIdSchema,
   MembershipRoleSchema,
   PrincipalIdSchema,
   PrincipalKindSchema,
-  WorkPermissionSchema,
-  type CredentialId,
+  WORK_PERMISSIONS,
   type WorkPermission,
+  WorkPermissionSchema,
 } from "./types.ts"
 
 export const BootstrapWorkspaceSchema = z.strictObject({
@@ -67,12 +68,7 @@ export class IdentityAdmin {
         values (${value.principalId}, ${value.workspaceId}, ${value.principalName}, 'human')`
       await transaction`insert into workspace_memberships (workspace_id, principal_id, role)
         values (${value.workspaceId}, ${value.principalId}, 'owner')`
-      await replacePermissions(transaction, value.workspaceId, value.principalId, [
-        "work.read",
-        "work.create",
-        "work.update",
-        "work.assign",
-      ])
+      await replacePermissions(transaction, value.workspaceId, value.principalId, WORK_PERMISSIONS)
       return issueCredential(transaction, value.workspaceId, value.principalId, value.expiresAt)
     })
   }

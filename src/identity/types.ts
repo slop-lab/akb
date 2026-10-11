@@ -8,7 +8,23 @@ export const CredentialIdSchema = RawEventIdSchema.transform((value) => value.tr
 )
 export const PRINCIPAL_KINDS = ["human", "agent", "service", "runtime"] as const
 export const MEMBERSHIP_ROLES = ["owner", "admin", "member", "guest"] as const
-export const WORK_PERMISSIONS = ["work.read", "work.create", "work.update", "work.assign"] as const
+export const WORK_PERMISSIONS = [
+  "work.read",
+  "work.create",
+  "work.update",
+  "work.assign",
+  "space.read",
+  "space.manage",
+  "project.read",
+  "project.manage",
+  "comment.create",
+  "comment.update",
+  "relation.manage",
+  "view.read",
+  "view.manage",
+  "history.read",
+  "acl.manage",
+] as const
 export const PrincipalKindSchema = z.enum(PRINCIPAL_KINDS)
 export const MembershipRoleSchema = z.enum(MEMBERSHIP_ROLES)
 export const WorkPermissionSchema = z.enum(WORK_PERMISSIONS)
