@@ -2,10 +2,13 @@ import type { ServerResponse } from "node:http"
 import type { Revision } from "../work-items/identifiers.ts"
 import type { CapacityExceeded } from "../work-items/model.ts"
 import type { FieldError } from "./error-schemas.ts"
+import { markResponseError } from "./request-telemetry.ts"
 
 type ErrorDetails = Readonly<Record<string, string | number>>
 
 export function writeJson(response: ServerResponse, status: number, body: unknown): void {
+  const errorCode = publicErrorCode(body)
+  if (errorCode !== undefined) markResponseError(response, errorCode)
   response.writeHead(status, { "content-type": "application/json; charset=utf-8" })
   response.end(JSON.stringify(body))
 }
@@ -69,6 +72,7 @@ export function internalError(response: ServerResponse): void {
 }
 
 export function authenticationRequired(response: ServerResponse): void {
+  markResponseError(response, "unauthenticated")
   response.writeHead(401, {
     "content-type": "application/json; charset=utf-8",
     "www-authenticate": "Bearer",
@@ -83,6 +87,14 @@ export function authenticationRequired(response: ServerResponse): void {
       },
     }),
   )
+}
+
+function publicErrorCode(body: unknown): string | undefined {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return undefined
+  const error = Reflect.get(body, "error")
+  if (typeof error !== "object" || error === null || Array.isArray(error)) return undefined
+  const code = Reflect.get(error, "code")
+  return typeof code === "string" ? code : undefined
 }
 
 export function permissionDenied(response: ServerResponse): void {
