@@ -6,14 +6,32 @@ const QuarantineAssertionsSchema = z.strictObject({
   activeCredentials: z.literal(0),
   leasedJobs: z.literal(0),
 })
+const QuarantineAssertionsV2Schema = QuarantineAssertionsSchema.extend({
+  genericLeasedJobs: z.literal(0),
+})
 
 export type QuarantineAssertions = z.infer<typeof QuarantineAssertionsSchema>
+export type QuarantineAssertionsV2 = z.infer<typeof QuarantineAssertionsV2Schema>
 
 export function quarantineAssertions(value: {
   readonly activeCredentials: number
   readonly leasedJobs: number
-}): QuarantineAssertions {
-  const parsed = QuarantineAssertionsSchema.safeParse(value)
+}): QuarantineAssertions
+export function quarantineAssertions(value: {
+  readonly activeCredentials: number
+  readonly leasedJobs: number
+  readonly genericLeasedJobs: number
+}): QuarantineAssertionsV2
+export function quarantineAssertions(value: {
+  readonly activeCredentials: number
+  readonly leasedJobs: number
+  readonly genericLeasedJobs?: number
+}): QuarantineAssertions | QuarantineAssertionsV2 {
+  const parsed = (
+    value.genericLeasedJobs === undefined
+      ? QuarantineAssertionsSchema
+      : QuarantineAssertionsV2Schema
+  ).safeParse(value)
   if (!parsed.success) {
     throw backupError(
       "quarantine_failed",
@@ -21,6 +39,10 @@ export function quarantineAssertions(value: {
     )
   }
   return parsed.data
+}
+
+export function computeRecoveryOutcomeDigestV2(input: object): string {
+  return sha256(JSON.stringify({ quarantinePolicyVersion: 2, ...input }))
 }
 
 export function computeRecoveryOutcomeDigest(input: {
