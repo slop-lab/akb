@@ -1,9 +1,13 @@
-import type { DestinationScope, OutboxRepository } from "./repository.ts"
+import type { ClaimedDelivery, DestinationScope } from "./repository.ts"
 
-export type DeliveryRepository = Pick<
-  OutboxRepository,
-  "claim" | "deliverToInbox" | "acknowledge" | "fail"
->
+export type GenericDeliveryRepository<Delivery> = {
+  readonly claim: (scope: DestinationScope) => Promise<Delivery | undefined>
+  readonly deliverToInbox: (delivery: Delivery) => Promise<void>
+  readonly acknowledge: (delivery: Delivery) => Promise<boolean>
+  readonly fail: (delivery: Delivery, error: string) => Promise<boolean>
+}
+
+export type DeliveryRepository = GenericDeliveryRepository<ClaimedDelivery>
 
 export type RunSummary = {
   readonly claimed: number
@@ -11,8 +15,8 @@ export type RunSummary = {
   readonly failed: number
 }
 
-export async function runDatabaseInboxWorker(
-  repository: DeliveryRepository,
+export async function runDatabaseInboxWorker<Delivery>(
+  repository: GenericDeliveryRepository<Delivery>,
   scope: DestinationScope,
   options: { readonly drain: boolean; readonly signal?: AbortSignal },
 ): Promise<RunSummary> {
