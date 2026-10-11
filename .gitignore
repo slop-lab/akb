@@ -8,3 +8,6 @@ coverage/
 .env.*
 !.env.example
 .omo/
+.playwright-mcp/
+playwright-report/
+test-results/
