@@ -12,17 +12,24 @@ import {
 } from "../src/operations/backup/files.ts"
 import {
   assertManifestMigrationCatalog,
-  computeOverallDigest,
   computeMigrationDigest,
+  computeOverallDigest,
   createManifest,
   manifestFromJson,
   serializeManifest,
 } from "../src/operations/backup/manifest.ts"
 import { redactDiagnostic, runTool, toolConnection } from "../src/operations/backup/process.ts"
 import {
+  PROFILE_004,
+  PROFILE_008,
+  profileFromLedger,
+  SCHEMA_008_FINGERPRINT,
+} from "../src/operations/backup/profiles.ts"
+import {
   computeRecoveryOutcomeDigest,
   quarantineAssertions,
 } from "../src/operations/backup/recovery.ts"
+import { SCHEMA_008_TABLES } from "../src/operations/backup/resources.ts"
 import { EXPECTED_SCHEMA_FINGERPRINT } from "../src/operations/backup/schema-policy.ts"
 
 test("help is parsed without database configuration", () => {
@@ -288,4 +295,48 @@ test("strict manifest detects semantic and serialized tampering", async () => {
     migrationDigest: computeMigrationDigest(forgedMigrations),
   })
   assert.throws(() => assertManifestMigrationCatalog(forged, migrations), /trusted catalog/)
+})
+
+test("format 2 selects only the immutable schema-008 profile", () => {
+  // Given
+  const emptyDigest = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  const input = {
+    formatVersion: 2,
+    profile: "r4-schema-008-public-v1",
+    snapshotStrategy: "repeatable-read-exported-snapshot",
+    postgresMajor: 17,
+    pgDumpMajor: 17,
+    createdAt: "2026-10-11T12:00:00.000Z",
+    sourceDatabase: "fixture008",
+    migrations: PROFILE_008.migrations,
+    migrationDigest: computeMigrationDigest(PROFILE_008.migrations),
+    schemaProjectionVersion: 2,
+    schemaFingerprint: SCHEMA_008_FINGERPRINT,
+    tables: SCHEMA_008_TABLES.map(({ name, order }) => ({
+      name,
+      order: order.map(({ column, kind }) => ({ column, kind })),
+      rowCount: 0,
+      sha256: emptyDigest,
+    })),
+    archive: { filename: "archive.dump", bytes: 0, sha256: emptyDigest },
+  } as const
+
+  // When
+  const manifest = createManifest(input)
+
+  // Then
+  assert.equal(manifestFromJson(serializeManifest(manifest)).formatVersion, 2)
+  assert.equal(profileFromLedger(PROFILE_004.migrations), PROFILE_004)
+  assert.equal(profileFromLedger(PROFILE_008.migrations), PROFILE_008)
+  assert.throws(
+    () =>
+      profileFromLedger([
+        ...PROFILE_008.migrations,
+        { name: "009_unknown.sql", checksum: emptyDigest },
+      ]),
+    /no registered backup profile/,
+  )
+  const mixed = JSON.parse(serializeManifest(manifest))
+  mixed.scope = "r3-schema-004-public"
+  assert.throws(() => manifestFromJson(JSON.stringify(mixed)))
 })
