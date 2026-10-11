@@ -1,15 +1,16 @@
 import { createHash } from "node:crypto"
 import { createReadStream } from "node:fs"
 import { readFile, stat } from "node:fs/promises"
-import { readMigrationCatalog } from "../../postgres/migrate.ts"
-import { inspectArtifact } from "./files.ts"
 import { backupError } from "./errors.ts"
+import { inspectArtifact } from "./files.ts"
 import {
   assertManifestMigrationCatalog,
   type BackupManifest,
   manifestFromJson,
 } from "./manifest.ts"
 import { requireToolMajor, runTool } from "./process.ts"
+import { readTrustedLocalProfiles } from "./profile-catalog.ts"
+import { PROFILE_004, PROFILE_008 } from "./profiles.ts"
 
 export async function verifyBackupArtifact(
   artifactDirectory: string,
@@ -17,10 +18,10 @@ export async function verifyBackupArtifact(
 ): Promise<BackupManifest> {
   const paths = await inspectArtifact(artifactDirectory)
   const manifest = manifestFromJson(await readFile(paths.manifest, "utf8"))
-  const migrationCatalog = await readMigrationCatalog()
+  await readTrustedLocalProfiles()
   assertManifestMigrationCatalog(
     manifest,
-    migrationCatalog.map(({ version, checksum }) => ({ name: version, checksum })),
+    manifest.formatVersion === 1 ? PROFILE_004.migrations : PROFILE_008.migrations,
   )
   const archive = await stat(paths.archive)
   const archiveDigest = await hashFile(paths.archive)
