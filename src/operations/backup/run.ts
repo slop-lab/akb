@@ -36,6 +36,8 @@ export async function runBackupCli(
         authenticityVerified: false,
         restoredSemanticsVerified: false,
         overallDigest: manifest.overallDigest,
+        formatVersion: manifest.formatVersion,
+        profile: manifest.formatVersion === 1 ? manifest.scope : manifest.profile,
       })
     }
     case "restore":
