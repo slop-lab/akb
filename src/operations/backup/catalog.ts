@@ -18,7 +18,9 @@ select 'relation' as kind, n.nspname || '.' || c.relname as identity,
     'forceRowSecurity', c.relforcerowsecurity, 'partition', c.relispartition,
     'partitionBound', pg_get_expr(c.relpartbound, c.oid, true),
     'options', coalesce((select jsonb_agg(option order by option) from unnest(c.reloptions) option), '[]'::jsonb),
-    'ownedByDatabaseOwner', c.relowner = d.datdba
+    'ownedByDatabaseOwner', case when exists (select 1 from pg_depend dep
+      where dep.classid = 'pg_class'::regclass and dep.objid = c.oid and dep.deptype = 'e')
+      then null else c.relowner = d.datdba end
   )::text as definition
 from pg_class c join pg_namespace n on n.oid = c.relnamespace
 join pg_database d on d.datname = current_database()
@@ -77,7 +79,9 @@ select 'routine', n.nspname || '.' || p.proname || '(' || pg_get_function_identi
     'kind', p.prokind, 'returns', pg_get_function_result(p.oid), 'volatile', p.provolatile,
     'parallel', p.proparallel, 'securityDefiner', p.prosecdef,
     'config', coalesce((select jsonb_agg(setting order by setting) from unnest(p.proconfig) setting), '[]'::jsonb),
-    'definition', pg_get_functiondef(p.oid), 'ownedByDatabaseOwner', p.proowner = d.datdba
+    'definition', pg_get_functiondef(p.oid), 'ownedByDatabaseOwner', case when exists (
+      select 1 from pg_depend dep where dep.classid = 'pg_proc'::regclass
+        and dep.objid = p.oid and dep.deptype = 'e') then null else p.proowner = d.datdba end
   )::text
 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 join pg_database d on d.datname = current_database() where n.nspname = 'public'
@@ -97,7 +101,9 @@ select 'type', n.nspname || '.' || t.typname,
       from pg_enum e where e.enumtypid = t.oid), '[]'::jsonb),
     'domainConstraints', coalesce((select jsonb_agg(pg_get_constraintdef(con.oid, true)
       order by con.conname) from pg_constraint con where con.contypid = t.oid), '[]'::jsonb),
-    'ownedByDatabaseOwner', t.typowner = d.datdba
+    'ownedByDatabaseOwner', case when exists (select 1 from pg_depend dep
+      where dep.classid = 'pg_type'::regclass and dep.objid = t.oid and dep.deptype = 'e')
+      then null else t.typowner = d.datdba end
   )::text
 from pg_type t join pg_namespace n on n.oid = t.typnamespace
 join pg_database d on d.datname = current_database()
