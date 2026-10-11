@@ -3,9 +3,9 @@ import type { Sql } from "postgres"
 import { z } from "zod"
 import {
   createPostgresClient,
+  type DatabaseSchemaName,
   databaseSchemaName,
   databaseUrlFromEnvironment,
-  type DatabaseSchemaName,
 } from "../src/postgres/client.ts"
 import { migrateDatabase } from "../src/postgres/migrate.ts"
 
@@ -52,10 +52,8 @@ export async function createPostgresTestFixture(): Promise<PostgresTestFixture> 
   return {
     ...fixture,
     reset: async () => {
-      await fixture.sql`truncate delivery_inbox, outbox_jobs, outbox_destinations, outbox_events,
-        principal_credentials, space_permissions, spaces, membership_permissions,
-        workspace_memberships, principals, workspaces, work_item_idempotency, domain_events,
-        work_item_revisions, work_items, workspace_event_sequences`
+      await fixture.sql`truncate delivery_inbox, delivery_inbox_v1, workspaces, work_items,
+        workspace_event_sequences cascade`
     },
   }
 }

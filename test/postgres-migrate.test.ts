@@ -38,6 +38,10 @@ test("concurrent first migrations serialize before creating migration metadata",
       ["002_workspace_identity.sql", 64],
       ["003_transactional_outbox.sql", 64],
       ["004_space_acl.sql", 64],
+      ["005_entity_registry_acl.sql", 64],
+      ["006_entity_event_outbox.sql", 64],
+      ["007_r4_pm_core.sql", 64],
+      ["008_human_query_import_retention.sql", 64],
     ],
   )
 })
@@ -61,6 +65,10 @@ test("a separate client can repeat completed migrations", async () => {
       "002_workspace_identity.sql",
       "003_transactional_outbox.sql",
       "004_space_acl.sql",
+      "005_entity_registry_acl.sql",
+      "006_entity_event_outbox.sql",
+      "007_r4_pm_core.sql",
+      "008_human_query_import_retention.sql",
     ],
   )
 })
@@ -178,6 +186,10 @@ async function copyMigrations(): Promise<string> {
     "002_workspace_identity.sql",
     "003_transactional_outbox.sql",
     "004_space_acl.sql",
+    "005_entity_registry_acl.sql",
+    "006_entity_event_outbox.sql",
+    "007_r4_pm_core.sql",
+    "008_human_query_import_retention.sql",
   ] as const) {
     await writeFile(join(directory, name), await readFile(join(process.cwd(), "migrations", name)))
   }
