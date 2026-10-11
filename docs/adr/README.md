@@ -46,6 +46,10 @@ behavior conflicts with an accepted ADR, the code or the decision must be reconc
 | [ADR-014](ADR-014-workspace-identity-and-work-auth.md) | Workspace identity and authenticated Work Item boundary | `proposed` |
 | [ADR-015](ADR-015-transactional-outbox-and-event-replay.md) | Transactional outbox and workspace event replay | `proposed` |
 | [ADR-016](ADR-016-snapshot-backup-and-quarantined-restore.md) | Snapshot backup and quarantined restore | `proposed` |
+| [ADR-017](ADR-017-entity-registry-and-versioned-generic-stream.md) | Entity registry and versioned generic stream | `proposed` |
+| [ADR-018](ADR-018-project-management-command-boundary.md) | Project-management command boundary | `proposed` |
+| [ADR-019](ADR-019-human-query-snapshots.md) | Human Query materialized snapshots | `proposed` |
+| [ADR-020](ADR-020-versioned-backup-profiles.md) | Versioned current backup profiles | `proposed` |
 
 The accepted ADR-004 scope is intentionally partial: current HTTP OpenAPI is accepted and present;
 agent retrieval remains future R6 work. The other entries preserve their proposed status.

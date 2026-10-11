@@ -10,19 +10,20 @@ the behavior is available.
 
 ## Repository reality and the first slice
 
-The repository currently runs a strict-TypeScript Work Item HTTP server composed by the small
-`app/server.mjs` entrypoint. It contains a bounded product API and an in-memory persistence adapter.
-An opt-in local entrypoint also composes the same API with the PostgreSQL Work Item adapter, bounded
-Space ACL, transactional outbox, and database-inbox worker. It does not contain the planned
-retrieval service, runtime protocol, network delivery worker, general entity ACL, or complete
-durable domain model.
+The repository retains the strict-TypeScript Work Item HTTP server composed by `app/server.mjs` as
+the historical in-memory demo. `app/r4-server.mjs` now composes the authenticated PostgreSQL
+entity/ACL/event foundation, PM command registry, Human Query/search/import/export routers,
+structured request telemetry, and same-origin React/Vite assets. It does not contain the planned
+agent retrieval service, runtime protocol, network delivery worker, R5-R8 domains, or complete
+production operations.
 
 The accepted first-slice persistence boundary is an in-memory adapter with no database. The adapter
 exists behind the application-owned `WorkItemStore` port, and each command is all-or-nothing within
 that process. Domain and HTTP code therefore do not own its maps or depend on adapter-specific data
 structures. Its data is process-local and disposable; it does not satisfy durability, migration,
-backup, cross-process concurrency, search, or production-readiness requirements. Durable repository
-and unit-of-work ports, database transaction semantics, and an outbox remain R3 work.
+backup, cross-process concurrency, search, or production-readiness requirements. The legacy
+boundary remains compatible; the additive R3/R4 application supplies separate durable entity
+transaction and generic outbox paths rather than rewriting the first slice.
 
 The in-memory adapter defaults to at most 10,000 current Work Items and 100,000 audit records. Each
 effective create or patch consumes one immutable revision/event record pair, and history is never
@@ -36,17 +37,19 @@ The first PostgreSQL adapter now durably stores Work Item current state, immutab
 semantic events, workspace event sequences, and create-idempotency records in one transaction. It
 uses target-row locks for patch concurrency, tuple-scoped advisory locks for duplicate creation, and
 per-workspace sequence rows rather than global write serialization. Its explicit migration and
-real-database tests are evidence only for this narrow slice. PostgreSQL remains planned as canonical
-for broader domain records, relations, ACL state, outbox records, full-text search, and metadata.
+real-database tests are evidence for the compatible legacy slice. Migrations `005`-`008` now add the
+broader entity registry, relations, restrictive ACL, versioned generic outbox/replay, PostgreSQL
+full-text search, PM records, snapshots, import mappings, and retention policy data. The full
+canonical product and formal R3/R4 gates remain incomplete.
 S3-compatible object storage is planned for large artifacts, attachments, and raw traces. A search
 index, embedding service, summary cache, or object store must never become canonical domain truth.
 
 The in-memory and PostgreSQL adapters must implement the same observable application contracts:
 stable IDs, monotonic entity revisions, optimistic revision checks, command idempotency, atomic
 command results, ordered events, and explicit authorization. Adapter substitution must not change
-domain semantics. A bounded schema-004 snapshot backup and guarded restore rehearsal now exists;
-PITR, encrypted storage, scheduling, broader recovery, and other PostgreSQL production guarantees
-remain gated.
+domain semantics. Registered schema-004 and schema-008 snapshot profiles and guarded
+restore/upgrade rehearsal now exist; PITR, encrypted storage, scheduling, replication, and other
+PostgreSQL production guarantees remain gated.
 
 ## System shape
 
@@ -84,10 +87,10 @@ The shared entity registry provides identity, tenancy, timestamps, current revis
 state. Specialized, normalized tables hold the constraints and query fields of hot domains.
 
 Generic JSON or entity-attribute-value storage is prohibited as a replacement for core Project,
-Cycle, workflow, relation, or general entity ACL structures. The current PostgreSQL Work Item slice
-does include nullable Space scope, public inheritance, and explicit private Work permission rows;
-these broader domains still require explicit
-columns, foreign keys, uniqueness constraints, and indexes. JSONB is permitted for bounded extension
+Cycle, workflow, relation, or general entity ACL structures. Migrations `005`-`008` provide explicit
+columns, foreign keys, uniqueness constraints, and indexes for the delivered entity ACL, workflow,
+Project, Work metadata, relation, comment, Saved View, search, snapshot, import, and retention
+domains. JSONB is permitted for bounded extension
 data, custom-field values, immutable snapshots, and versioned schema payloads, provided frequently
 filtered fields can be promoted to indexed columns and domain invariants do not live only in
 untyped payloads.
@@ -109,18 +112,14 @@ must perform this sequence as one logical unit:
 6. append the outbox record;
 7. commit.
 
-In the planned PostgreSQL adapter, steps 3 through 6 must be committed in the same database
-transaction. Authorization and revision failure must commit none of them. The current in-memory
-adapter already performs its narrower current-state, revision, and event operation all-or-nothing;
-it has no durable transaction or outbox. The command result must identify the command, event,
-resulting value, and revision as applicable. The authenticated PostgreSQL Work Item adapter now
-locks and revalidates credential, Workspace, Principal, Membership, Workspace grants, and applicable
-private Space grants in the same
-transaction as each write. Migration 003 now appends a bounded outbox projection and active
-destination jobs from the domain-event trigger in that transaction. A database-inbox worker leases
-only the ordered head and performs sink I/O and fenced acknowledgement after commit. A drain is
-bounded to 100 claims, and its machine-readable summary is unsuccessful if any claim fails or is
-not acknowledged. The broader R3 entity/ACL and production operations model remains exit work.
+The PostgreSQL command adapters commit steps 3 through 6 in the same database transaction;
+authorization and revision failure commit none of them. The current in-memory adapter retains its
+narrower all-or-nothing behavior but has no durable transaction or outbox. PostgreSQL command paths
+lock and revalidate credential, Workspace, Principal, Membership, Workspace grants, applicable
+private-Space grants, and restrictive entity ACL. Migration 003 maintains the compatible legacy
+outbox, while migration 006 adds the independent generic stream. Database-inbox workers lease only
+the ordered head and use fenced acknowledgement after commit. Production network delivery and the
+remaining formal R3 operations gate remain later work.
 
 External delivery, webhooks, indexing, embedding, summary generation, and other remote calls occur
 after commit through the outbox and worker. They must never run inside the domain transaction.
