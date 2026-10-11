@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import type { Sql, TransactionSql } from "postgres"
 import { z } from "zod"
 import { SpaceIdSchema } from "../work-items/identifiers.ts"
@@ -35,6 +36,8 @@ export class SpaceAdmin {
       await lockWorkspace(transaction, value.workspaceId)
       await transaction`insert into spaces (workspace_id, id, name, visibility)
         values (${value.workspaceId}, ${value.spaceId}, ${value.spaceName}, ${value.visibility})`
+      const key = `S${createHash("sha256").update(`${value.workspaceId}:${value.spaceId}`).digest("hex").slice(0, 9).toUpperCase()}`
+      await transaction`select initialize_r4_space(${value.workspaceId},${value.spaceId},${key},null,true)`
     })
   }
 
