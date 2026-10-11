@@ -17,16 +17,18 @@ import postgres from "postgres"
 import { z } from "zod"
 import { IdentityAdmin } from "../src/identity/admin.ts"
 import { authenticateToken } from "../src/identity/authenticate.ts"
-import { OutboxRepository } from "../src/outbox/repository.ts"
 import { createBackup } from "../src/operations/backup/create.ts"
 import { digestTables, validateApplicationDatabase } from "../src/operations/backup/database.ts"
 import { restoreBackup } from "../src/operations/backup/restore.ts"
 import { verifyBackupArtifact } from "../src/operations/backup/verify.ts"
+import { OutboxRepository } from "../src/outbox/repository.ts"
 import { migrateDatabase, readMigrationCatalog } from "../src/postgres/migrate.ts"
 import {
   createOwnedDatabase,
   databaseUrl,
-  populateBackupSource,
+  migrateBackupSchema004,
+  populateBackupSource004,
+  populateR4BackupState,
   requiredEnvironment,
   waitForExportedSnapshot,
 } from "./postgres-backup-fixture.ts"
@@ -86,8 +88,9 @@ test("table digests are identical under hostile session formatting", async (cont
     await admin`drop database ${admin(database)} with (force)`
     await admin.end({ timeout: 5 })
   })
+  await migrateBackupSchema004(first)
+  await populateBackupSource004(first)
   await migrateDatabase(first)
-  await populateBackupSource(first)
   await first`set timezone = 'America/Los_Angeles'`
   await first`set datestyle = 'SQL, DMY'`
   await first`set bytea_output = 'escape'`
@@ -125,8 +128,10 @@ test("PostgreSQL 17 backup restores across ordinary database owners and quaranti
     }
     await admin.end({ timeout: 5 })
   })
+  await migrateBackupSchema004(source)
+  const fixture = await populateBackupSource004(source)
   await migrateDatabase(source)
-  const fixture = await populateBackupSource(source)
+  await populateR4BackupState(source)
   await source`insert into workspaces (id, name)
     select 'bulk-' || value::text, 'Bulk ' || value::text from generate_series(1, 10000) value`
 
@@ -212,12 +217,39 @@ test("PostgreSQL 17 backup restores across ordinary database owners and quaranti
     pgRestorePath,
   })
   assert.equal(restored.activationAllowed, true)
+  assert.equal(restored.sourceProfile, "r4-schema-008-public-v1")
+  assert.equal(restored.finalProfile, "r4-schema-008-public-v1")
   const quarantineCounts = await target<
-    { readonly active: number; readonly leased: number }[]
+    {
+      readonly active: number
+      readonly leased: number
+      readonly generic_leased: number
+      readonly snapshots: number
+      readonly validated_imports: number
+      readonly committed_imports: number
+      readonly committed_mappings: number
+      readonly generic_commands: number
+    }[]
   >`select
     (select count(*)::integer from principal_credentials where revoked_at is null) as active,
-    (select count(*)::integer from outbox_jobs where state = 'leased') as leased`
-  assert.deepEqual(quarantineCounts[0], { active: 0, leased: 0 })
+    (select count(*)::integer from outbox_jobs where state = 'leased') as leased,
+    (select count(*)::integer from entity_outbox_jobs_v1 where state = 'leased') as generic_leased,
+    (select count(*)::integer from human_query_snapshots) as snapshots,
+    (select count(*)::integer from import_batches where state = 'validated') as validated_imports,
+    (select count(*)::integer from import_batches where state = 'committed') as committed_imports,
+    (select count(*)::integer from import_record_ids r join import_batches b using (import_id)
+      where b.state = 'committed') as committed_mappings,
+    (select count(*)::integer from generic_command_idempotency) as generic_commands`
+  assert.deepEqual(quarantineCounts[0], {
+    active: 0,
+    leased: 0,
+    generic_leased: 0,
+    snapshots: 0,
+    validated_imports: 0,
+    committed_imports: 1,
+    committed_mappings: 1,
+    generic_commands: 1,
+  })
   assert.equal(await authenticateToken(target, fixture.activeToken), undefined)
   const fresh = await new IdentityAdmin(target).issueToken({
     workspaceId: "workspace",
