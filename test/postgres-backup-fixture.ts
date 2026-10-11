@@ -1,7 +1,12 @@
-import { randomBytes, randomUUID } from "node:crypto"
+import { createHash, randomBytes, randomUUID } from "node:crypto"
+import { cp, mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { basename, join, resolve } from "node:path"
 import type { Sql } from "postgres"
 import { IdentityAdmin } from "../src/identity/admin.ts"
-import { OutboxRepository, type ClaimedDelivery } from "../src/outbox/repository.ts"
+import { PROFILE_004 } from "../src/operations/backup/profiles.ts"
+import { type ClaimedDelivery, OutboxRepository } from "../src/outbox/repository.ts"
+import { migrateDatabase } from "../src/postgres/migrate.ts"
 
 export type OwnedDatabase = {
   readonly name: string
@@ -45,6 +50,42 @@ export async function populateBackupSource(sql: Sql): Promise<{
     expiresAt: "2030-01-01T00:00:00.000Z",
   })
   await identity.revokeToken({ credentialId: revoked.credentialId })
+  return populateBackupRows(sql, active.token)
+}
+
+export async function populateBackupSource004(sql: Sql): Promise<{
+  readonly activeToken: string
+  readonly staleDelivery: ClaimedDelivery
+}> {
+  const activeToken = `afw_${randomBytes(32).toString("base64url")}`
+  const revokedToken = `afw_${randomBytes(32).toString("base64url")}`
+  const activeCredential = randomUUID()
+  const revokedCredential = randomUUID()
+  await sql.begin(async (transaction) => {
+    await transaction`insert into workspaces (id, name) values ('workspace', 'Workspace')`
+    await transaction`insert into principals (id, workspace_id, display_name, kind)
+      values ('admin', 'workspace', 'Admin', 'human')`
+    await transaction`insert into workspace_memberships (workspace_id, principal_id, role)
+      values ('workspace', 'admin', 'owner')`
+    for (const permission of ["work.read", "work.create", "work.update", "work.assign"]) {
+      await transaction`insert into membership_permissions
+        (workspace_id, principal_id, permission) values ('workspace', 'admin', ${permission})`
+    }
+    await transaction`insert into principal_credentials
+      (id, workspace_id, principal_id, token_hash, expires_at, revoked_at)
+      values
+        (${activeCredential}, 'workspace', 'admin', ${createHash("sha256").update(activeToken).digest()},
+          '2030-01-01T00:00:00.000Z', null),
+        (${revokedCredential}, 'workspace', 'admin', ${createHash("sha256").update(revokedToken).digest()},
+          '2030-01-01T00:00:00.000Z', now())`
+  })
+  return populateBackupRows(sql, activeToken)
+}
+
+async function populateBackupRows(
+  sql: Sql,
+  activeToken: string,
+): Promise<{ readonly activeToken: string; readonly staleDelivery: ClaimedDelivery }> {
   await sql`insert into spaces (workspace_id, id, name, visibility) values
     ('workspace', 'public', 'Public', 'public'), ('workspace', 'private', 'Private', 'private')`
   await sql`insert into space_permissions (workspace_id, space_id, principal_id, permission)
@@ -76,7 +117,7 @@ export async function populateBackupSource(sql: Sql): Promise<{
     select 'local', event_id, workspace_id, sequence, event_type, occurred_at, actor_id,
       subject_id, subject_revision, changed_fields, now(), space_id from outbox_events where sequence = 4`
   return {
-    activeToken: active.token,
+    activeToken,
     staleDelivery: {
       jobId: await jobIdForSequence(sql, 2),
       eventId: "event-2",
@@ -95,6 +136,64 @@ export async function populateBackupSource(sql: Sql): Promise<{
       attempts: 1,
     },
   }
+}
+
+export async function migrateBackupSchema004(sql: Sql): Promise<void> {
+  const directory = await mkdtemp(join(tmpdir(), "afw-schema-004-migrations-"))
+  try {
+    for (const migration of PROFILE_004.migrations) {
+      await cp(
+        resolve(process.cwd(), "migrations", migration.name),
+        join(directory, basename(migration.name)),
+      )
+    }
+    await migrateDatabase(sql, directory)
+  } finally {
+    await rm(directory, { recursive: true })
+  }
+}
+
+export async function populateR4BackupState(sql: Sql): Promise<void> {
+  const snapshotId = randomUUID()
+  const committedImport = randomUUID()
+  const validatedImport = randomUUID()
+  const leaseOwner = randomUUID()
+  await sql`insert into entity_outbox_destinations_v1
+    (workspace_id, destination_id, sink, active, start_after_sequence)
+    values ('workspace', 'entity-local', 'database-inbox', true, 5)`
+  await sql`insert into entity_events_v1
+    (id, workspace_id, sequence, event_type, subject_kind, subject_id, subject_revision,
+      occurred_at, actor_id, data)
+    values ('generic-recovery-event', 'workspace', 6, 'entity.updated', 'work_item', 'item', 5,
+      now(), 'admin', '{"kind":"work_item","changedFields":[]}'::jsonb)`
+  await sql`update entity_outbox_jobs_v1 set state = 'leased', attempts = 2,
+    lease_owner = ${leaseOwner}, lease_expires_at = now() + interval '1 hour', lease_generation = 3
+    where event_id = 'generic-recovery-event'`
+  await sql`insert into generic_command_idempotency
+    (workspace_id, idempotency_key, command_id, principal_id, action, route, fingerprint,
+      event_id, subject_id, result_revision, result)
+    values ('workspace', 'generic-command', 'generic-command-id', 'admin', 'work.update',
+      '/work-items/item', ${"a".repeat(64)}, 'generic-recovery-event', 'item', 5,
+      '{"id":"item"}'::jsonb)`
+  await sql`insert into human_query_snapshots
+    (id, workspace_id, principal_id, credential_id, query_hash, sort_hash, authority_hash,
+      matched, expires_at)
+    select ${snapshotId}, 'workspace', 'admin', id, ${"b".repeat(64)}, ${"c".repeat(64)},
+      ${"d".repeat(64)}, 1, clock_timestamp() + interval '10 minutes'
+    from principal_credentials where revoked_at is null limit 1`
+  await sql`insert into human_query_snapshot_items
+    (snapshot_id, ordinal, entity_id, source_revision) values (${snapshotId}, 1, 'item', 5)`
+  await sql`insert into import_batches
+    (import_id, workspace_id, principal_id, content_digest, byte_size, record_count, state,
+      validation_expires_at, committed_at)
+    values
+      (${committedImport}, 'workspace', 'admin', ${"e".repeat(64)}, 10, 1, 'committed',
+        now() + interval '10 minutes', now()),
+      (${validatedImport}, 'workspace', 'admin', ${"f".repeat(64)}, 10, 1, 'validated',
+        now() + interval '10 minutes', null)`
+  await sql`insert into import_record_ids (import_id, external_id, entity_id, record_kind)
+    values (${committedImport}, 'committed-item', 'item', 'work_item'),
+      (${validatedImport}, 'validated-item', 'item', 'work_item')`
 }
 
 export async function waitForExportedSnapshot(admin: Sql, database: string): Promise<void> {
