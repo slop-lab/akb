@@ -3,10 +3,11 @@ import postgres, { type Sql, type TransactionSql } from "postgres"
 import { z } from "zod"
 import { parsePostgresDatabaseUrl } from "../../postgres/database-url.ts"
 import { schemaFingerprint } from "./catalog.ts"
-import { ALL_TABLE_NAMES, EXPECTED_MIGRATIONS, POSTGRES_MAJOR, TABLES } from "./constants.ts"
+import { POSTGRES_MAJOR } from "./constants.ts"
 import { backupError } from "./errors.ts"
 import type { MigrationDigest, TableDigest } from "./manifest.ts"
-import { EXPECTED_SCHEMA_FINGERPRINT } from "./schema-policy.ts"
+import { trustedProfileFromDatabaseLedger } from "./profile-catalog.ts"
+import { type BackupProfile, PROFILE_004, profileFromLedger } from "./profiles.ts"
 
 const VersionRowSchema = z.strictObject({ version: z.string(), checksum: z.string().length(64) })
 const StringRowSchema = z.strictObject({ value: z.string() })
@@ -38,15 +39,15 @@ export async function databaseName(sql: Sql | TransactionSql): Promise<string> {
 
 export async function prepareSnapshot(
   transaction: TransactionSql,
-  expectedMigrations: readonly MigrationDigest[],
+  profile: BackupProfile,
 ): Promise<{
   readonly snapshot: string
-  readonly schemaFingerprint: typeof EXPECTED_SCHEMA_FINGERPRINT
+  readonly schemaFingerprint: string
 }> {
   await configureCanonicalSession(transaction)
-  const actualSchemaFingerprint = await validateApplicationDatabase(transaction, expectedMigrations)
+  const actualSchemaFingerprint = await validateApplicationDatabase(transaction, profile.migrations)
   await transaction.unsafe(
-    `lock table ${ALL_TABLE_NAMES.map((name) => `public.${name}`).join(", ")} in access share mode`,
+    `lock table public.schema_migrations, ${profile.tables.map(({ name }) => `public.${name}`).join(", ")} in access share mode`,
   )
   const rows = await transaction`select pg_export_snapshot() as value`
   return {
@@ -66,7 +67,7 @@ export async function configureCanonicalSession(sql: TransactionSql): Promise<vo
 export async function validateApplicationDatabase(
   sql: TransactionSql,
   expectedMigrations: readonly MigrationDigest[],
-): Promise<typeof EXPECTED_SCHEMA_FINGERPRINT> {
+): Promise<string> {
   await configureCanonicalSession(sql)
   if ((await serverMajor(sql)) !== POSTGRES_MAJOR) {
     throw backupError("server_version_mismatch", "PostgreSQL server major version must be 17")
@@ -74,18 +75,16 @@ export async function validateApplicationDatabase(
   const migrationRows =
     await sql`select version, checksum from public.schema_migrations order by version`
   const applied = migrationRows.map((row) => VersionRowSchema.parse(row))
-  const expectedLedger = expectedMigrations.map(({ name, checksum }) => ({
+  const profile = profileFromLedger(expectedMigrations)
+  const expectedLedger = profile.migrations.map(({ name, checksum }) => ({
     version: name,
     checksum,
   }))
   if (JSON.stringify(applied) !== JSON.stringify(expectedLedger)) {
     throw backupError("database_shape_mismatch", "database migration ledger is not exact")
   }
-  if (applied.map(({ version }) => version).join("\0") !== EXPECTED_MIGRATIONS.join("\0")) {
-    throw backupError("database_shape_mismatch", "committed migration versions are not exact")
-  }
   const fingerprint = await schemaFingerprint(sql)
-  if (fingerprint !== EXPECTED_SCHEMA_FINGERPRINT) {
+  if (fingerprint !== profile.schemaFingerprint) {
     throw backupError("database_shape_mismatch", "database schema fingerprint is not exact")
   }
   return fingerprint
@@ -94,25 +93,38 @@ export async function validateApplicationDatabase(
 export async function digestTables(
   sql: TransactionSql,
   projection: "full" | "protected" = "full",
+  profile: BackupProfile = PROFILE_004,
 ): Promise<readonly TableDigest[]> {
   await configureCanonicalSession(sql)
   const digests: TableDigest[] = []
-  for (const table of TABLES) {
+  for (const table of profile.tables) {
     let expression = "to_jsonb(t)"
+    let filter = ""
     if (projection === "protected" && table.name === "principal_credentials") {
       expression = "to_jsonb(t) - 'revoked_at'"
     }
     if (projection === "protected" && table.name === "outbox_jobs") {
       expression = "to_jsonb(t) - 'state' - 'lease_owner' - 'lease_expires_at' - 'lease_generation'"
     }
+    if (projection === "protected" && table.name === "entity_outbox_jobs_v1") {
+      expression = "to_jsonb(t) - 'state' - 'lease_owner' - 'lease_expires_at' - 'lease_generation'"
+    }
+    if (projection === "protected" && table.name.startsWith("human_query_snapshot"))
+      filter = " where false"
+    if (projection === "protected" && table.name === "import_batches")
+      filter = " where t.state = 'committed'"
+    if (projection === "protected" && table.name === "import_record_ids") {
+      filter =
+        " where exists (select 1 from public.import_batches b where b.import_id = t.import_id and b.state = 'committed')"
+    }
     const order = table.order
       .map(({ column, kind }) =>
         kind === "text"
-          ? `convert_to(t.${column}, 'UTF8') asc nulls first`
+          ? `convert_to(t.${column}::text, 'UTF8') asc nulls first`
           : `t.${column} asc nulls first`,
       )
       .join(", ")
-    const query = `copy (select (${expression})::text from public.${table.name} t order by ${order}) to stdout with (format text, encoding 'UTF8')`
+    const query = `copy (select (${expression})::text from public.${table.name} t${filter} order by ${order}) to stdout with (format text, encoding 'UTF8')`
     const stream = await sql.unsafe(query).readable()
     const hash = createHash("sha256")
     let rowCount = 0
@@ -129,6 +141,15 @@ export async function digestTables(
     })
   }
   return digests
+}
+
+export async function readDatabaseProfile(sql: Sql | TransactionSql): Promise<BackupProfile> {
+  const rows = await sql`select version, checksum from public.schema_migrations order by version`
+  const ledger = rows.map((row) => {
+    const parsed = VersionRowSchema.parse(row)
+    return { name: parsed.version, checksum: parsed.checksum }
+  })
+  return trustedProfileFromDatabaseLedger(ledger)
 }
 
 export async function validateEmptyTarget(sql: Sql, confirmedDatabase: string): Promise<void> {
