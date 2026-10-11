@@ -9,15 +9,19 @@ import { schemaFingerprint } from "../src/operations/backup/catalog.ts"
 import { createBackup } from "../src/operations/backup/create.ts"
 import { validateApplicationDatabase } from "../src/operations/backup/database.ts"
 import type { MigrationDigest } from "../src/operations/backup/manifest.ts"
+import { PROFILE_004, SCHEMA_008_FINGERPRINT } from "../src/operations/backup/profiles.ts"
 import { EXPECTED_SCHEMA_FINGERPRINT } from "../src/operations/backup/schema-policy.ts"
-import { migrateDatabase, readMigrationCatalog } from "../src/postgres/migrate.ts"
-import { createOwnedDatabase, databaseUrl, requiredEnvironment } from "./postgres-backup-fixture.ts"
+import { migrateDatabase } from "../src/postgres/migrate.ts"
+import {
+  createOwnedDatabase,
+  databaseUrl,
+  migrateBackupSchema004,
+  requiredEnvironment,
+} from "./postgres-backup-fixture.ts"
 
 const adminUrl = requiredEnvironment("DATABASE_URL")
 const pgDumpPath = requiredEnvironment("PG_DUMP_PATH")
-const migrations: readonly MigrationDigest[] = (await readMigrationCatalog()).map(
-  ({ version, checksum }) => ({ name: version, checksum }),
-)
+const migrations: readonly MigrationDigest[] = PROFILE_004.migrations
 
 type CatalogDatabase = {
   readonly name: string
@@ -32,7 +36,7 @@ async function createCatalogDatabase(): Promise<CatalogDatabase> {
   await admin`create database ${admin(name)} template template0`
   const url = databaseUrl(adminUrl, name)
   const sql = postgres(url, { max: 1 })
-  await migrateDatabase(sql)
+  await migrateBackupSchema004(sql)
   return {
     name,
     url,
@@ -49,7 +53,7 @@ async function createOwnedCatalogDatabase(): Promise<CatalogDatabase & { readonl
   const admin = postgres(adminUrl, { max: 1 })
   const database = await createOwnedDatabase(admin, adminUrl, "backup_catalog")
   const sql = postgres(database.url, { max: 1 })
-  await migrateDatabase(sql)
+  await migrateBackupSchema004(sql)
   return {
     ...database,
     sql,
@@ -124,6 +128,28 @@ test("fresh databases owned by bootstrap and ordinary login roles match the sche
   assert.equal(bootstrapFingerprint, loginFingerprint)
   assert.equal(bootstrapFingerprint, EXPECTED_SCHEMA_FINGERPRINT)
   assert.equal(loginFingerprint, EXPECTED_SCHEMA_FINGERPRINT)
+})
+
+test("fresh schema-008 databases have one pin for bootstrap and ordinary owners", async (context) => {
+  // Given
+  const bootstrapOwned = await createCatalogDatabase()
+  const loginOwned = await createOwnedCatalogDatabase()
+  context.after(bootstrapOwned.close)
+  context.after(loginOwned.close)
+  await migrateDatabase(bootstrapOwned.sql)
+  await migrateDatabase(loginOwned.sql)
+
+  // When
+  const bootstrapFingerprint = await bootstrapOwned.sql.begin((transaction) =>
+    schemaFingerprint(transaction),
+  )
+  const loginFingerprint = await loginOwned.sql.begin((transaction) =>
+    schemaFingerprint(transaction),
+  )
+
+  // Then
+  assert.equal(bootstrapFingerprint, SCHEMA_008_FINGERPRINT)
+  assert.equal(loginFingerprint, SCHEMA_008_FINGERPRINT)
 })
 
 test("changing a public table away from the database owner fails schema validation", async (context) => {
