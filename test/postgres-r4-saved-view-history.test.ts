@@ -92,6 +92,45 @@ for (const field of ["projectId", "workflowStateId", "labelId", "spaceId"] as co
   })
 }
 
+for (const field of ["projectId", "workflowStateId", "labelId", "spaceId"] as const) {
+  test(`Saved View history removes definitions with unreadable exact ${field} range bounds`, async () => {
+    const value = {
+      projectId: "project",
+      workflowStateId: stateId,
+      labelId: "label",
+      spaceId: "public",
+    }[field]
+    const ranged = definition({ op: "range", field, from: value, to: value }, "Exact range")
+    const current = definition(null, "Readable search")
+    const id = await createView(ranged)
+    await command("saved-view.update", { definition: current }, { id, revision: 1 })
+    await fixture.database.sql`update entity_acl_policies set mode='restricted'
+      where entity_id=case when ${field}='spaceId'
+        then stable_space_entity_id('search',${value}) else ${value} end`
+
+    const history = HistoryEntrySchema.array().parse(await reads.history(fixture.viewer, id))
+
+    assert.equal(Object.hasOwn(history[1]?.snapshot ?? {}, "definition"), false)
+    assert.deepEqual(Reflect.get(history[0]?.snapshot ?? {}, "definition"), current)
+  })
+}
+
+test("Saved View history preserves nonentity lexical reference ranges", async () => {
+  const ranged = definition(
+    { op: "range", field: "projectId", from: "a", to: "z" },
+    "Lexical range",
+  )
+  const id = await createView(ranged)
+  await fixture.database
+    .sql`update entity_acl_policies set mode='restricted' where entity_id='project'`
+
+  const history = HistoryEntrySchema.array().parse(await reads.history(fixture.viewer, id))
+  const views = await reads.savedViews(fixture.viewer)
+
+  assert.deepEqual(Reflect.get(history[0]?.snapshot ?? {}, "definition"), ranged)
+  assert.deepEqual(Reflect.get(views[0] ?? {}, "definition"), ranged)
+})
+
 test("Saved View history rechecks nested filter references after permission removal", async () => {
   const filter = {
     op: "and",

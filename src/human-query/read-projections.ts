@@ -1,9 +1,10 @@
 import type { Sql, TransactionSql } from "postgres"
 import { z } from "zod"
 import { ProjectSchema, type Space, SpaceSchema } from "../contracts/r4/index.ts"
-import { type FilterNode, HumanWorkQuerySchema } from "../contracts/r4/query.ts"
+import { HumanWorkQuerySchema } from "../contracts/r4/query.ts"
 import { hasSpaceAuthority } from "../entities/saved-view-scope.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
+import { canReadFilterReferences } from "./filter-reference-authorization.ts"
 import { canReadEntity } from "./read-authorization.ts"
 import { UtcDateTimeSchema } from "./utc-datetime.ts"
 
@@ -152,39 +153,6 @@ export async function redactSnapshot(
     }
   }
   return snapshot
-}
-
-export async function canReadFilterReferences(
-  transaction: TransactionSql,
-  principal: AuthenticatedPrincipal,
-  node: FilterNode | null,
-): Promise<boolean> {
-  if (node === null) return true
-  if (node.op === "and" || node.op === "or") {
-    const results = await Promise.all(
-      node.filters.map((child) => canReadFilterReferences(transaction, principal, child)),
-    )
-    return results.every(Boolean)
-  }
-  if (node.op === "not") return canReadFilterReferences(transaction, principal, node.filter)
-  if (node.op === "relation") return canReadEntity(transaction, principal, node.entityId)
-  if (node.op !== "eq" && node.op !== "in") return true
-  const values = (node.op === "eq" ? [node.value] : node.values).filter(
-    (value): value is string => typeof value === "string",
-  )
-  if (node.field === "spaceId") {
-    const rows = await transaction<{ readonly id: string }[]>`select stable_space_entity_id(
-      ${principal.workspaceId},value) id from unnest(${transaction.array(values)}) value`
-    const results = await Promise.all(
-      rows.map((row) => canReadEntity(transaction, principal, row.id)),
-    )
-    return results.every(Boolean)
-  }
-  if (["projectId", "workflowStateId", "labelId"].includes(node.field)) {
-    const results = await Promise.all(values.map((id) => canReadEntity(transaction, principal, id)))
-    return results.every(Boolean)
-  }
-  return true
 }
 
 function stripSensitiveFields(value: unknown): unknown {

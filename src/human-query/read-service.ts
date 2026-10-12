@@ -10,9 +10,9 @@ import {
 } from "../contracts/r4/index.ts"
 import { PermissionDeniedError, WorkspaceNotFoundError } from "../identity/authorization-errors.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
+import { canReadFilterReferences } from "./filter-reference-authorization.ts"
 import { canReadEntity, hasPermission, lockReadPrincipal } from "./read-authorization.ts"
 import {
-  canReadFilterReferences,
   HistoryRowSchema,
   readPermissionCase,
   readProject,
