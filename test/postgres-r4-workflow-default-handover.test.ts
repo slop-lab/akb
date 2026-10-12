@@ -169,6 +169,50 @@ test("the last public default cannot be unset directly", async () => {
   }
 })
 
+test("an archived state cannot become the workflow default", async () => {
+  const { fixture, initialId } = await setupWorkflow()
+  try {
+    const created = await workflowCommand(fixture.request, {
+      path: "/spaces/delivery/workflow/states",
+      method: "POST",
+      baseRevision: null,
+      payload: statePayload("Archived candidate", false, 5),
+      key: "create-archived-candidate",
+    })
+    const candidateId = resultId(await created.json())
+    const archived = await workflowCommand(fixture.request, {
+      path: `/spaces/delivery/workflow/states/${candidateId}/archive`,
+      method: "POST",
+      baseRevision: 1,
+      payload: {},
+      key: "archive-default-candidate",
+    })
+    assert.equal(archived.status, 200, await archived.clone().text())
+    const before = await defaultEvidence(fixture.sql, initialId, candidateId)
+
+    const promoted = await workflowCommand(fixture.request, {
+      path: `/spaces/delivery/workflow/states/${candidateId}`,
+      method: "PATCH",
+      baseRevision: 2,
+      payload: { isDefault: true },
+      key: "promote-archived-candidate",
+    })
+
+    assert.equal(promoted.status, 409)
+    assert.deepEqual(await promoted.json(), {
+      error: {
+        code: "workflow_default_state_must_be_active",
+        message: "workflow_default_state_must_be_active",
+        retryable: false,
+        details: {},
+      },
+    })
+    assert.deepEqual(await defaultEvidence(fixture.sql, initialId, candidateId), before)
+  } finally {
+    await fixture.close()
+  }
+})
+
 function statePayload(name: string, isDefault: boolean, position: number) {
   return { name, category: "unstarted", color: "#0284C7", position, isDefault }
 }
@@ -197,6 +241,21 @@ async function workflowStateCounts(sql: Sql) {
     (select count(*)::integer from entity_events_v1 where subject_kind='workflow_state') events
     from workflow_states where space_id='delivery'`
   return counts
+}
+
+async function defaultEvidence(sql: Sql, defaultId: string, candidateId: string) {
+  const [evidence] = await sql`select
+    (select active from workflow_states where id=${candidateId}) candidate_active,
+    (select is_default from workflow_states where id=${candidateId}) candidate_default,
+    (select revision::integer from workflow_states where id=${candidateId}) candidate_revision,
+    (select active and is_default from workflow_states where id=${defaultId}) active_default,
+    (select count(*)::integer from entity_revisions where entity_id in (${defaultId},${candidateId})) revisions,
+    (select count(*)::integer from entity_events_v1 where subject_id in (${defaultId},${candidateId})) events,
+    (select count(*)::integer from entity_outbox_events_v1 outbox join entity_events_v1 event
+      on event.id=outbox.event_id where event.subject_id in (${defaultId},${candidateId})) outbox,
+    (select count(*)::integer from generic_command_idempotency
+      where subject_id in (${defaultId},${candidateId})) idempotency`
+  return evidence
 }
 
 async function assertHandover(

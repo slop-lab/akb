@@ -20,6 +20,7 @@ import {
   mutationInput,
   parseStateCreate,
   parseStateUpdate,
+  requireActiveDefaultTarget,
   required,
   requireStateScope,
   requireWorkflowCategoryRetention,
@@ -27,10 +28,8 @@ import {
 import { spaceRecord as record, spaceSnapshot, stateSnapshot } from "./space-command-persistence.ts"
 import type { CommandCall } from "./types.ts"
 import { handoverWorkflowDefault } from "./workflow-default-handover.ts"
-
 export class SpaceCommandService {
   readonly engine: EntityMutationEngine
-
   constructor(engine: EntityMutationEngine) {
     this.engine = engine
   }
@@ -216,6 +215,7 @@ export class SpaceCommandService {
             throw new CommandInvariantError("workflow_requires_default_state")
         }
         if (payload.isDefault) {
+          await requireActiveDefaultTarget(transaction, entityId)
           await handoverWorkflowDefault(this.engine, transaction, call, null, entityId)
         }
         await transaction`update workflow_states set name=coalesce(${payload.name ?? null},name),

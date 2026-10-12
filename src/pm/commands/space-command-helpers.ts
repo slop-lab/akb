@@ -45,6 +45,16 @@ export async function requireStateScope(
   if (rows.length !== 1) throw new EntityNotFoundError(entityId)
 }
 
+export async function requireActiveDefaultTarget(
+  transaction: TransactionSql,
+  entityId: string,
+): Promise<void> {
+  const rows = await transaction`select 1 from workflow_states where id=${entityId} and active`
+  if (rows.length !== 1) {
+    throw new CommandInvariantError("workflow_default_state_must_be_active")
+  }
+}
+
 export async function requireWorkflowCategoryRetention(
   transaction: TransactionSql,
   entityId: string,
