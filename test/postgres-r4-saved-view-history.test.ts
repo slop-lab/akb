@@ -44,17 +44,28 @@ beforeEach(async () => {
 afterEach(async () => fixture.database.close())
 
 test("Saved View history preserves readable definitions for each revision", async () => {
-  const first = definition({ op: "eq", field: "projectId", value: "project" }, "First search")
-  const second = definition(null, "Current search")
+  const first = definition(
+    { op: "range", field: "projectId", from: "project", to: "project" },
+    "First search",
+  )
+  const second = definition(
+    { op: "range", field: "labelId", from: null, to: "zzzz" },
+    "Current search",
+  )
   const id = await createView(first)
   await command("saved-view.update", { definition: second }, { id, revision: 1 })
 
-  const history = HistoryEntrySchema.array().parse(await reads.history(fixture.viewer, id))
+  const [rawHistory, views] = await Promise.all([
+    reads.history(fixture.viewer, id),
+    reads.savedViews(fixture.viewer),
+  ])
+  const history = HistoryEntrySchema.array().parse(rawHistory)
 
   assert.deepEqual(
     history.map((entry) => Reflect.get(entry.snapshot, "definition")),
     [second, first],
   )
+  assert.deepEqual(Reflect.get(views[0] ?? {}, "definition"), second)
 })
 
 for (const field of ["projectId", "workflowStateId", "labelId", "spaceId"] as const) {

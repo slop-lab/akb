@@ -1,7 +1,8 @@
-import type { TransactionSql } from "postgres"
+import type { Sql, TransactionSql } from "postgres"
 import { z } from "zod"
 import { ProjectSchema, type Space, SpaceSchema } from "../contracts/r4/index.ts"
 import { type FilterNode, HumanWorkQuerySchema } from "../contracts/r4/query.ts"
+import { hasSpaceAuthority } from "../entities/saved-view-scope.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import { canReadEntity } from "./read-authorization.ts"
 import { UtcDateTimeSchema } from "./utc-datetime.ts"
@@ -57,14 +58,19 @@ export async function readProject(
   return row === undefined ? undefined : ProjectReadSchema.parse(row)
 }
 
-export function readPermissionCase(transaction: TransactionSql, alias: "f" | "t") {
-  return alias === "f"
-    ? transaction`case when f.kind='project' then 'project.read'
+export function readPermissionCase(transaction: TransactionSql | Sql, alias: "f" | "t" | "re") {
+  if (alias === "f") {
+    return transaction`case when f.kind='project' then 'project.read'
         when f.kind in ('space','workflow','workflow_state','label') then 'space.read'
         when f.kind='saved_view' then 'view.read' else 'work.read' end`
-    : transaction`case when t.kind='project' then 'project.read'
+  }
+  return alias === "t"
+    ? transaction`case when t.kind='project' then 'project.read'
         when t.kind in ('space','workflow','workflow_state','label') then 'space.read'
         when t.kind='saved_view' then 'view.read' else 'work.read' end`
+    : transaction`case when re.kind='project' then 'project.read'
+        when re.kind in ('space','workflow','workflow_state','label') then 'space.read'
+        when re.kind='saved_view' then 'view.read' else 'work.read' end`
 }
 
 export async function redactSnapshot(
@@ -75,7 +81,16 @@ export async function redactSnapshot(
   const snapshot = stripSensitiveFields(row.snapshot) as Record<string, unknown>
   if (row.kind === "saved_view") {
     const definition = HumanWorkQuerySchema.parse(Reflect.get(row.snapshot, "definition"))
-    if (!(await canReadFilterReferences(transaction, principal, definition.filter))) {
+    const rawScopeSpaceId = Reflect.get(row.snapshot, "scope_space_id")
+    const scopeSpaceId = typeof rawScopeSpaceId === "string" ? rawScopeSpaceId : null
+    const canReadScope =
+      scopeSpaceId === null ||
+      (await hasSpaceAuthority(transaction, principal, scopeSpaceId, "space.read"))
+    if (!canReadScope) Reflect.deleteProperty(snapshot, "scope_space_id")
+    if (
+      !canReadScope ||
+      !(await canReadFilterReferences(transaction, principal, definition.filter))
+    ) {
       Reflect.deleteProperty(snapshot, "definition")
     }
   }
