@@ -107,6 +107,26 @@ for (const spaceId of [undefined, "visible-space"] as const) {
       select id from workflow_states where workspace_id='w' and space_id='visible-space'
         and is_default`
     if (state === undefined) throw new TypeError("default workflow state missing")
+    const workStateId = await command("/spaces/visible-space/workflow/states", {
+      name: "Readable",
+      category: "started",
+      color: "blue",
+      position: 10,
+      isDefault: false,
+    })
+    await command("/work-items", {
+      spaceId: "visible-space",
+      title: "No Project",
+      accountableOwnerId: "owner",
+      description: "",
+      type: "Task",
+      workflowStateId: workStateId,
+      projectId: null,
+      priority: "none",
+      labelIds: [],
+      startDate: null,
+      dueDate: null,
+    })
     const exactReferences = {
       projectId,
       workflowStateId: state.id,
@@ -140,6 +160,27 @@ for (const spaceId of [undefined, "visible-space"] as const) {
       definition: definition(
         { op: "eq", field: "spaceId", value: "visible-space" },
         "portable-readable-search",
+      ),
+    })
+    await command("/saved-views", {
+      name: "portable-unbounded-view",
+      access: "workspace",
+      scopeSpaceId: null,
+      definition: definition(
+        { op: "range", field: "projectId", from: null, to: null },
+        "portable-unbounded-search",
+      ),
+    })
+    await command("/saved-views", {
+      name: "negated-unbounded-view",
+      access: "workspace",
+      scopeSpaceId: null,
+      definition: definition(
+        {
+          op: "not",
+          filter: { op: "range", field: "projectId", from: null, to: null },
+        },
+        "negated-unbounded-search",
       ),
     })
     await fixture.sql`update entity_acl_policies set mode='restricted' where entity_id in
@@ -177,8 +218,15 @@ for (const spaceId of [undefined, "visible-space"] as const) {
       assert.doesNotMatch(output, new RegExp(`hidden-view-${field}|secret-search-${field}`))
       assert.equal(output.includes(value), false)
     }
-    assert.match(output, /portable-lexical-view/)
-    assert.match(output, /portable-lexical-search/)
+    if (spaceId === undefined) {
+      assert.match(output, /portable-lexical-view/)
+      assert.match(output, /portable-lexical-search/)
+    } else {
+      assert.doesNotMatch(output, /portable-lexical-view|portable-lexical-search/)
+      assert.doesNotMatch(output, /negated-unbounded-view|negated-unbounded-search/)
+    }
+    assert.match(output, /portable-unbounded-view/)
+    assert.match(output, /portable-unbounded-search/)
     assert.match(output, /portable-readable-view/)
     assert.match(output, /portable-readable-search/)
     assert.doesNotMatch(output, /"kind":"project"/)
