@@ -34,9 +34,9 @@ export class EntityEventReader {
         where e.workspace_id=${workspaceId} and not entity_access_allowed(
           e.workspace_id,e.id,${this.#principal.principalId},case
             when e.kind='project' then 'project.read'
-            when e.kind in ('space','workflow','workflow_state') then 'space.read'
+            when e.kind in ('space','workflow','workflow_state','label') then 'space.read'
             when e.kind='saved_view' then 'view.read'
-            when e.kind in ('work_item','label','relation','thread','comment') then 'work.read'
+            when e.kind in ('work_item','relation','thread','comment') then 'work.read'
             else '__unsupported_read_permission__' end) limit 1`
       if (denied.length > 0) throw new PermissionDeniedError()
       const rows = await transaction`select id,workspace_id,sequence,event_type,subject_kind,
