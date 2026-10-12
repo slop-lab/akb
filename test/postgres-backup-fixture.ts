@@ -4,7 +4,13 @@ import { tmpdir } from "node:os"
 import { basename, join, resolve } from "node:path"
 import type { Sql } from "postgres"
 import { IdentityAdmin } from "../src/identity/admin.ts"
-import { PROFILE_004 } from "../src/operations/backup/profiles.ts"
+import {
+  type BackupProfile,
+  PROFILE_004,
+  PROFILE_008,
+  PROFILE_009,
+  PROFILE_010,
+} from "../src/operations/backup/profiles.ts"
 import { type ClaimedDelivery, OutboxRepository } from "../src/outbox/repository.ts"
 import { migrateDatabase } from "../src/postgres/migrate.ts"
 
@@ -139,9 +145,25 @@ async function populateBackupRows(
 }
 
 export async function migrateBackupSchema004(sql: Sql): Promise<void> {
+  await migrateBackupProfile(sql, PROFILE_004)
+}
+
+export async function migrateBackupSchema008(sql: Sql): Promise<void> {
+  await migrateBackupProfile(sql, PROFILE_008)
+}
+
+export async function migrateBackupSchema009(sql: Sql): Promise<void> {
+  await migrateBackupProfile(sql, PROFILE_009)
+}
+
+export async function migrateBackupSchema010(sql: Sql): Promise<void> {
+  await migrateBackupProfile(sql, PROFILE_010)
+}
+
+async function migrateBackupProfile(sql: Sql, profile: BackupProfile): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), "afw-schema-004-migrations-"))
   try {
-    for (const migration of PROFILE_004.migrations) {
+    for (const migration of profile.migrations) {
       await cp(
         resolve(process.cwd(), "migrations", migration.name),
         join(directory, basename(migration.name)),

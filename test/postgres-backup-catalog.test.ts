@@ -9,13 +9,20 @@ import { schemaFingerprint } from "../src/operations/backup/catalog.ts"
 import { createBackup } from "../src/operations/backup/create.ts"
 import { validateApplicationDatabase } from "../src/operations/backup/database.ts"
 import type { MigrationDigest } from "../src/operations/backup/manifest.ts"
-import { PROFILE_004, SCHEMA_008_FINGERPRINT } from "../src/operations/backup/profiles.ts"
+import {
+  PROFILE_004,
+  SCHEMA_008_FINGERPRINT,
+  SCHEMA_009_FINGERPRINT,
+  SCHEMA_010_FINGERPRINT,
+} from "../src/operations/backup/profiles.ts"
 import { EXPECTED_SCHEMA_FINGERPRINT } from "../src/operations/backup/schema-policy.ts"
 import { migrateDatabase } from "../src/postgres/migrate.ts"
 import {
   createOwnedDatabase,
   databaseUrl,
   migrateBackupSchema004,
+  migrateBackupSchema008,
+  migrateBackupSchema009,
   requiredEnvironment,
 } from "./postgres-backup-fixture.ts"
 
@@ -136,8 +143,8 @@ test("fresh schema-008 databases have one pin for bootstrap and ordinary owners"
   const loginOwned = await createOwnedCatalogDatabase()
   context.after(bootstrapOwned.close)
   context.after(loginOwned.close)
-  await migrateDatabase(bootstrapOwned.sql)
-  await migrateDatabase(loginOwned.sql)
+  await migrateBackupSchema008(bootstrapOwned.sql)
+  await migrateBackupSchema008(loginOwned.sql)
 
   // When
   const bootstrapFingerprint = await bootstrapOwned.sql.begin((transaction) =>
@@ -150,6 +157,34 @@ test("fresh schema-008 databases have one pin for bootstrap and ordinary owners"
   // Then
   assert.equal(bootstrapFingerprint, SCHEMA_008_FINGERPRINT)
   assert.equal(loginFingerprint, SCHEMA_008_FINGERPRINT)
+})
+
+test("schema-009 is data-only and retains the schema-008 fingerprint", async (context) => {
+  // Given
+  const database = await createCatalogDatabase()
+  context.after(database.close)
+  await migrateBackupSchema009(database.sql)
+
+  // When
+  const fingerprint = await database.sql.begin((transaction) => schemaFingerprint(transaction))
+
+  // Then
+  assert.equal(fingerprint, SCHEMA_009_FINGERPRINT)
+  assert.equal(SCHEMA_009_FINGERPRINT, SCHEMA_008_FINGERPRINT)
+})
+
+test("fresh schema-010 has a distinct pinned structural fingerprint", async (context) => {
+  // Given
+  const database = await createOwnedCatalogDatabase()
+  context.after(database.close)
+  await migrateDatabase(database.sql)
+
+  // When
+  const fingerprint = await database.sql.begin((transaction) => schemaFingerprint(transaction))
+
+  // Then
+  assert.equal(fingerprint, SCHEMA_010_FINGERPRINT)
+  assert.notEqual(SCHEMA_010_FINGERPRINT, SCHEMA_009_FINGERPRINT)
 })
 
 test("changing a public table away from the database owner fails schema validation", async (context) => {
