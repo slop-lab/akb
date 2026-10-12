@@ -41,8 +41,10 @@ function compileFilterNode(
         sql`${field(sql, node.field)} in ${sql([...node.values])}`
       )
     case "range":
-      return sql`(${node.from === null ? sql`true` : sql`${field(sql, node.field)} >= ${node.from}`}
-        and ${node.to === null ? sql`true` : sql`${field(sql, node.field)} <= ${node.to}`})`
+      return (
+        referenceRangeFilter(sql, node.field, node.from, node.to, principalId) ??
+        rangeFilter(sql, field(sql, node.field), node.from, node.to)
+      )
     case "is_null":
       return (
         referenceNullFilter(sql, node.field, node.value, principalId) ??
@@ -100,6 +102,33 @@ function referenceNullFilter(
     return isNull ? sql`not (${exists})` : exists
   }
   return undefined
+}
+
+function referenceRangeFilter(
+  sql: TransactionSql,
+  name: FilterField,
+  from: string | number | null,
+  to: string | number | null,
+  principalId: string,
+): Fragment | undefined {
+  const value = readableReference(sql, name, principalId)
+  if (value !== undefined) return rangeFilter(sql, value, from, to)
+  if (name === "labelId") {
+    return sql`exists(select 1 from work_item_labels wl where wl.work_item_id=e.id
+      and entity_access_allowed(e.workspace_id,wl.label_id,${principalId},'space.read')
+      and ${rangeFilter(sql, sql`wl.label_id`, from, to)})`
+  }
+  return undefined
+}
+
+function rangeFilter(
+  sql: TransactionSql,
+  value: Fragment,
+  from: string | number | null,
+  to: string | number | null,
+): Fragment {
+  return sql`(${from === null ? sql`true` : sql`${value} >= ${from}`}
+    and ${to === null ? sql`true` : sql`${value} <= ${to}`})`
 }
 
 function readableReference(

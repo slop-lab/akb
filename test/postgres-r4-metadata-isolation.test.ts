@@ -148,20 +148,36 @@ test("Project Space null filters ignore unreadable associations under negation",
   assert.equal(negatedNull.matched, 0)
 })
 
-test("HTTP rejects range operators for reference IDs", async () => {
-  const response = await request("/work-items/query", {
-    method: "POST",
-    body: JSON.stringify(
-      queryBody({
-        op: "range",
-        field: "projectId",
-        from: "a",
-        to: "z",
-      }),
-    ),
-  })
+test("reference ranges evaluate only readable metadata", async () => {
+  for (const [field, value] of [
+    ["spaceId", "public"],
+    ["projectId", "project"],
+    ["workflowStateId", stateId],
+    ["labelId", "label"],
+  ] as const) {
+    const page = await query({ op: "range", field, from: value, to: value })
+    assert.deepEqual(
+      page.items.map((item) => item.id),
+      ["work"],
+    )
+  }
+  await restrict("project")
+  await restrict("label")
+  const hiddenProject = { op: "range", field: "projectId", from: "a", to: "z" } as const
+  const [range, negated, labelRange] = await Promise.all([
+    query(hiddenProject),
+    query({ op: "not", filter: hiddenProject }),
+    query({ op: "range", field: "labelId", from: "a", to: "z" }),
+  ])
+  assert.deepEqual([range.completeness.matched, negated.completeness.matched], [0, 0])
+  assert.equal(labelRange.completeness.matched, 0)
+})
 
-  assert.equal(response.status, 400)
+test("Project Space ranges ignore unreadable associations", async () => {
+  const range = { op: "range", field: "spaceId", from: "a", to: "z" } as const
+  assert.equal((await queryProjects(range)).matched, 1)
+  await restrict(spaceEntityId)
+  assert.equal((await queryProjects(range)).matched, 0)
 })
 
 async function seedMetadataGraph(): Promise<void> {
@@ -180,6 +196,12 @@ async function seedMetadataGraph(): Promise<void> {
     (id,workspace_id,kind,current_revision,created_by,created_at,updated_at)
     values('project','metadata','project',1,'owner',now(),now())`
   await fixture.sql`insert into entity_acl_policies values('project','inherit')`
+  await fixture.sql`insert into entities
+    (id,workspace_id,kind,scope_space_id,current_revision,created_by,created_at,updated_at)
+    values('label','metadata','label','public',1,'owner',now(),now())`
+  await fixture.sql`insert into entity_acl_policies values('label','inherit')`
+  await fixture.sql`insert into labels(id,workspace_id,space_id,name,color,revision)
+    values('label','metadata','public','Label','blue',1)`
   await fixture.sql`insert into projects
     (id,workspace_id,name,slug,owner_id,state,health,priority,revision,created_at,updated_at)
     values('project','metadata','Project','project','owner','active','on_track','none',1,now(),now())`
@@ -193,6 +215,7 @@ async function seedMetadataGraph(): Promise<void> {
     (id,workspace_id,space_id,title,state,accountable_owner_id,revision,created_at,updated_at)
     values('work','metadata','public','Work','unstarted','owner',1,now(),now())`
   await fixture.sql`update work_item_pm set project_id='project' where work_item_id='work'`
+  await fixture.sql`insert into work_item_labels values('work','label')`
   await fixture.sql`insert into entities
     (id,workspace_id,kind,scope_space_id,current_revision,created_by,created_at,updated_at)
     select id,workspace_id,'work_item',space_id,revision,'owner',created_at,updated_at

@@ -38,6 +38,13 @@ export function compileProjectFilter(
       }
       return sql`${field(sql, node.field)} in ${sql([...node.values])}`
     case "range":
+      if (node.field === "spaceId") {
+        return sql`exists(select 1 from project_spaces ps where ps.project_id=p.id
+          and entity_access_allowed(ps.workspace_id,
+            stable_space_entity_id(ps.workspace_id,ps.space_id),${principalId},'space.read')
+          and (${node.from === null ? sql`true` : sql`ps.space_id >= ${node.from}`})
+          and (${node.to === null ? sql`true` : sql`ps.space_id <= ${node.to}`}))`
+      }
       return sql`(${node.from === null ? sql`true` : sql`${field(sql, node.field)} >= ${node.from}`}
         and ${node.to === null ? sql`true` : sql`${field(sql, node.field)} <= ${node.to}`})`
     case "is_null":
