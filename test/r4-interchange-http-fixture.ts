@@ -21,6 +21,7 @@ export async function createInterchangeHttpFixture() {
     principalName: "Owner",
     expiresAt: "2030-01-01T00:00:00.000Z",
   })
+  const signingKey = Buffer.alloc(32, 23)
   const server = createAuthenticatedPostgresServer(
     database.sql,
     {
@@ -31,7 +32,7 @@ export async function createInterchangeHttpFixture() {
     [
       createR4CommandRouter(database.sql),
       createR4ExportRouter(database.sql),
-      createR4ImportRouter(database.sql, Buffer.alloc(32, 23), createR4ImportDispatcher()),
+      createR4ImportRouter(database.sql, signingKey, createR4ImportDispatcher()),
     ],
   )
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
@@ -45,6 +46,8 @@ export async function createInterchangeHttpFixture() {
     })
   return {
     sql: database.sql,
+    ownerToken: issued.token,
+    signingKey,
     request,
     close: async () => {
       await close(server)

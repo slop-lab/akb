@@ -5,6 +5,7 @@ import { validateCompletion } from "./import-completion-validation.ts"
 import type { ValidatedBatch } from "./import-service.ts"
 import { ImportValidationError } from "./import-service.ts"
 import { validateWorkflowStates } from "./import-workflow-validation.ts"
+import { normalizeSavedViewDefinition } from "./saved-view-transfer.ts"
 
 export type ImportPreparation = {
   readonly warnings: readonly string[]
@@ -17,7 +18,7 @@ export async function prepareImport(
   batch: ValidatedBatch,
 ): Promise<ImportPreparation> {
   const records = batch.records.filter((record) => record.kind !== "manifest")
-  const byId = new Map(records.map((record) => [record.externalId, record]))
+  const byId = new Map(records.map((record) => [`${record.kind}:${record.externalId}`, record]))
   for (const record of records) validateRecord(record, byId, principal)
   validateCompletion(records)
   validateParents(records)
@@ -34,8 +35,11 @@ function validateRecord(
   principal: AuthenticatedPrincipal,
 ): void {
   const requireKind = (id: string, kinds: readonly string[]): void => {
-    const target = records.get(id)
-    if (target === undefined || !kinds.includes(target.kind))
+    const targets = kinds.flatMap((kind) => {
+      const target = records.get(`${kind}:${id}`)
+      return target === undefined ? [] : [target]
+    })
+    if (targets.length !== 1)
       throw new ImportValidationError("import reference is unknown or has the wrong kind")
   }
   switch (record.kind) {
@@ -83,6 +87,11 @@ function validateRecord(
         requireKind(record.scopeSpaceId, ["space"])
       for (const reference of filterReferences(record.definition.filter))
         requireKind(reference.id, reference.kinds)
+      if (
+        normalizeSavedViewDefinition(record.definition, [...records.values()]).kind ===
+        "budget_exceeded"
+      )
+        throw new ImportValidationError("saved view transfer budget exceeded")
   }
 }
 

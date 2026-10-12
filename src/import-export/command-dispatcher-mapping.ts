@@ -7,6 +7,7 @@ import type {
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import type { CommandCall } from "../pm/commands/types.ts"
 import { ImportValidationError } from "./import-service.ts"
+import { normalizeSavedViewDefinition } from "./saved-view-transfer.ts"
 import { nextStatePosition } from "./workflow-state-position.ts"
 
 export type ImportMappingContext = {
@@ -106,7 +107,10 @@ export function toImportCommand(
         parentId: resolve(context.entities, record.subjectId),
         payload: { body: record.body },
       }
-    case "saved_view":
+    case "saved_view": {
+      const normalized = normalizeSavedViewDefinition(record.definition, context.records)
+      if (normalized.kind !== "normalized")
+        throw new ImportValidationError("saved view definition is not portable")
       return {
         ...common,
         action: "saved-view.create",
@@ -118,9 +122,10 @@ export function toImportCommand(
             record.scopeSpaceId === null || record.scopeSpaceId === undefined
               ? null
               : resolve(context.spaces, record.scopeSpaceId),
-          definition: remapDefinition(record.definition, context.entities, context.spaces),
+          definition: remapDefinition(normalized.definition, context.entities, context.spaces),
         },
       }
+    }
   }
 }
 
