@@ -20,8 +20,12 @@ export async function restoreBackup(input: {
 }): Promise<{
   readonly activationAllowed: true
   readonly recoveryId: string
-  readonly sourceProfile: "r3-schema-004-public" | "r4-schema-008-public-v1"
-  readonly finalProfile: "r4-schema-008-public-v1"
+  readonly sourceProfile:
+    | "r3-schema-004-public"
+    | "r4-schema-008-public-v1"
+    | "r4-schema-009-public-v1"
+    | "r4-schema-010-public-v1"
+  readonly finalProfile: "r4-schema-010-public-v1"
 }> {
   const connection = toolConnection(input.databaseUrl)
   const recoveryId = randomUUID()
@@ -107,7 +111,7 @@ export async function restoreBackup(input: {
           activationAllowed: true,
           recoveryId,
           sourceProfile: recovery.sourceProfile.id,
-          finalProfile: "r4-schema-008-public-v1",
+          finalProfile: "r4-schema-010-public-v1",
         }
       } catch (error) {
         await writePrivateReport(reportFile, {

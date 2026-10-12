@@ -217,8 +217,8 @@ test("PostgreSQL 17 backup restores across ordinary database owners and quaranti
     pgRestorePath,
   })
   assert.equal(restored.activationAllowed, true)
-  assert.equal(restored.sourceProfile, "r4-schema-008-public-v1")
-  assert.equal(restored.finalProfile, "r4-schema-008-public-v1")
+  assert.equal(restored.sourceProfile, "r4-schema-010-public-v1")
+  assert.equal(restored.finalProfile, "r4-schema-010-public-v1")
   const quarantineCounts = await target<
     {
       readonly active: number
