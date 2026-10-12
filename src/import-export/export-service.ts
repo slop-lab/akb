@@ -31,6 +31,10 @@ export async function exportAuthorizedProject(
     }
     await requireRoot(transaction, principal, request)
     const records = await readRecords(transaction, principal, request)
+    const scoped = request.projectId !== undefined || request.spaceId !== undefined
+    const spaceEntityIds = scoped
+      ? await selectedSpaceEntityIds(transaction, principal.workspaceId, records)
+      : []
     const externalIds = new Set<string>()
     for (const record of records) {
       if (externalIds.has(record.externalId)) {
@@ -38,7 +42,6 @@ export async function exportAuthorizedProject(
       }
       externalIds.add(record.externalId)
     }
-    const scoped = request.projectId !== undefined || request.spaceId !== undefined
     const safeRecords: Exclude<ImportRecord, { readonly kind: "manifest" }>[] = []
     for (const record of records) {
       if (record.kind !== "saved_view") {
@@ -50,7 +53,7 @@ export async function exportAuthorizedProject(
       if (
         scoped &&
         record.scopeSpaceId === null &&
-        !isSavedViewRelevantToScope(record.definition, records)
+        !isSavedViewRelevantToScope(record.definition, records, spaceEntityIds)
       )
         continue
       const normalized = normalizeSavedViewDefinition(record.definition, records)
@@ -69,6 +72,18 @@ export async function exportAuthorizedProject(
     if (Buffer.byteLength(output) > MAX_BYTES) throw new ExportValidationError("budget_exceeded")
     return output
   })
+}
+
+async function selectedSpaceEntityIds(
+  transaction: TransactionSql,
+  workspaceId: string,
+  records: readonly Exclude<ImportRecord, { readonly kind: "manifest" }>[],
+): Promise<readonly string[]> {
+  const spaceIds = records.flatMap((record) => (record.kind === "space" ? [record.externalId] : []))
+  if (spaceIds.length === 0) return []
+  const rows = await transaction<{ readonly id: string }[]>`select stable_space_entity_id(
+    workspace_id,id) id from spaces where workspace_id=${workspaceId} and id in ${transaction(spaceIds)}`
+  return rows.map((row) => row.id)
 }
 
 async function requireRoot(
@@ -181,6 +196,7 @@ async function readRecords(
       union all select 70,c.id,jsonb_build_object('kind','comment','externalId',c.id,
         'subjectId',t.subject_entity_id,'authorId',c.author_id,'body',c.body,'archivedAt',c.archived_at)
       from comments c join threads t on t.id=c.thread_id join authorized a on a.id=c.id
+        join authorized thread_access on thread_access.id=t.id
       where exists(select 1 from selected_entities x where x.id=t.subject_entity_id)
         and exists(select 1 from authorized subject where subject.id=t.subject_entity_id)
         and (${request.includeArchived} or c.archived_at is null)

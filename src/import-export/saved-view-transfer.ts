@@ -18,20 +18,22 @@ export type NormalizedSavedView =
 export function isSavedViewRelevantToScope(
   definition: HumanWorkQuery,
   records: readonly ImportRecord[],
+  spaceEntityIds: readonly string[],
 ): boolean {
   const graph = referenceGraph(records)
-  const visit = (node: FilterNode): boolean => {
+  const relationEntityIds = new Set(spaceEntityIds)
+  for (const reference of graph.values()) {
+    if (reference.kind !== "space") relationEntityIds.add(reference.id)
+  }
+  const visit = (node: FilterNode, negated = false): boolean => {
     switch (node.op) {
       case "and":
       case "or":
-        return node.filters.some(visit)
+        return node.filters.some((filter) => visit(filter, negated))
       case "not":
-        return visit(node.filter)
+        return visit(node.filter, !negated)
       case "relation":
-        return (
-          graph.has(referenceKey("project", node.entityId)) ||
-          graph.has(referenceKey("work_item", node.entityId))
-        )
+        return relationEntityIds.has(node.entityId)
       case "eq":
       case "in": {
         const kind = referenceKind(node.field)
@@ -44,6 +46,9 @@ export function isSavedViewRelevantToScope(
       case "range": {
         const kind = referenceKind(node.field)
         if (kind === undefined) return false
+        if (kind === "project" && node.from === null && node.to === null) {
+          return !negated && records.some((record) => record.kind === "work_item")
+        }
         const candidates = [...graph.values()].filter((reference) => reference.kind === kind)
         return candidates.some(
           (reference) =>

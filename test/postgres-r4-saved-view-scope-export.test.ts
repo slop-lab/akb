@@ -12,6 +12,8 @@ type SpaceSetup = {
   readonly visibility: "public" | "private"
 }
 
+type RelationEndpointKind = "label" | "workflow_state" | "space"
+
 let fixture: Awaited<ReturnType<typeof createInterchangeHttpFixture>>
 
 beforeEach(async () => {
@@ -71,15 +73,7 @@ test("scoped export rejects a relevant Saved View with an outside Project refere
 
   const response = await exportProject(inside)
 
-  assert.equal(response.status, 400)
-  assert.deepEqual(await response.json(), {
-    error: {
-      code: "nonportable_graph",
-      message: "nonportable_graph",
-      retryable: false,
-      details: {},
-    },
-  })
+  await assertNonportable(response)
 })
 
 test("workspace export retains a global Saved View and its referenced Project", async () => {
@@ -132,6 +126,75 @@ test("scoped export omits an unreadable Space reference that aliases the selecte
   assert.equal(response.status, 200, output)
   assert.doesNotMatch(output, /unreadable-alias-view/)
 })
+
+for (const kind of ["label", "workflow_state", "space"] as const) {
+  test(`scoped export rejects a relation to an in-scope ${kind}`, async () => {
+    const endpoints = await createRelationEndpoints(kind)
+    await createView(`inside-${kind}-relation`, null, {
+      op: "relation",
+      relationType: "supports",
+      entityId: endpoints.inside,
+    })
+
+    const response = await exportProject(endpoints.projectId)
+
+    await assertNonportable(response)
+  })
+
+  test(`scoped export omits a relation to an outside ${kind}`, async () => {
+    const endpoints = await createRelationEndpoints(kind)
+    await createView(`outside-${kind}-relation`, null, {
+      op: "relation",
+      relationType: "supports",
+      entityId: endpoints.outside,
+    })
+
+    const response = await exportProject(endpoints.projectId)
+    const output = await response.text()
+
+    assert.equal(response.status, 200, output)
+    assert.doesNotMatch(output, new RegExp(`outside-${kind}-relation`))
+  })
+}
+
+async function createRelationEndpoints(kind: RelationEndpointKind) {
+  const projectId = await createProject("inside", "inside-project")
+  const outsideSpaceId = kind === "space" ? projectId : "outside"
+  await createSpace({ id: outsideSpaceId, key: "OUT", name: "outside", visibility: "public" })
+  if (kind === "label") {
+    return {
+      projectId,
+      inside: await command("/spaces/inside/labels", { name: "Inside", color: "blue" }),
+      outside: await command(`/spaces/${outsideSpaceId}/labels`, { name: "Outside", color: "red" }),
+    }
+  }
+  if (kind === "workflow_state") {
+    const states = await fixture.sql<{ readonly id: string; readonly space_id: string }[]>`
+      select id,space_id from workflow_states where workspace_id='w' and is_default
+        and space_id in ('inside',${outsideSpaceId})`
+    const inside = states.find((state) => state.space_id === "inside")
+    const outside = states.find((state) => state.space_id === outsideSpaceId)
+    if (inside === undefined || outside === undefined) throw new TypeError("default state missing")
+    return { projectId, inside: inside.id, outside: outside.id }
+  }
+  const [spaces] = await fixture.sql<
+    [{ readonly inside: string; readonly outside: string }]
+  >`select stable_space_entity_id('w','inside') inside,
+      stable_space_entity_id('w',${outsideSpaceId}) outside`
+  return { projectId, inside: spaces.inside, outside: spaces.outside }
+}
+
+async function assertNonportable(response: Response): Promise<void> {
+  assert.equal(response.status, 400)
+  assert.deepEqual(await response.json(), {
+    error: {
+      code: "nonportable_graph",
+      message: "nonportable_graph",
+      retryable: false,
+      details: {},
+    },
+  })
+}
 
 async function createProject(spaceId: string, slug: string): Promise<string> {
   await createSpace({
