@@ -12,16 +12,9 @@ import { type CursorBinding, decodeCursor, encodeCursor, InvalidCursorError } fr
 import { compileWorkFilter, compileWorkOrder } from "./filter-sql.ts"
 import { frozenWorkCard, parseFrozenWorkRow } from "./frozen-work.ts"
 import { readFrozenWorkItem, readFrozenWorkPage } from "./frozen-work-query.ts"
+import { SnapshotConflictError, validateStoredSnapshot } from "./snapshot-validation.ts"
 
-export class SnapshotConflictError extends Error {
-  override readonly name = "SnapshotConflictError"
-  readonly code: "snapshot_stale" | "snapshot_expired"
-
-  constructor(code: "snapshot_stale" | "snapshot_expired") {
-    super(code)
-    this.code = code
-  }
-}
+export { SnapshotConflictError }
 
 export class QueryBudgetExceededError extends Error {
   override readonly name = "QueryBudgetExceededError"
@@ -62,6 +55,7 @@ export class HumanQueryService {
               query.page.size,
               authorityEpoch,
             )
+      if (query.page.cursor !== null) await validateStoredSnapshot(transaction, binding)
       const rows = await readFrozenWorkPage(transaction, principal, binding, query.page.size)
       if (rows.length === 0) return emptyPage(binding)
       const parsed = rows.map(parseFrozenWorkRow)
@@ -186,8 +180,6 @@ function validateContinuation(
   authorityEpoch: number,
 ): CursorBinding {
   const binding = decodeCursor(cursor, signingKey)
-  if (Date.parse(binding.expiresAt) <= Date.now())
-    throw new SnapshotConflictError("snapshot_expired")
   if (
     binding.principalId !== principal.principalId ||
     binding.credentialId !== principal.credentialId ||
