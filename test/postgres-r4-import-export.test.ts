@@ -201,10 +201,7 @@ test("authorized project export and import preserve the complete R4 graph throug
     assert.equal(roundTrip?.mappings, 14)
     assert.equal(roundTrip?.events, 6)
     const definition = z.record(z.string(), z.unknown()).parse(roundTrip?.definition)
-    assert.notEqual(
-      JSON.stringify(definition),
-      JSON.stringify(pick(exportedRecords, "saved_view")["definition"]),
-    )
+    assert.deepEqual(definition, pick(exportedRecords, "saved_view")["definition"])
     const changed = exportedBytes.replace("Full summary", "Changed summary")
     const conflict = await importRequest(base, issued.token, "commit", changed, replayToken)
     assert.equal(conflict.response.status, 409)

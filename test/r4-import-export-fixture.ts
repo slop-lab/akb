@@ -6,8 +6,8 @@ export function completeGraph(importId: string): readonly Readonly<Record<string
     filter: {
       op: "and",
       filters: [
-        { op: "eq", field: "projectId", value: "project" },
-        { op: "eq", field: "labelId", value: "label" },
+        { op: "range", field: "projectId", from: null, to: "zzzz" },
+        { op: "range", field: "labelId", from: null, to: "zzzz" },
       ],
     },
     search: null,

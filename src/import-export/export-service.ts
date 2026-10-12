@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto"
 import type { Sql, TransactionSql } from "postgres"
-import { type ExportRequest, type ImportRecord, ImportRecordSchema } from "../contracts/r4/index.ts"
+import {
+  type ExportRequest,
+  type FilterNode,
+  type ImportRecord,
+  ImportRecordSchema,
+} from "../contracts/r4/index.ts"
 import { lockAuthenticatedPrincipal } from "../identity/authenticate.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import { normalizeExportRecord } from "./export-record-normalizer.ts"
@@ -36,7 +41,11 @@ export async function exportAuthorizedProject(
     const safeRecords = records.filter((record) => {
       if (record.kind !== "saved_view") return true
       const references = viewReferences(record.definition)
-      return (!scoped || references.length > 0) && references.every((id) => selectedIds.has(id))
+      const rangeMatches = viewRangeMatches(record.definition.filter, records)
+      return (
+        (!scoped || references.length > 0 || rangeMatches) &&
+        references.every((id) => selectedIds.has(id))
+      )
     })
     const outputRecords: readonly ImportRecord[] = [
       { kind: "manifest", version: 1, importId: randomUUID(), workspaceId: principal.workspaceId },
@@ -96,6 +105,8 @@ async function readRecords(
             where sa.id=stable_space_entity_id(${principal.workspaceId},ps.space_id)))
     ), selected_work as materialized (
       select pm.work_item_id id,pm.space_id from work_item_pm pm join authorized a on a.id=pm.work_item_id
+      join authorized space_access on space_access.id=stable_space_entity_id(${principal.workspaceId},pm.space_id)
+      join authorized state_access on state_access.id=pm.workflow_state_id
       where (${request.projectId ?? null}::text is null or pm.project_id=${request.projectId ?? null})
         and (${request.spaceId ?? null}::text is null or pm.space_id=${request.spaceId ?? null})
         and (pm.project_id is null or exists(select 1 from selected_projects p where p.id=pm.project_id))
@@ -191,4 +202,32 @@ function viewReferences(
   }
   visit(definition.filter)
   return references
+}
+
+function viewRangeMatches(
+  node: FilterNode | null,
+  records: readonly Exclude<ImportRecord, { readonly kind: "manifest" }>[],
+): boolean {
+  if (node === null) return false
+  if (node.op === "and" || node.op === "or")
+    return node.filters.some((child) => viewRangeMatches(child, records))
+  if (node.op === "not") return viewRangeMatches(node.filter, records)
+  if (node.op !== "range") return false
+  const kind =
+    node.field === "spaceId"
+      ? "space"
+      : node.field === "projectId"
+        ? "project"
+        : node.field === "workflowStateId"
+          ? "workflow_state"
+          : node.field === "labelId"
+            ? "label"
+            : undefined
+  if (kind === undefined) return false
+  return records.some(
+    (record) =>
+      record.kind === kind &&
+      (node.from === null || record.externalId >= node.from) &&
+      (node.to === null || record.externalId <= node.to),
+  )
 }
