@@ -28,7 +28,9 @@ export function createR4ExportRouter(sql: Sql): AuthenticatedRoute {
       response.end(output)
     } catch (error) {
       if (error instanceof ExportValidationError) {
-        writeError(response, error.code === "not_found" ? 404 : 413, error.code)
+        const status =
+          error.code === "not_found" ? 404 : error.code === "budget_exceeded" ? 413 : 400
+        writeError(response, status, error.code)
       } else if (
         error instanceof z.ZodError ||
         error instanceof SyntaxError ||

@@ -1,23 +1,19 @@
 import { randomUUID } from "node:crypto"
 import type { Sql, TransactionSql } from "postgres"
-import {
-  type ExportRequest,
-  type FilterNode,
-  type ImportRecord,
-  ImportRecordSchema,
-} from "../contracts/r4/index.ts"
+import { type ExportRequest, type ImportRecord, ImportRecordSchema } from "../contracts/r4/index.ts"
 import { lockAuthenticatedPrincipal } from "../identity/authenticate.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import { normalizeExportRecord } from "./export-record-normalizer.ts"
+import { normalizeSavedViewDefinition } from "./saved-view-transfer.ts"
 
 const MAX_RECORDS = 100_000
 const MAX_BYTES = 100 * 1024 * 1024
 
 export class ExportValidationError extends Error {
   override readonly name = "ExportValidationError"
-  readonly code: "not_found" | "budget_exceeded"
+  readonly code: "not_found" | "budget_exceeded" | "nonportable_graph"
 
-  constructor(code: "not_found" | "budget_exceeded") {
+  constructor(code: "not_found" | "budget_exceeded" | "nonportable_graph") {
     super(code)
     this.code = code
   }
@@ -34,19 +30,28 @@ export async function exportAuthorizedProject(
     }
     await requireRoot(transaction, principal, request)
     const records = await readRecords(transaction, principal, request)
-    const selectedIds = new Set(
-      records.flatMap((record) => ("externalId" in record ? [record.externalId] : [])),
-    )
+    const externalIds = new Set<string>()
+    for (const record of records) {
+      if (externalIds.has(record.externalId)) {
+        throw new ExportValidationError("nonportable_graph")
+      }
+      externalIds.add(record.externalId)
+    }
     const scoped = request.projectId !== undefined || request.spaceId !== undefined
-    const safeRecords = records.filter((record) => {
-      if (record.kind !== "saved_view") return true
-      const references = viewReferences(record.definition)
-      const rangeMatches = viewRangeMatches(record.definition.filter, records)
-      return (
-        (!scoped || references.length > 0 || rangeMatches) &&
-        references.every((id) => selectedIds.has(id))
-      )
-    })
+    const safeRecords: Exclude<ImportRecord, { readonly kind: "manifest" }>[] = []
+    for (const record of records) {
+      if (record.kind !== "saved_view") {
+        safeRecords.push(record)
+        continue
+      }
+      const normalized = normalizeSavedViewDefinition(record.definition, records)
+      if (normalized.kind === "budget_exceeded") throw new ExportValidationError("budget_exceeded")
+      if (normalized.kind === "unresolved_reference") {
+        throw new ExportValidationError("nonportable_graph")
+      }
+      if (scoped && normalized.references.length === 0 && !normalized.matchedRange) continue
+      safeRecords.push({ ...record, definition: normalized.definition })
+    }
     const outputRecords: readonly ImportRecord[] = [
       { kind: "manifest", version: 1, importId: randomUUID(), workspaceId: principal.workspaceId },
       ...safeRecords,
@@ -182,59 +187,4 @@ async function readRecords(
     if (parsed.kind === "manifest") throw new TypeError("export query returned a manifest")
     return parsed
   })
-}
-
-function viewReferences(
-  definition: Extract<ImportRecord, { readonly kind: "saved_view" }>["definition"],
-): readonly string[] {
-  const references: string[] = []
-  const visit = (node: typeof definition.filter): void => {
-    if (node === null) return
-    if (node.op === "and" || node.op === "or") {
-      node.filters.forEach(visit)
-      return
-    }
-    if (node.op === "not") {
-      visit(node.filter)
-      return
-    }
-    if (node.op === "relation") references.push(node.entityId)
-    if (
-      (node.op === "eq" || node.op === "in") &&
-      ["spaceId", "projectId", "workflowStateId", "labelId"].includes(node.field)
-    ) {
-      const values = node.op === "eq" ? [node.value] : node.values
-      for (const value of values) if (typeof value === "string") references.push(value)
-    }
-  }
-  visit(definition.filter)
-  return references
-}
-
-function viewRangeMatches(
-  node: FilterNode | null,
-  records: readonly Exclude<ImportRecord, { readonly kind: "manifest" }>[],
-): boolean {
-  if (node === null) return false
-  if (node.op === "and" || node.op === "or")
-    return node.filters.some((child) => viewRangeMatches(child, records))
-  if (node.op === "not") return viewRangeMatches(node.filter, records)
-  if (node.op !== "range") return false
-  const kind =
-    node.field === "spaceId"
-      ? "space"
-      : node.field === "projectId"
-        ? "project"
-        : node.field === "workflowStateId"
-          ? "workflow_state"
-          : node.field === "labelId"
-            ? "label"
-            : undefined
-  if (kind === undefined) return false
-  return records.some(
-    (record) =>
-      record.kind === kind &&
-      (node.from === null || record.externalId >= node.from) &&
-      (node.to === null || record.externalId <= node.to),
-  )
 }
