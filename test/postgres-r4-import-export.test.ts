@@ -2,9 +2,12 @@ import assert from "node:assert/strict"
 import type { AddressInfo } from "node:net"
 import { afterEach, beforeEach, test } from "node:test"
 import { z } from "zod"
+import { HumanWorkQuerySchema } from "../src/contracts/r4/query.ts"
 import { createR4ExportRouter } from "../src/http/human-v1/export-router.ts"
 import { createR4ImportRouter } from "../src/http/human-v1/import-router.ts"
+import { HumanQueryService } from "../src/human-query/service.ts"
 import { IdentityAdmin } from "../src/identity/admin.ts"
+import { authenticateToken } from "../src/identity/authenticate.ts"
 import { createR4ImportDispatcher } from "../src/import-export/command-dispatcher.ts"
 import { createAuthenticatedPostgresServer } from "../src/postgres/authenticated-server.ts"
 import { migrateDatabase } from "../src/postgres/migrate.ts"
@@ -139,6 +142,7 @@ test("authorized project export and import preserve the complete R4 graph throug
       description: "Secret roadmap",
       icon: "rocket",
       leadId: "owner",
+      workflowStateScope: "all",
     })
     assert.deepEqual(pick(exportedRecords, "project"), {
       kind: "project",
@@ -157,6 +161,27 @@ test("authorized project export and import preserve the complete R4 graph throug
       completedAt: null,
       archivedAt: null,
     })
+    const exportedDefinition = HumanWorkQuerySchema.parse(
+      pick(exportedRecords, "saved_view")["definition"],
+    )
+    assert.equal(exportedDefinition.filter?.op, "and")
+    if (exportedDefinition.filter?.op !== "and") throw new TypeError("and filter missing")
+    assert.deepEqual(
+      exportedDefinition.filter.filters.map((filter) => filter.op),
+      ["in", "in", "in"],
+    )
+    assert.deepEqual(exportedDefinition.filter.filters[0], {
+      op: "in",
+      field: "spaceId",
+      values: ["space"],
+    })
+    const owner = await authenticateToken(fixture.sql, issued.token)
+    if (owner === undefined) throw new TypeError("owner principal missing")
+    const sourcePage = await new HumanQueryService(fixture.sql, signingKey).queryWorkItems(
+      owner,
+      "w",
+      exportedDefinition,
+    )
     const exportedManifest = exportedRecords[0]
     if (exportedManifest === undefined) throw new TypeError("manifest missing")
     const replayValidation = await importRequest(base, issued.token, "validate", exportedBytes)
@@ -200,8 +225,27 @@ test("authorized project export and import preserve the complete R4 graph throug
     })
     assert.equal(roundTrip?.mappings, 14)
     assert.equal(roundTrip?.events, 6)
-    const definition = z.record(z.string(), z.unknown()).parse(roundTrip?.definition)
-    assert.deepEqual(definition, pick(exportedRecords, "saved_view")["definition"])
+    const definition = HumanWorkQuerySchema.parse(roundTrip?.definition)
+    assert.equal(definition.filter?.op, "and")
+    if (definition.filter?.op !== "and") throw new TypeError("round-trip and filter missing")
+    const expectedIds = await Promise.all([
+      mappedSpace(roundTripImportId),
+      mappedEntity(roundTripImportId, "project"),
+      mappedEntity(roundTripImportId, "label"),
+    ])
+    assert.deepEqual(
+      definition.filter.filters.map((filter) => (filter.op === "in" ? filter.values : [])),
+      expectedIds.map((id) => [id]),
+    )
+    const destinationPage = await new HumanQueryService(fixture.sql, signingKey).queryWorkItems(
+      owner,
+      "w",
+      definition,
+    )
+    assert.deepEqual(
+      destinationPage.items.map((item) => item.title).sort(),
+      sourcePage.items.map((item) => item.title).sort(),
+    )
     const changed = exportedBytes.replace("Full summary", "Changed summary")
     const conflict = await importRequest(base, issued.token, "commit", changed, replayToken)
     assert.equal(conflict.response.status, 409)
@@ -219,5 +263,14 @@ test("authorized project export and import preserve the complete R4 graph throug
       where import_id=${importId} and record_kind=${kind} order by external_id limit 1`
     if (row === undefined) throw new TypeError(`${kind} mapping missing`)
     return row.entity_id
+  }
+
+  async function mappedSpace(importId: string): Promise<string> {
+    const [row] = await fixture.sql<{ readonly id: string }[]>`select s.id from import_record_ids i
+      join entities e on e.id=i.entity_id join spaces s on s.workspace_id=e.workspace_id
+        and stable_space_entity_id(s.workspace_id,s.id)=e.id
+      where i.import_id=${importId} and i.record_kind='space' order by i.external_id limit 1`
+    if (row === undefined) throw new TypeError("space mapping missing")
+    return row.id
   }
 })
