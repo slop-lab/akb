@@ -9,6 +9,7 @@ import {
 import { CommandInvariantError, EntityNotFoundError } from "../../entities/errors.ts"
 import type { EntityMutationEngine } from "../../entities/mutation-engine.ts"
 import type { JsonObject, MutationRecord, MutationResult } from "../../entities/mutation-types.ts"
+import { hasCurrentSavedViewSpaceAuthority } from "../../entities/saved-view-scope.ts"
 import { entityAccessRecord, requireAccessEntityKind } from "./entity-access-record.ts"
 import { insertEntity, newEntityId, requireActiveHuman, requireSpaceAccess } from "./helpers.ts"
 import type { CommandCall } from "./types.ts"
@@ -88,6 +89,7 @@ export class ViewAccessCommandService {
     return this.engine.mutate(
       mutationInput(call, "view.manage", entityId),
       async (transaction, revision) => {
+        await requireCurrentViewSpaceAuthority(transaction, call, entityId, "view.manage")
         await requirePrivateOwner(transaction, call, entityId)
         const currentRows = await transaction`select access,scope_space_id from saved_views
           where id=${entityId}`
@@ -130,6 +132,7 @@ export class ViewAccessCommandService {
     return this.engine.mutate(
       mutationInput(call, "view.manage", entityId),
       async (transaction, revision) => {
+        await requireCurrentViewSpaceAuthority(transaction, call, entityId, "view.manage")
         await requirePrivateOwner(transaction, call, entityId)
         await transaction`update saved_views set archived_at=${call.restoredAt === undefined ? transaction`clock_timestamp()` : transaction`${call.restoredAt}::timestamptz`},revision=${revision}
           where id=${entityId}`
@@ -150,6 +153,9 @@ export class ViewAccessCommandService {
       mutationInput(call, "acl.manage", entityId),
       async (transaction, revision) => {
         const kind = await requireAccessEntityKind(transaction, entityId)
+        if (kind === "saved_view") {
+          await requireCurrentViewSpaceAuthority(transaction, call, entityId, "acl.manage")
+        }
         await transaction`update entity_acl_policies set mode=${payload.mode} where entity_id=${entityId}`
         await transaction`delete from entity_acl_allowances where entity_id=${entityId}`
         for (const allowance of payload.allowances) {
@@ -202,6 +208,19 @@ async function requirePrivateOwner(
   const rows = await transaction`select 1 from saved_views where id=${entityId}
     and (access <> 'private' or owner_id=${call.principal.principalId})`
   if (rows.length !== 1) throw new EntityNotFoundError(entityId)
+}
+
+async function requireCurrentViewSpaceAuthority(
+  transaction: TransactionSql,
+  call: CommandCall,
+  entityId: string,
+  permission: "view.manage" | "acl.manage",
+): Promise<void> {
+  if (
+    !(await hasCurrentSavedViewSpaceAuthority(transaction, call.principal, entityId, permission))
+  ) {
+    throw new EntityNotFoundError(entityId)
+  }
 }
 
 async function viewSnapshot(transaction: TransactionSql, id: string) {

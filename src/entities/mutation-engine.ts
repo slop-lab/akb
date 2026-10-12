@@ -10,6 +10,7 @@ import {
 } from "./errors.ts"
 import type { MutationCallback, MutationInput, MutationResult } from "./mutation-types.ts"
 import { entityReadPermission } from "./read-permission.ts"
+import { hasCurrentSavedViewSpaceAuthority } from "./saved-view-scope.ts"
 
 const CurrentEntitySchema = z.strictObject({ current_revision: z.coerce.number().int().positive() })
 const ReplaySchema = z.strictObject({
@@ -110,6 +111,17 @@ export class EntityMutationEngine {
     const access = await transaction`select 1 where entity_access_allowed(${input.workspaceId},
       ${replay.subject_id}, ${input.principal.principalId}, ${readPermission})`
     if (access.length !== 1) throw new EntityNotFoundError(replay.subject_id)
+    if (
+      replay.kind === "saved_view" &&
+      !(await hasCurrentSavedViewSpaceAuthority(
+        transaction,
+        input.principal,
+        replay.subject_id,
+        input.permission,
+      ))
+    ) {
+      throw new EntityNotFoundError(replay.subject_id)
+    }
     if (replay.fingerprint !== fingerprint) {
       throw new CommandIdempotencyConflictError(input.idempotencyKey)
     }
@@ -144,9 +156,11 @@ export class EntityMutationEngine {
     occurredAt: string,
   ): Promise<void> {
     if (input.targetEntityId !== null) {
+      const archived =
+        record.eventType === "entity.archived" || record.eventType === "relation.archived"
       await transaction`update entities set current_revision = ${record.revision},
-        lifecycle = ${record.eventType === "entity.archived" ? "archived" : record.eventType === "entity.restored" ? "active" : transaction`lifecycle`},
-        archived_at = ${record.eventType === "entity.archived" ? occurredAt : record.eventType === "entity.restored" ? null : transaction`archived_at`},
+        lifecycle = ${archived ? "archived" : record.eventType === "entity.restored" ? "active" : transaction`lifecycle`},
+        archived_at = ${archived ? occurredAt : record.eventType === "entity.restored" ? null : transaction`archived_at`},
         updated_at = ${occurredAt} where id = ${record.entityId}`
     }
     await transaction`insert into entity_revisions
