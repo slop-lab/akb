@@ -1,5 +1,10 @@
 import type { TableResource } from "./resources.ts"
-import { SCHEMA_004_TABLES, SCHEMA_008_TABLES } from "./resources.ts"
+import {
+  SCHEMA_004_TABLES,
+  SCHEMA_008_TABLES,
+  SCHEMA_009_TABLES,
+  SCHEMA_010_TABLES,
+} from "./resources.ts"
 
 export const SCHEMA_004_MIGRATIONS = [
   {
@@ -40,14 +45,41 @@ export const SCHEMA_008_MIGRATIONS = [
   },
 ] as const
 
+export const SCHEMA_009_MIGRATIONS = [
+  ...SCHEMA_008_MIGRATIONS,
+  {
+    name: "009_legacy_workflow_revision_history.sql",
+    checksum: "fb962024d4c2045cbb72dfaccf6bed4a3ff95383800a8303b4c8427b8060fbd4",
+  },
+] as const
+
+export const SCHEMA_010_MIGRATIONS = [
+  ...SCHEMA_009_MIGRATIONS,
+  {
+    name: "010_legacy_work_query_projection.sql",
+    checksum: "88c1308455b0b790aed2a07d8294f72701c73857faccda3a3ea62f4bc6b21a04",
+  },
+] as const
+
 export const SCHEMA_004_FINGERPRINT =
   "9779ac0afb4287e3453a658daca57f10ebb3cd7e37d9bb77521526a08e1192eb"
 export const SCHEMA_008_FINGERPRINT =
   "9ee67a3a89d8cf7f47c93ab0136b0c93f00bc605e40f539d7afa5d4bd0ee6242"
+export const SCHEMA_009_FINGERPRINT = SCHEMA_008_FINGERPRINT
+export const SCHEMA_010_FINGERPRINT =
+  "1002d3c51bc4984a8cd4fbc9aadb56e3a7241adcb4f6149a5bd2615cb05eddac"
 
 export type BackupProfile = {
-  readonly id: "r3-schema-004-public" | "r4-schema-008-public-v1"
-  readonly finalMigration: "004_space_acl.sql" | "008_human_query_import_retention.sql"
+  readonly id:
+    | "r3-schema-004-public"
+    | "r4-schema-008-public-v1"
+    | "r4-schema-009-public-v1"
+    | "r4-schema-010-public-v1"
+  readonly finalMigration:
+    | "004_space_acl.sql"
+    | "008_human_query_import_retention.sql"
+    | "009_legacy_workflow_revision_history.sql"
+    | "010_legacy_work_query_projection.sql"
   readonly migrations: readonly { readonly name: string; readonly checksum: string }[]
   readonly tables: readonly TableResource[]
   readonly schemaFingerprint: string
@@ -69,14 +101,41 @@ export const PROFILE_008: BackupProfile = Object.freeze({
   schemaFingerprint: SCHEMA_008_FINGERPRINT,
 })
 
+export const PROFILE_009: BackupProfile = Object.freeze({
+  id: "r4-schema-009-public-v1",
+  finalMigration: "009_legacy_workflow_revision_history.sql",
+  migrations: SCHEMA_009_MIGRATIONS,
+  tables: SCHEMA_009_TABLES,
+  schemaFingerprint: SCHEMA_009_FINGERPRINT,
+})
+
+export const PROFILE_010: BackupProfile = Object.freeze({
+  id: "r4-schema-010-public-v1",
+  finalMigration: "010_legacy_work_query_projection.sql",
+  migrations: SCHEMA_010_MIGRATIONS,
+  tables: SCHEMA_010_TABLES,
+  schemaFingerprint: SCHEMA_010_FINGERPRINT,
+})
+
 export function profileFromLedger(
   ledger: readonly { readonly name: string; readonly checksum: string }[],
 ): BackupProfile {
   if (JSON.stringify(ledger) === JSON.stringify(PROFILE_004.migrations)) return PROFILE_004
   if (JSON.stringify(ledger) === JSON.stringify(PROFILE_008.migrations)) return PROFILE_008
+  if (JSON.stringify(ledger) === JSON.stringify(PROFILE_009.migrations)) return PROFILE_009
+  if (JSON.stringify(ledger) === JSON.stringify(PROFILE_010.migrations)) return PROFILE_010
   throw new TypeError("database migration ledger has no registered backup profile")
 }
 
 export function profileFromId(id: BackupProfile["id"]): BackupProfile {
-  return id === PROFILE_004.id ? PROFILE_004 : PROFILE_008
+  switch (id) {
+    case "r3-schema-004-public":
+      return PROFILE_004
+    case "r4-schema-008-public-v1":
+      return PROFILE_008
+    case "r4-schema-009-public-v1":
+      return PROFILE_009
+    case "r4-schema-010-public-v1":
+      return PROFILE_010
+  }
 }

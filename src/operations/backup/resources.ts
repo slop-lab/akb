@@ -192,3 +192,6 @@ export const SCHEMA_008_TABLES = [
   },
   { name: "retention_policies", order: [{ column: "resource", kind: "text" }] },
 ] as const satisfies readonly TableResource[]
+
+export const SCHEMA_009_TABLES = SCHEMA_008_TABLES
+export const SCHEMA_010_TABLES = SCHEMA_009_TABLES
