@@ -84,7 +84,8 @@ async function readRecords(
         and (${request.includeArchived} or e.lifecycle='active')
         and entity_access_allowed(e.workspace_id,e.id,${principal.principalId},case
           when e.kind='project' then 'project.read' when e.kind='saved_view' then 'view.read'
-          when e.kind in ('space','workflow','workflow_state') then 'space.read' else 'work.read' end)
+          when e.kind in ('space','workflow','workflow_state','label') then 'space.read'
+          else 'work.read' end)
     ), selected_projects as materialized (
       select p.id from projects p join authorized a on a.id=p.id
       where (${request.projectId ?? null}::text is null or p.id=${request.projectId ?? null})
