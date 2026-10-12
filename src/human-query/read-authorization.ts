@@ -1,5 +1,6 @@
 import type { TransactionSql } from "postgres"
 import { entityReadPermission } from "../entities/read-permission.ts"
+import { hasCurrentSavedViewSpaceAuthority } from "../entities/saved-view-scope.ts"
 import { lockAuthenticatedPrincipal } from "../identity/authenticate.ts"
 import { AuthenticationRequiredError } from "../identity/authorization-errors.ts"
 import type { AuthenticatedPrincipal, WorkPermission } from "../identity/types.ts"
@@ -51,6 +52,8 @@ export async function canReadEntity(
       ])
       return endpoints.every(Boolean)
     }
+    case "saved_view":
+      return hasCurrentSavedViewSpaceAuthority(transaction, principal, id, "space.read")
     default:
       return true
   }
