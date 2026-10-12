@@ -25,13 +25,41 @@ const FrozenWorkSchema = z.strictObject({
   archived_at: UtcDateTimeSchema.nullable(),
   labelIds: z.array(z.string()).readonly(),
 })
-const FrozenWorkRowSchema = z.strictObject({
+const LegacyWorkSchema = z.strictObject({
+  id: z.string(),
+  workspaceId: z.string(),
+  spaceId: z.string(),
+  title: z.string(),
+  state: z.string(),
+  accountableOwnerId: z.string(),
+  revision: z.coerce.number().int().positive(),
+  createdAt: UtcDateTimeSchema,
+  updatedAt: UtcDateTimeSchema,
+})
+const LegacyWorkPmProjectionSchema = z.strictObject({
+  _schema: z.literal("legacy-work-pm-query.v1"),
+  sequence: z.coerce.number().int().positive(),
+  workflow_state_id: z.string(),
+  project_id: z.string().nullable(),
+  description: z.string(),
+  item_type: z.string(),
+  priority: z.enum(["none", "low", "medium", "high", "urgent"]),
+  start_date: z.string().nullable(),
+  due_date: z.string().nullable(),
+  completed_at: UtcDateTimeSchema.nullable(),
+  archived_at: UtcDateTimeSchema.nullable(),
+  labelIds: z.array(z.string()).readonly(),
+})
+const SourceSchemaVersionSchema = z.enum(["work-item.r4.v1", "work-item.legacy.v1"])
+const FrozenWorkRawRowSchema = z.strictObject({
   snapshot_id: z.string().uuid(),
   expires_at: z.string(),
   matched: z.number().int(),
   ordinal: z.number().int(),
   source_revision: z.number().int().positive(),
+  source_schema_version: SourceSchemaVersionSchema,
   snapshot: z.record(z.string(), z.unknown()),
+  legacy_work_pm_projection: z.record(z.string(), z.unknown()).nullable(),
   space_name: z.string(),
   space_key: z.string(),
   state_name: z.string(),
@@ -44,14 +72,51 @@ const FrozenWorkRowSchema = z.strictObject({
   parent_id: z.string().nullable(),
   group_key: z.string().nullable(),
 })
-export type FrozenWorkRow = z.infer<typeof FrozenWorkRowSchema>
+export type FrozenWorkRow = Omit<z.infer<typeof FrozenWorkRawRowSchema>, "snapshot"> & {
+  readonly snapshot: z.infer<typeof FrozenWorkSchema>
+}
 
 export function parseFrozenWorkRow(value: unknown): FrozenWorkRow {
-  return FrozenWorkRowSchema.parse(value)
+  const row = FrozenWorkRawRowSchema.parse(value)
+  switch (row.source_schema_version) {
+    case "work-item.r4.v1":
+      z.null().parse(row.legacy_work_pm_projection)
+      return { ...row, snapshot: FrozenWorkSchema.parse(row.snapshot) }
+    case "work-item.legacy.v1": {
+      const work = LegacyWorkSchema.parse(row.snapshot)
+      const projection = LegacyWorkPmProjectionSchema.parse(row.legacy_work_pm_projection)
+      return {
+        ...row,
+        snapshot: FrozenWorkSchema.parse({
+          id: work.id,
+          work_item_id: work.id,
+          workspace_id: work.workspaceId,
+          space_id: work.spaceId,
+          title: work.title,
+          state: work.state,
+          accountable_owner_id: work.accountableOwnerId,
+          revision: work.revision,
+          created_at: work.createdAt,
+          updated_at: work.updatedAt,
+          sequence: projection.sequence,
+          workflow_state_id: projection.workflow_state_id,
+          project_id: projection.project_id,
+          description: projection.description,
+          item_type: projection.item_type,
+          priority: projection.priority,
+          start_date: projection.start_date,
+          due_date: projection.due_date,
+          completed_at: projection.completed_at,
+          archived_at: projection.archived_at,
+          labelIds: projection.labelIds,
+        }),
+      }
+    }
+  }
 }
 
 export function frozenWorkCard(row: FrozenWorkRow): WorkItemDetail {
-  const item = FrozenWorkSchema.parse(row.snapshot)
+  const item = row.snapshot
   return {
     id: item.id,
     workspaceId: item.workspace_id,
