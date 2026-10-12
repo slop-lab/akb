@@ -13,6 +13,7 @@ import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import { type CursorBinding, decodeCursor, encodeCursor } from "./cursor.ts"
 import { compileProjectFilter, compileProjectOrder } from "./project-filter-sql.ts"
 import { QueryBudgetExceededError, SnapshotConflictError } from "./service.ts"
+import { allocateQuerySnapshot } from "./snapshot-allocation.ts"
 import { validateStoredSnapshot } from "./snapshot-validation.ts"
 import { UtcDateTimeSchema } from "./utc-datetime.ts"
 
@@ -69,7 +70,9 @@ export class ProjectQueryService {
       const sortHash = digest(query.sort)
       const binding =
         query.page.cursor === null
-          ? await materialize(transaction, principal, query, queryHash, sortHash, epoch)
+          ? await allocateQuerySnapshot(transaction, workspaceId, () =>
+              materialize(transaction, principal, query, queryHash, sortHash, epoch),
+            )
           : continuation(
               query.page.cursor,
               this.signingKey,
@@ -122,9 +125,6 @@ async function materialize(
   sortHash: string,
   epoch: number,
 ): Promise<CursorBinding> {
-  await transaction`delete from human_query_snapshots where id in
-    (select id from human_query_snapshots where expires_at<=clock_timestamp()
-      order by expires_at limit 100)`
   const id = randomUUID()
   const expiresAt = new Date(Date.now() + 900_000).toISOString()
   const filter = compileProjectFilter(transaction, query.filter, principal.principalId)
