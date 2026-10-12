@@ -16,6 +16,7 @@ export type Continuation = {
 export type ContinuationFixture = {
   readonly fixture: SearchFixture
   readonly firstPages: () => Promise<Readonly<Record<Surface, Continuation>>>
+  readonly firstPage: (surface: Surface) => Promise<Response>
   readonly continuePage: (surface: Surface, cursor: string) => Promise<Response>
   readonly emptyPage: (surface: Surface) => Promise<Response>
   readonly release: (snapshotId: string) => Promise<Response>
@@ -100,6 +101,7 @@ export async function createContinuationFixture(): Promise<ContinuationFixture> 
       }
     },
     continuePage: (surface, cursor) => page(surface, cursor, "frozen"),
+    firstPage: (surface) => page(surface, null, "frozen"),
     emptyPage: (surface) => page(surface, null, "unmatched-token"),
     release: (snapshotId) =>
       request(`/api/human/v1/workspaces/search/query-snapshots/${snapshotId}`, {
