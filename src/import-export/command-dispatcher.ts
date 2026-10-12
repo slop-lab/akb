@@ -6,6 +6,7 @@ import { R4CommandService } from "../pm/commands/service.ts"
 import type { CommandCall } from "../pm/commands/types.ts"
 import { archiveCommand } from "./command-dispatcher-archive.ts"
 import { orderedImportRecords, toImportCommand } from "./command-dispatcher-mapping.ts"
+import { reconcileCreatedBootstrapStates } from "./command-dispatcher-states.ts"
 import {
   type ImportCommandDispatcher,
   ImportConflictError,
@@ -61,13 +62,55 @@ async function importCommands(
   const entities = new Map<string, string>()
   const spaces = new Map<string, string>()
   const archives: CommandCall[] = []
+  const createdSpaces = new Set<string>()
   await loadReusableSpaces(transaction, principal, batch.records, entities, spaces)
   const reuse = { principal, spaces, entities }
   const records = orderedImportRecords(batch.records)
   for (const record of records) {
-    if (record.kind === "manifest") continue
-    if (record.kind === "space" && spaces.has(record.externalId)) continue
-    if (record.kind === "workflow_state" && (await mapReusableState(transaction, record, reuse)))
+    if (record.kind !== "space" || spaces.has(record.externalId)) continue
+    const call = toImportCommand(record, {
+      principal,
+      importId: batch.importId,
+      entities,
+      spaces,
+      projectSlugs: preparation.projectSlugs,
+      records,
+    })
+    const result = await commands.execute(call)
+    const id = resultField(result.result, "id")
+    entities.set(record.externalId, resultField(result.result, "entityId"))
+    spaces.set(record.externalId, id)
+    createdSpaces.add(record.externalId)
+  }
+  const reconciled = await reconcileCreatedBootstrapStates(transaction, commands, {
+    principal,
+    importId: batch.importId,
+    records,
+    spaces,
+    createdSpaces,
+    entities,
+  })
+  for (const record of records) {
+    if (record.kind !== "workflow_state" || reconciled.reconciled.has(record.externalId)) continue
+    if (await mapReusableState(transaction, record, reuse)) continue
+    const call = toImportCommand(record, {
+      principal,
+      importId: batch.importId,
+      entities,
+      spaces,
+      projectSlugs: preparation.projectSlugs,
+      records,
+    })
+    const result = await commands.execute(call)
+    const id = resultField(result.result, "id")
+    entities.set(record.externalId, id)
+    const archive = archiveCommand(call, record, id, result.revision)
+    if (archive !== null) archives.push(archive)
+  }
+  for (const archive of [...reconciled.archives, ...archives]) await commands.execute(archive)
+  archives.length = 0
+  for (const record of records) {
+    if (record.kind === "manifest" || record.kind === "space" || record.kind === "workflow_state")
       continue
     if (record.kind === "label" && (await mapReusableLabel(transaction, record, reuse))) continue
     const call = toImportCommand(record, {
@@ -80,15 +123,9 @@ async function importCommands(
     })
     const result = await commands.execute(call)
     const id = resultField(result.result, "id")
-    if (record.kind === "space") {
-      entities.set(record.externalId, resultField(result.result, "entityId"))
-      spaces.set(record.externalId, id)
-    } else entities.set(record.externalId, id)
+    entities.set(record.externalId, id)
     const archive = archiveCommand(call, record, id, result.revision)
-    if (archive !== null) {
-      if (record.kind === "workflow_state") await commands.execute(archive)
-      else archives.push(archive)
-    }
+    if (archive !== null) archives.push(archive)
   }
   for (const archive of archives) await commands.execute(archive)
   await transaction`insert into import_batches

@@ -1,12 +1,19 @@
 import type { TransactionSql } from "postgres"
 import { z } from "zod"
-import { WorkflowStateCreatePayloadSchema } from "../../contracts/r4/command-payloads.ts"
+import {
+  WorkflowStateCreatePayloadSchema,
+  WorkflowStateUpdatePayloadSchema,
+} from "../../contracts/r4/command-payloads.ts"
 import { CommandInvariantError, EntityNotFoundError } from "../../entities/errors.ts"
 import type { CommandCall } from "./types.ts"
 
 const ImportWorkflowStateCreatePayloadSchema = WorkflowStateCreatePayloadSchema.extend({
+  id: z.string().min(1).max(200),
   active: z.boolean(),
   position: z.number().int().min(0).max(2_147_483_647),
+})
+const ImportWorkflowStateUpdatePayloadSchema = WorkflowStateUpdatePayloadSchema.extend({
+  position: z.number().int().min(0).max(2_147_483_647).optional(),
 })
 
 export function parseStateCreate(call: CommandCall) {
@@ -16,8 +23,15 @@ export function parseStateCreate(call: CommandCall) {
       : null
   return {
     active: imported?.active ?? true,
+    id: imported?.id ?? null,
     payload: imported ?? WorkflowStateCreatePayloadSchema.parse(call.payload),
   }
+}
+
+export function parseStateUpdate(call: CommandCall) {
+  return call.route === "import:workflow_state"
+    ? ImportWorkflowStateUpdatePayloadSchema.parse(call.payload)
+    : WorkflowStateUpdatePayloadSchema.parse(call.payload)
 }
 
 export async function requireStateScope(

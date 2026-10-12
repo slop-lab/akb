@@ -3,7 +3,6 @@ import {
   SpaceAccessPayloadSchema,
   SpaceCreatePayloadSchema,
   SpaceUpdatePayloadSchema,
-  WorkflowStateUpdatePayloadSchema,
   WorkflowUpdatePayloadSchema,
 } from "../../contracts/r4/command-payloads.ts"
 import { CommandInvariantError } from "../../entities/errors.ts"
@@ -20,6 +19,7 @@ import {
 import {
   mutationInput,
   parseStateCreate,
+  parseStateUpdate,
   required,
   requireStateScope,
 } from "./space-command-helpers.ts"
@@ -156,13 +156,17 @@ export class SpaceCommandService {
   }
 
   #createState(call: CommandCall): Promise<MutationResult> {
-    const { active, payload } = parseStateCreate(call)
+    const { active, id, payload } = parseStateCreate(call)
     const spaceId = required(call.parentId)
     const workflowId = stableEntityId("workflow", call.workspaceId, spaceId)
-    const entityId = newEntityId("state")
+    let entityId = id ?? newEntityId("state")
     return this.engine.mutate(
       mutationInput(call, "space.manage", null),
       async (transaction, revision) => {
+        if (id !== null) {
+          const collision = await transaction`select 1 from entities where id=${id}`
+          if (collision.length > 0) entityId = newEntityId("state")
+        }
         await requireSpaceAccess(transaction, {
           principal: call.principal,
           spaceId,
@@ -197,7 +201,7 @@ export class SpaceCommandService {
   }
 
   #updateState(call: CommandCall): Promise<MutationResult> {
-    const payload = WorkflowStateUpdatePayloadSchema.parse(call.payload)
+    const payload = parseStateUpdate(call)
     const entityId = required(call.resourceId)
     return this.engine.mutate(
       mutationInput(call, "space.manage", entityId),
