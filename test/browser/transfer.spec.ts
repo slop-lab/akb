@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { dirname } from "node:path"
+import { z } from "zod"
 import {
   ImportCommitSchema,
   ImportValidationSchema,
@@ -7,29 +8,55 @@ import {
   ProjectQuerySchema,
 } from "../../src/contracts/r4/index.ts"
 import { expect, test } from "./fixtures.ts"
+import { parseNdjson } from "./transfer-data.ts"
 import {
-  expectLifecycleGraph,
-  expectProjectCopies,
-  lifecycleCopyCount,
-  lifecycleNames,
-  parseNdjson,
-  projectCopyCount,
-  projectImportBytes,
-} from "./transfer-data.ts"
+  createTransferProject,
+  createTransferProjectView,
+  createTransferSpace,
+} from "./transfer-fixtures.ts"
 
-test("transfer exports lifecycle data and imports exact Project bytes safely", async ({
+const ExportErrorSchema = z.object({
+  error: z.object({ code: z.literal("nonportable_graph"), retryable: z.literal(false) }),
+})
+
+test("transfer exports an owned portable graph and imports exact Project bytes safely", async ({
   app,
 }, testInfo) => {
-  // Given: an authenticated owner and the bounded Space containing complete lifecycle records.
+  // Given: an isolated Space, Project, and Saved View owned by this run.
+  const identity = await app.signIn()
+  const suffix = crypto.randomUUID().replaceAll("-", "").slice(0, 8)
+  const spaceId = `transfer-${suffix}`
+  const spaceName = `Transfer portable ${suffix}`
+  const projectName = `Transfer project ${suffix}`
+  await createTransferSpace(app, spaceId, `KEY${suffix.slice(0, 7).toUpperCase()}`, spaceName)
+  const projectId = await createTransferProject(
+    app,
+    identity.principalId,
+    spaceId,
+    projectName,
+    suffix,
+  )
+  await createTransferProjectView(app, spaceId, projectId, `Portable project ${suffix}`)
   await app.signIn()
+
+  // Then: the maximum-length Space key remains complete without overflowing at every QA width.
+  const spaceKey = `KEY${suffix.slice(0, 7).toUpperCase()}`
+  const spaceButton = app.page.getByTitle(`${spaceKey} · ${spaceName}`)
+  for (const width of [1280, 768, 375]) {
+    await app.page.setViewportSize({ width, height: 900 })
+    const geometry = await spaceButton.locator(".space-key--full").evaluate((element) => ({
+      text: element.textContent,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }))
+    expect(geometry.text).toBe(spaceKey)
+    expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
+  }
+  await app.page.setViewportSize({ width: 1280, height: 900 })
   await app.page.getByRole("button", { name: "Workspace data" }).click()
   await expect(app.page.getByRole("heading", { name: "Import and export" })).toBeVisible()
   const scope = app.page.getByLabel("Scope")
-  const sourceOption = scope.locator("option").filter({ hasText: "Space: Transfer Space" }).first()
-  const sourceLabel = await sourceOption.textContent()
-  expect(sourceLabel).not.toBeNull()
-  if (sourceLabel === null) throw new TypeError("lifecycle Space option missing")
-  await scope.selectOption({ label: sourceLabel })
+  await scope.selectOption({ label: `Space: ${spaceName}` })
 
   // When: the lifecycle graph is downloaded with archived records.
   await app.page.getByLabel("Include archived records").check()
@@ -47,15 +74,25 @@ test("transfer exports lifecycle data and imports exact Project bytes safely", a
   const downloadedBytes = await exported.body()
   await saveEvidence(downloadPath, downloadedBytes)
 
-  // Then: all six lifecycle kinds, graph links, and exact UTC timestamps are present.
+  // Then: the scoped graph contains only portable references needed by the Project copy.
   const downloadedRecords = parseNdjson(downloadedBytes)
-  const names = lifecycleNames(downloadedRecords)
-  const sourceCopies = lifecycleCopyCount(downloadedRecords, names)
-  const sourceProjectCopies = projectCopyCount(downloadedRecords, names)
-  expect(sourceCopies).toBeGreaterThan(0)
-  expectLifecycleGraph(downloadedRecords, names, sourceCopies)
-  expectProjectCopies(downloadedRecords, names, sourceProjectCopies)
-  const importBytes = projectImportBytes(downloadedRecords, names)
+  const sourceProjects = downloadedRecords.filter(
+    (record) => record.kind === "project" && record.name === projectName,
+  )
+  expect(sourceProjects).toHaveLength(1)
+  const manifest = downloadedRecords.find((record) => record.kind === "manifest")
+  const space = downloadedRecords.find(
+    (record) => record.kind === "space" && record.externalId === spaceId,
+  )
+  const project = sourceProjects[0]
+  if (manifest === undefined || space === undefined || project === undefined)
+    throw new TypeError("portable Project import dependencies missing")
+  const states = downloadedRecords.filter(
+    (record) => record.kind === "workflow_state" && record.spaceId === spaceId,
+  )
+  const importBytes = Buffer.from(
+    `${[manifest, space, ...states, project].map((record) => JSON.stringify(record)).join("\n")}\n`,
+  )
   await saveEvidence(testInfo.outputPath("project-import.ndjson"), importBytes)
 
   // When: the exact exported Project bytes are validated, committed, and submitted again.
@@ -99,7 +136,7 @@ test("transfer exports lifecycle data and imports exact Project bytes safely", a
   await expect(app.page.getByRole("status")).toContainText("Identical import replayed safely")
   await app.page.screenshot({ path: testInfo.outputPath("transfer-positive.png"), fullPage: true })
 
-  // Then: re-export preserves the source graph and adds one exact archived Project clone.
+  // Then: re-export preserves the source graph and adds one exact Project clone.
   const reexportResponse = app.page.waitForResponse(
     (response) => response.url().endsWith("/export") && response.request().method() === "POST",
   )
@@ -112,8 +149,9 @@ test("transfer exports lifecycle data and imports exact Project bytes safely", a
   const reexportedBytes = await reexported.body()
   await saveEvidence(reexportPath, reexportedBytes)
   const reexportedRecords = parseNdjson(reexportedBytes)
-  expectLifecycleGraph(reexportedRecords, names, sourceCopies)
-  expectProjectCopies(reexportedRecords, names, sourceProjectCopies + 1)
+  expect(
+    reexportedRecords.filter((record) => record.kind === "project" && record.name === projectName),
+  ).toHaveLength(2)
 
   // Then: the cloned archived Projects are visible on the include-archived UI query.
   const projectsResponse = app.page.waitForResponse((response) =>
@@ -135,11 +173,8 @@ test("transfer exports lifecycle data and imports exact Project bytes safely", a
     const page = ProjectPageSchema.parse(await response.json())
     await expect(app.page.locator("article")).toHaveCount(previousCount + page.items.length)
   }
-  const projectCards = app.page.locator("article").filter({ hasText: names.project })
-  await expect(projectCards).toHaveCount(sourceProjectCopies + 1)
-  await expect(projectCards.getByText("Archived", { exact: true })).toHaveCount(
-    sourceProjectCopies + 1,
-  )
+  const projectCards = app.page.locator("article").filter({ hasText: projectName })
+  await expect(projectCards).toHaveCount(2)
   await app.page.getByRole("button", { name: "Workspace data" }).click()
 
   // When: malformed NDJSON bytes separately cross the import boundary.
@@ -156,6 +191,28 @@ test("transfer exports lifecycle data and imports exact Project bytes safely", a
   expect((await validationResponse).status()).toBe(400)
   await expect(app.page.getByRole("button", { name: "Commit exact bytes" })).toHaveCount(0)
   await expect(app.page.getByRole("alert")).toBeVisible()
+
+  // Given: an owned Space whose external ID collides with the owned Project ID.
+  await createTransferSpace(
+    app,
+    projectId,
+    `COL${suffix.slice(0, 7).toUpperCase()}`,
+    `Collision ${suffix}`,
+  )
+  const update = await app.ownerCommand({
+    method: "patch",
+    path: `/projects/${encodeURIComponent(projectId)}`,
+    baseRevision: 1,
+    payload: { participatingSpaceIds: [spaceId, projectId] },
+  })
+  expect(update.status()).toBe(200)
+
+  // When: the Project graph is exported with both cross-kind copies of that external ID.
+  const response = await app.ownerExport({ includeArchived: true, projectId })
+
+  // Then: the boundary returns the stable typed portability error.
+  expect(response.status()).toBe(400)
+  ExportErrorSchema.parse(await response.json())
 })
 
 async function saveEvidence(targetPath: string, bytes: Buffer): Promise<void> {

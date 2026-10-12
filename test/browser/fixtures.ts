@@ -30,6 +30,7 @@ export type AppFixture = {
   readonly signIn: (role?: Role) => Promise<SignedInIdentity>
   readonly expectEmptyBrowserStorage: () => Promise<void>
   readonly ownerCommand: (request: CommandRequest) => Promise<APIResponse>
+  readonly ownerExport: (payload: Readonly<Record<string, unknown>>) => Promise<APIResponse>
   readonly ownerRead: (path: string) => Promise<APIResponse>
 }
 
@@ -133,7 +134,25 @@ export const test = base.extend<BrowserFixtures>({
       )
     }
 
-    await use({ context, page, signIn, expectEmptyBrowserStorage, ownerCommand, ownerRead })
+    function ownerExport(payload: Readonly<Record<string, unknown>>): Promise<APIResponse> {
+      return context.request.post(
+        `/api/human/v1/workspaces/${encodeURIComponent(environment.R4_WORKSPACE_ID)}/export`,
+        {
+          headers: { authorization: `Bearer ${environment.R4_OWNER_TOKEN}` },
+          data: payload,
+        },
+      )
+    }
+
+    await use({
+      context,
+      page,
+      signIn,
+      expectEmptyBrowserStorage,
+      ownerCommand,
+      ownerExport,
+      ownerRead,
+    })
     await Promise.all(snapshotReads)
     if (activeToken !== null) {
       const releases = await Promise.all(
