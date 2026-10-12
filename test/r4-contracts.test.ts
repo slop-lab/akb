@@ -38,7 +38,7 @@ test("R4 filters enforce depth and node budgets", () => {
   assert.equal(result.success, false)
 })
 
-test("R4 filters reject range operators for entity references", () => {
+test("R4 filters preserve string ranges for entity references", () => {
   // Given
   const fields = ["spaceId", "projectId", "workflowStateId", "labelId"] as const
 
@@ -49,7 +49,7 @@ test("R4 filters reject range operators for entity references", () => {
 
   // Then
   assert.equal(
-    results.every((result) => !result.success),
+    results.every((result) => result.success),
     true,
   )
   assert.equal(
@@ -60,6 +60,10 @@ test("R4 filters reject range operators for entity references", () => {
       to: "2026-12-31",
     }).success,
     true,
+  )
+  assert.equal(
+    FilterNodeSchema.safeParse({ op: "range", field: "projectId", from: 1, to: 2 }).success,
+    false,
   )
 })
 
