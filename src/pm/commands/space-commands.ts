@@ -26,6 +26,7 @@ import {
 } from "./space-command-helpers.ts"
 import { spaceRecord as record, spaceSnapshot, stateSnapshot } from "./space-command-persistence.ts"
 import type { CommandCall } from "./types.ts"
+import { handoverWorkflowDefault } from "./workflow-default-handover.ts"
 
 export class SpaceCommandService {
   readonly engine: EntityMutationEngine
@@ -188,7 +189,7 @@ export class SpaceCommandService {
           actorId: call.principal.principalId,
         })
         if (payload.isDefault) {
-          await transaction`update workflow_states set is_default=false where workflow_id=${workflowId}`
+          await handoverWorkflowDefault(this.engine, transaction, call, workflowId, entityId)
         }
         await transaction`insert into workflow_states
           (id,workflow_id,workspace_id,space_id,name,category,color,position,is_default,active,revision)
@@ -215,8 +216,7 @@ export class SpaceCommandService {
             throw new CommandInvariantError("workflow_requires_default_state")
         }
         if (payload.isDefault) {
-          await transaction`update workflow_states set is_default=false where workflow_id=(
-            select workflow_id from workflow_states where id=${entityId})`
+          await handoverWorkflowDefault(this.engine, transaction, call, null, entityId)
         }
         await transaction`update workflow_states set name=coalesce(${payload.name ?? null},name),
           color=coalesce(${payload.color ?? null},color),position=coalesce(${payload.position ?? null},position),
