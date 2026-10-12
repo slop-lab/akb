@@ -4,13 +4,13 @@ import {
   ArchivePayloadSchema,
   CommentCreatePayloadSchema,
   CommentUpdatePayloadSchema,
-  RelationCreatePayloadSchema,
   RelationUpdatePayloadSchema,
 } from "../../contracts/r4/command-payloads.ts"
 import { CommandInvariantError, EntityNotFoundError } from "../../entities/errors.ts"
 import type { EntityMutationEngine } from "../../entities/mutation-engine.ts"
 import type { MutationResult } from "../../entities/mutation-types.ts"
 import { updateCommentSearchDocument } from "../projections/search-document.ts"
+import { parseRelationCreate } from "./collaboration-command-helpers.ts"
 import {
   commentRecord,
   commentSnapshot,
@@ -50,14 +50,14 @@ export class CollaborationCommandService {
   }
 
   #createRelation(call: CommandCall): Promise<MutationResult> {
-    const payload = RelationCreatePayloadSchema.parse(call.payload)
+    const { archivedAt, payload } = parseRelationCreate(call)
     const entityId = newEntityId("relation")
     return this.engine.mutate(
       mutationInput(call, "relation.manage", null),
       async (transaction, revision) => {
         await requireEntityRead(transaction, endpointReference(call, payload.fromEntityId))
         await requireEntityRead(transaction, endpointReference(call, payload.toEntityId))
-        if (payload.relationType === "parent_of") {
+        if (payload.relationType === "parent_of" && archivedAt === null) {
           await requireParentAllowed(transaction, payload.fromEntityId, payload.toEntityId, null)
         }
         await insertEntity(transaction, {
@@ -68,9 +68,10 @@ export class CollaborationCommandService {
           actorId: call.principal.principalId,
         })
         await transaction`insert into relations
-          (id,workspace_id,from_entity_id,relation_type,to_entity_id,revision,asserted_by,valid_from)
+          (id,workspace_id,from_entity_id,relation_type,to_entity_id,revision,asserted_by,valid_from,valid_to)
           values (${entityId},${call.workspaceId},${payload.fromEntityId},${payload.relationType},
-            ${payload.toEntityId},${revision},${call.principal.principalId},clock_timestamp())`
+            ${payload.toEntityId},${revision},${call.principal.principalId},clock_timestamp(),
+            ${archivedAt === null ? null : transaction`${archivedAt}::timestamptz`})`
         return relationRecord(
           entityId,
           revision,
@@ -87,9 +88,8 @@ export class CollaborationCommandService {
     return this.engine.mutate(
       mutationInput(call, "relation.manage", entityId),
       async (transaction, revision) => {
-        const endpoints =
-          await transaction`select from_entity_id,to_entity_id from relations where id=${entityId}
-            and valid_to is null`
+        const endpoints = await transaction`select from_entity_id,to_entity_id from relations
+          where id=${entityId} and (${call.route === "import:relation"} or valid_to is null)`
         const row = z
           .strictObject({ from_entity_id: z.string(), to_entity_id: z.string() })
           .parse(endpoints[0])
@@ -119,9 +119,8 @@ export class CollaborationCommandService {
     return this.engine.mutate(
       mutationInput(call, "relation.manage", entityId),
       async (transaction, revision) => {
-        const endpoints =
-          await transaction`select from_entity_id,to_entity_id from relations where id=${entityId}
-            and valid_to is null`
+        const endpoints = await transaction`select from_entity_id,to_entity_id from relations
+          where id=${entityId} and (${call.route === "import:relation"} or valid_to is null)`
         const row = z
           .strictObject({ from_entity_id: z.string(), to_entity_id: z.string() })
           .parse(endpoints[0])

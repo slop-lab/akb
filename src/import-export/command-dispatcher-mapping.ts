@@ -53,6 +53,7 @@ export function toImportCommand(
         action: "workflow-state.create",
         parentId: resolve(context.spaces, record.spaceId),
         payload: {
+          id: record.externalId,
           name: record.name,
           category: record.category,
           color: record.color ?? "#64748B",
@@ -93,7 +94,10 @@ export function toImportCommand(
         ...common,
         action: "relation.create",
         parentId: null,
-        payload: relationPayload(record, context.entities),
+        payload: {
+          ...relationPayload(record, context.entities),
+          archivedAt: record.archivedAt ?? null,
+        },
       }
     case "comment":
       return {
