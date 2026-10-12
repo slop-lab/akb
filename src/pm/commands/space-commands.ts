@@ -22,6 +22,7 @@ import {
   parseStateUpdate,
   required,
   requireStateScope,
+  requireWorkflowCategoryRetention,
 } from "./space-command-helpers.ts"
 import { spaceRecord as record, spaceSnapshot, stateSnapshot } from "./space-command-persistence.ts"
 import type { CommandCall } from "./types.ts"
@@ -233,6 +234,7 @@ export class SpaceCommandService {
       mutationInput(call, "space.manage", entityId),
       async (transaction, revision) => {
         await requireStateScope(transaction, call, entityId)
+        await requireWorkflowCategoryRetention(transaction, entityId)
         const blocked = await transaction`select 1 from workflow_states s where s.id=${entityId}
           and (s.is_default or exists (select 1 from work_item_pm pm where pm.workflow_state_id=s.id))`
         if (blocked.length === 1) throw new CommandInvariantError("workflow_state_in_use")

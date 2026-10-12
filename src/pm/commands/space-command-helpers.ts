@@ -45,6 +45,19 @@ export async function requireStateScope(
   if (rows.length !== 1) throw new EntityNotFoundError(entityId)
 }
 
+export async function requireWorkflowCategoryRetention(
+  transaction: TransactionSql,
+  entityId: string,
+): Promise<void> {
+  const rows = await transaction`select 1 from workflow_states target
+    where target.id=${entityId} and target.active and not exists (
+      select 1 from workflow_states candidate
+      where candidate.workflow_id=target.workflow_id and candidate.category=target.category
+        and candidate.active and candidate.id<>target.id
+    )`
+  if (rows.length === 1) throw new CommandInvariantError("workflow_requires_category_state")
+}
+
 export function mutationInput(
   call: CommandCall,
   permission: "space.manage",
