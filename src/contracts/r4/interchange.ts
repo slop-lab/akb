@@ -41,8 +41,9 @@ const WorkflowStateRecordSchema = BaseRecordSchema.extend({
   name: z.string().min(1).max(200),
   category: z.enum(STATE_CATEGORIES),
   color: z.string().min(1).max(64).optional(),
-  position: z.number().int().min(0).max(19).optional(),
+  position: z.number().int().min(0).max(2_147_483_647).optional(),
   isDefault: z.boolean().optional(),
+  active: z.boolean().optional().default(true),
 }).strict()
 
 const ProjectRecordSchema = BaseRecordSchema.extend({

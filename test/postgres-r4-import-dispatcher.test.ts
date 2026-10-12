@@ -56,6 +56,7 @@ test("import validation is read-only and commit atomically maps every record fam
       spaceId: "space",
       name: "Review",
       category: "started",
+      active: true,
     },
     {
       kind: "project",
