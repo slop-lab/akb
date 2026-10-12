@@ -2,13 +2,13 @@
 
 ## Scope
 
-The operator CLI provides explicit immutable PostgreSQL 17 backup profiles. Existing format-1
-`r3-schema-004-public` artifacts retain their shipped migration, table, fingerprint, and digest
-contract. Databases at migration 008 create format-2 artifacts with profile
-`r4-schema-008-public-v1`. The CLI creates one custom-format archive and a same-snapshot semantic
-manifest, verifies local artifact integrity offline, and restores only to a pre-created pristine
-database. It is not PITR, scheduling, replication, encrypted storage, authenticity signing, or a
-complete release backup program.
+The operator CLI provides four explicit immutable PostgreSQL 17 backup profiles. Existing format-1
+`r3-schema-004-public` and format-2 schema-008/schema-009 artifacts retain their shipped migration,
+table, fingerprint, and digest contracts. Databases at migration 010 create format-2 artifacts with
+profile `r4-schema-010-public-v1`. The CLI creates one custom-format archive and a same-snapshot
+semantic manifest, verifies local artifact integrity offline, and restores only to a pre-created
+pristine database. It is not PITR, scheduling, replication, encrypted storage, authenticity signing,
+or a complete release backup program.
 
 The artifact contains all application data, including credential hashes. File permissions are not
 encryption. Treat both artifact files and recovery reports as restricted operational material. A
@@ -21,8 +21,8 @@ from the archive, so restore only artifacts from a trusted operator and source d
 - PostgreSQL 17 source and target servers.
 - PostgreSQL 17 `pg_dump` and `pg_restore` clients, selected with `PG_DUMP_PATH` and
   `PG_RESTORE_PATH` when they are not on `PATH`.
-- A source database with exactly the registered 001-004 or 001-008 ledger and documented public
-  catalog. Any intermediate, future, or unknown ledger fails closed.
+- A source database with exactly a registered 001-004, 001-008, 001-009, or 001-010 ledger and its
+  documented public catalog. Any intermediate, future, or unknown ledger fails closed.
 - A target database owned by the restore user, encoded UTF-8, created from `template0`, with no
   other sessions or user objects.
 
@@ -35,6 +35,15 @@ from API and worker configuration until the success report says `activationAllow
 | --- | ---: | --- | --- |
 | `r3-schema-004-public` | 1 | migrations `001`-`004` | Original public schema profile and pinned ownership semantics |
 | `r4-schema-008-public-v1` | 2 | migrations `001`-`008` | 48-table public schema profile; trusted PostgreSQL 17 `pgcrypto` in `public`; application relations, routines, and types owned under the database-owner policy |
+| `r4-schema-009-public-v1` | 2 | migrations `001`-`009` | Same 48-table resource set and schema fingerprint as 008; migration 009 adds deterministic legacy workflow revision history without catalog drift |
+| `r4-schema-010-public-v1` | 2 | migrations `001`-`010` | Current 48-table catalog with the nullable frozen legacy PM projection sidecar and its constraint |
+
+The immutable migration-009 checksum is
+`fb962024d4c2045cbb72dfaccf6bed4a3ff95383800a8303b4c8427b8060fbd4`; migration 010 is
+`88c1308455b0b790aed2a07d8294f72701c73857faccda3a3ea62f4bc6b21a04`. Profiles 008 and 009 share
+schema fingerprint `9ee67a3a89d8cf7f47c93ab0136b0c93f00bc605e40f539d7afa5d4bd0ee6242`.
+Profile 010 is pinned to
+`1002d3c51bc4984a8cd4fbc9aadb56e3a7241adcb4f6149a5bd2615cb05eddac`.
 
 The profile source is `src/operations/backup/profiles.ts`; ordered resources are in
 `src/operations/backup/resources.ts`. No user metadata, Space membership, token, or secret is added
@@ -75,9 +84,10 @@ PG_RESTORE_PATH=/path/to/pg_restore \
 npm run backup -- verify --artifact-dir /restricted/new-backup
 ```
 
-This checks exact paths and modes, the strict format/profile union, both immutable local migration
-catalog prefixes, the selected profile's pinned catalog fingerprint, archive bytes and digest, the bound overall digest, the
-PostgreSQL 17 version contract, and `pg_restore --list`. The fingerprint covers public relations,
+This checks exact paths and modes, the strict format/profile union, all four immutable local
+migration-catalog prefixes, the selected profile's pinned catalog fingerprint, archive bytes and
+digest, the bound overall digest, the PostgreSQL 17 version contract, and `pg_restore --list`. The
+fingerprint covers public relations,
 columns, all type classes, constraints, indexes, rules, triggers, routines and their configuration,
 RLS state and policies, sequences, operators and related classes, casts, collations, conversions,
 extended statistics, text-search objects, transforms, security labels, extensions, and ownership
@@ -88,8 +98,9 @@ lookups. It does not prove authenticity or restored database semantics.
 Ownership checks apply to application relations, routines, and types in `public`. Objects managed
 by a trusted extension can retain the cluster bootstrap owner when an ordinary database owner
 installs that extension, so component ownership is normalized while extension identity, version,
-schema, relocatability, and ownership-by-database-owner remain pinned. Profile 008 requires the
-trusted PostgreSQL 17 `pgcrypto` extension in `public` and fingerprints its public routines.
+schema, relocatability, and ownership-by-database-owner remain pinned. Profiles 008, 009, and 010
+require the trusted PostgreSQL 17 `pgcrypto` extension in `public` and fingerprint its public
+routines.
 
 ## Restore
 
@@ -129,12 +140,13 @@ After the restored source baseline matches the backup manifest, one recovery tra
 - binds the schema fingerprint, before/after row digests, counts, and zero-count assertions into the
   recovery outcome digest.
 
-A format-1/schema-004 restore first validates and quarantines the exact 004 baseline. It then applies
-only the registered local migrations 005-008, validates the final profile fingerprint and complete
-48-table catalog, performs the R4 transient quarantine, and emits a format-2 recovery report with
-both source and final profiles and baselines. A format-2/schema-008 restore validates its 48-table
-baseline directly. Restore installs `pgcrypto` before loading a format-2 archive because PostgreSQL
-schema-filtered dumps do not include extension-managed objects.
+A restore first validates the exact source profile and quarantines that baseline. Sources at 004,
+008, or 009 then apply only their remaining registered migrations through 010. The restore validates
+the final profile-010 fingerprint and complete 48-table catalog, performs the R4 transient
+quarantine, and emits a format-2 recovery report containing source and final profiles and baselines.
+A schema-010 restore validates directly before quarantine. Restore installs `pgcrypto` before
+loading a format-2 archive because PostgreSQL schema-filtered dumps do not include extension-managed
+objects.
 
 If a failed restore cannot inspect whether the target contains application tables, the failure
 report records `targetPopulated: "unknown"` rather than treating an inspection failure as empty.
@@ -156,10 +168,12 @@ PG_RESTORE_PATH=/path/to/pg_restore \
 npm run test:backup
 ```
 
-The suite covers both fresh-owner fingerprint equivalence, ordinary-owner format-2 restore, and a
-real format-1 artifact restored and upgraded through profile 008. Recovery operators still need an
-explicit post-restore `grant-r4-permissions` action for existing members; recovery never widens old
-membership grants implicitly.
+The suite covers fresh-owner fingerprint equivalence, ordinary-owner format-2 restore, each older
+registered profile upgraded through 010, and a real format-1 artifact. A separate legacy SDK driver
+observed schema-004 -> schema-010 restore, detail/list/continuation behavior, and unchanged history.
+Recovery operators still need an explicit post-restore `grant-r4-permissions` action for existing
+members; recovery never widens old membership grants implicitly. The last recorded 28-test backup
+aggregate predates the current HEAD, so the final named rerun remains pending.
 
 Use only generated disposable databases. The default PostgreSQL suite remains `npm run
 test:postgres`; the backup suite is separate because it creates and restores whole databases.

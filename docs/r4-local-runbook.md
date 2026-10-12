@@ -2,12 +2,13 @@
 
 ## Scope and evidence boundary
 
-This runbook starts the locally implemented R3/R4 application. It does not pass a roadmap phase or
-CI. A recorded native Node 24 live run returned `200` for archived-inclusive export (44,441 NDJSON
-bytes) and Project query (8,699 response bytes), completed export/import/replay/re-export with `200`
-responses, rejected malformed import with `400`, returned `200` for archive/restore queries, and
-released snapshots with `204`. The real-browser suite passed all 10 scenarios in 23.7 seconds with
-no mocks or skips. These results are bounded evidence, not a formal gate promotion.
+This runbook starts the locally implemented R3/R4 application through migration 010. It does not
+pass a roadmap phase or CI. The latest recorded local evidence includes 66 unit and 40 integration
+tests, passing web/browser TypeScript and R4 builds, and 11 of 11 Chrome scenarios in 59.1 seconds.
+An earlier native Node 24 live run covered archived-inclusive export, Project query,
+export/import/replay/re-export, malformed import, archive/restore queries, and snapshot release.
+Final current-HEAD named PostgreSQL, backup, and aggregate R4 reruns remain pending. These results
+are bounded evidence, not a formal gate promotion.
 
 ## Requirements
 
@@ -98,7 +99,8 @@ node script/generate-api-r4.mjs --check
 ```
 
 Database suites require `DATABASE_URL` and do not count as passed when unavailable. The backup suite
-also requires PostgreSQL 17 tools and disposable database-creation authority. The latest evidence
-ran the relevant PostgreSQL R4 and public 100,000-item scale tests individually, not the aggregate
-`npm run test:r4` command. Do not infer a formal phase or CI result from build output, an individual
-test, or this runbook.
+also requires PostgreSQL 17 tools and disposable database-creation authority. Historical named runs
+reported 71 `test:postgres`, 28 `test:backup`, and 141 `test:r4` tests on an older revision. The R4
+PostgreSQL suite later recorded 151 passing tests before four additional scoped-view cases were
+added; no current-HEAD total is claimed. Do not infer a formal phase or CI result from build output,
+an older aggregate, an individual test, or this runbook.
