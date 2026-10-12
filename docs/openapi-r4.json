@@ -10432,6 +10432,13 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "workflowStateScope": {
+                        "type": "string",
+                        "enum": [
+                          "active",
+                          "all"
+                        ]
                       }
                     },
                     "required": [
