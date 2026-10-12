@@ -41,13 +41,6 @@ export function validateWorkflowStates(records: readonly ImportRecord[]): void {
       )
     )
       throw new ImportValidationError("workflow has an active state in every category")
-    if (
-      space.workflowStateScope !== undefined &&
-      !states.some(
-        (state) => state.active && state.isDefault === true && state.category === "unstarted",
-      )
-    )
-      throw new ImportValidationError("workflow default state is unstarted")
     if (space.workflowStateScope === undefined && defaultCount > 1)
       throw new ImportValidationError("workflow has one default state")
   }

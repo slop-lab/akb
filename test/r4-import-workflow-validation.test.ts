@@ -55,14 +55,14 @@ test("marked workflow requires an active state in every canonical category", () 
   )
 })
 
-test("marked workflow requires its active default in unstarted", () => {
+test("marked workflow accepts an active default in any category", () => {
   const records = completeWorkflow().map((record) =>
     record.kind === "workflow_state"
       ? { ...record, isDefault: record.category === "started" }
       : record,
   )
 
-  assert.throws(() => validateWorkflowStates(records), /workflow default state is unstarted/)
+  assert.doesNotThrow(() => validateWorkflowStates(records))
 })
 
 function completeWorkflow(): readonly ImportRecord[] {
