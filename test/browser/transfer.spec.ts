@@ -1,6 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { dirname } from "node:path"
-import { ImportCommitSchema, ImportValidationSchema } from "../../src/contracts/r4/index.ts"
+import {
+  ImportCommitSchema,
+  ImportValidationSchema,
+  ProjectPageSchema,
+  ProjectQuerySchema,
+} from "../../src/contracts/r4/index.ts"
 import { expect, test } from "./fixtures.ts"
 import {
   expectLifecycleGraph,
@@ -116,6 +121,20 @@ test("transfer exports lifecycle data and imports exact Project bytes safely", a
   )
   await app.page.getByRole("button", { name: "Projects", exact: true }).click()
   expect((await projectsResponse).status()).toBe(200)
+  const loadMore = app.page.getByRole("button", { name: "Load more projects" })
+  while ((await loadMore.count()) > 0) {
+    const previousCount = await app.page.locator("article").count()
+    const continuation = app.page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/projects/query") &&
+        ProjectQuerySchema.parse(response.request().postDataJSON()).page.cursor !== null,
+    )
+    await loadMore.click()
+    const response = await continuation
+    expect(response.status()).toBe(200)
+    const page = ProjectPageSchema.parse(await response.json())
+    await expect(app.page.locator("article")).toHaveCount(previousCount + page.items.length)
+  }
   const projectCards = app.page.locator("article").filter({ hasText: names.project })
   await expect(projectCards).toHaveCount(sourceProjectCopies + 1)
   await expect(projectCards.getByText("Archived", { exact: true })).toHaveCount(

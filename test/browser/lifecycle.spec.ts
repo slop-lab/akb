@@ -1,8 +1,34 @@
+import type { Locator, Page } from "@playwright/test"
 import { z } from "zod"
 import { ProjectPageSchema } from "../../src/contracts/r4/index.ts"
 import { expect, test } from "./fixtures.ts"
 
 const EntityResultSchema = z.object({ result: z.object({ id: z.string().min(1) }) })
+
+async function activate(control: Locator): Promise<void> {
+  await control.focus()
+  await control.press("Enter")
+}
+
+async function typeWithKeyboard(page: Page, control: Locator, value: string): Promise<void> {
+  await control.focus()
+  await page.keyboard.press("Control+a")
+  await page.keyboard.type(value)
+}
+
+async function chooseWithKeyboard(control: Locator, value: string): Promise<void> {
+  const values = await control
+    .locator("option")
+    .evaluateAll((options) =>
+      options.map((option) => (option instanceof HTMLOptionElement ? option.value : "")),
+    )
+  const index = values.indexOf(value)
+  if (index < 0) throw new Error(`Option ${value} is unavailable`)
+  await control.focus()
+  await control.press("Home")
+  for (let offset = 0; offset < index; offset += 1) await control.press("ArrowDown")
+  await control.press("Enter")
+}
 
 test.setTimeout(120_000)
 
@@ -14,23 +40,28 @@ test("owner completes Project, Work, collaboration, view, board, and Work lifecy
   const projectName = `E2E Project ${suffix}`
   const projectSlug = `e2e-project-${suffix}`
   const firstTitle = `E2E primary ${suffix}`
+  const editedTitle = `${firstTitle} edited`
   const secondTitle = `E2E parent ${suffix}`
   const comment = `E2E comment ${suffix}`
   const savedViewName = `E2E view ${suffix}`
   await app.signIn()
 
   // When: the Project is created through its dialog.
-  await app.page.getByRole("button", { name: "Create project" }).click()
-  await app.page.getByLabel("Name").fill(projectName)
-  await app.page.getByLabel("Slug").fill(projectSlug)
-  await app.page.getByLabel("Summary").fill("Synthetic browser lifecycle evidence")
+  await activate(app.page.getByRole("button", { name: "Create project" }))
+  await typeWithKeyboard(app.page, app.page.getByLabel("Name"), projectName)
+  await typeWithKeyboard(app.page, app.page.getByLabel("Slug"), projectSlug)
+  await typeWithKeyboard(
+    app.page,
+    app.page.getByLabel("Summary"),
+    "Synthetic browser lifecycle evidence",
+  )
   const participatingSpaces = app.page.getByLabel("Participating Space IDs")
   if ((await participatingSpaces.inputValue()).length === 0)
-    await participatingSpaces.fill("research")
+    await typeWithKeyboard(app.page, participatingSpaces, "research")
   const createProjectResponse = app.page.waitForResponse(
     (response) => response.url().endsWith("/projects") && response.request().method() === "POST",
   )
-  await app.page.getByRole("button", { name: "Create project", exact: true }).last().click()
+  await activate(app.page.getByRole("button", { name: "Create project", exact: true }).last())
 
   // Then: the command succeeds and the Project is rendered.
   const createdProjectResponse = await createProjectResponse
@@ -43,22 +74,22 @@ test("owner completes Project, Work, collaboration, view, board, and Work lifecy
   const projectWorkQuery = app.page.waitForResponse((response) =>
     response.url().includes("/work-items/query"),
   )
-  await projectCard.getByRole("button", { name: "Open work" }).click()
+  await activate(projectCard.getByRole("button", { name: "Open work" }))
   expect((await projectWorkQuery).status()).toBe(200)
 
   async function createWork(title: string): Promise<string> {
-    await app.page.getByRole("button", { name: "Create work" }).click()
-    await app.page.getByLabel("Title", { exact: true }).fill(title)
+    await activate(app.page.getByRole("button", { name: "Create work" }))
+    await typeWithKeyboard(app.page, app.page.getByLabel("Title", { exact: true }), title)
     const responsePromise = app.page.waitForResponse(
       (response) =>
         response.url().endsWith("/work-items") && response.request().method() === "POST",
     )
-    await app.page.getByRole("button", { name: "Create work", exact: true }).last().click()
+    await activate(app.page.getByRole("button", { name: "Create work", exact: true }).last())
     const response = await responsePromise
     expect(response.status()).toBe(201)
     const body = EntityResultSchema.parse(await response.json())
     await expect(app.page.getByRole("heading", { name: title })).toBeVisible()
-    await app.page.getByRole("button", { name: "Close" }).click()
+    await app.page.keyboard.press("Escape")
     return body.result.id
   }
 
@@ -66,37 +97,61 @@ test("owner completes Project, Work, collaboration, view, board, and Work lifecy
   const secondId = await createWork(secondTitle)
 
   // When: the primary item is edited and receives a comment, relation, and parent.
-  await app.page.getByRole("button", { name: firstTitle }).click()
-  await app.page.getByRole("tab", { name: "comments" }).click()
-  await app.page.getByLabel("Comment", { exact: true }).fill(comment)
-  await app.page.getByRole("button", { name: "Comment" }).click()
+  await activate(app.page.getByRole("button", { name: firstTitle }))
+  await typeWithKeyboard(app.page, app.page.getByLabel("Title", { exact: true }), editedTitle)
+  await expect(app.page.getByLabel("Title", { exact: true })).toHaveValue(editedTitle)
+  await app.page.getByLabel("Title", { exact: true }).press("Tab")
+  await expect(app.page.getByRole("heading", { name: editedTitle })).toBeVisible()
+  await app.page.getByRole("tab", { name: "details" }).press("End")
+  await expect(app.page.getByRole("tab", { name: "comments" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  )
+  await typeWithKeyboard(app.page, app.page.getByLabel("Comment", { exact: true }), comment)
+  await activate(app.page.getByRole("button", { name: "Comment" }))
   await expect(
     app.page.getByRole("tabpanel", { name: "comments" }).getByRole("paragraph"),
   ).toHaveText(comment)
 
-  await app.page.getByRole("tab", { name: "relations" }).click()
+  await app.page.getByRole("tab", { name: "comments" }).press("ArrowLeft")
+  await expect(app.page.getByRole("tab", { name: "relations" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  )
   const relationsPanel = app.page.getByRole("tabpanel", { name: "relations" })
-  await relationsPanel.getByLabel("Target entity ID").fill(secondId)
-  await relationsPanel.getByRole("combobox", { name: "Type", exact: true }).selectOption("blocks")
-  await relationsPanel.getByRole("button", { name: "Add relation" }).click()
-  await expect(relationsPanel.getByText(`${firstTitle} blocks ${secondTitle}`)).toBeVisible()
+  await typeWithKeyboard(app.page, relationsPanel.getByLabel("Target entity ID"), secondId)
+  await chooseWithKeyboard(
+    relationsPanel.getByRole("combobox", { name: "Type", exact: true }),
+    "blocks",
+  )
+  await activate(relationsPanel.getByRole("button", { name: "Add relation" }))
+  await expect(relationsPanel.getByText(`${editedTitle} blocks ${secondTitle}`)).toBeVisible()
 
-  await relationsPanel.getByLabel("Parent entity ID").fill(secondId)
+  await typeWithKeyboard(app.page, relationsPanel.getByLabel("Parent entity ID"), secondId)
   await relationsPanel.getByRole("button", { name: "Add parent" }).click()
   await expect(relationsPanel.getByText(secondTitle, { exact: true })).toBeVisible()
-  await app.page.getByRole("button", { name: "Close" }).click()
+  await app.page.keyboard.press("Escape")
+
+  const search = app.page.getByRole("searchbox", { name: "Search" })
+  await typeWithKeyboard(app.page, search, editedTitle)
+  await activate(app.page.getByRole("button", { name: "Apply" }))
+  await expect(
+    app.page.getByRole("region", { name: "Work items" }).getByText(editedTitle, { exact: true }),
+  ).toBeVisible()
+  await typeWithKeyboard(app.page, search, "")
+  await activate(app.page.getByRole("button", { name: "Apply" }))
 
   // When: a Saved View is created from the applied query.
   app.page.once("dialog", (dialog) => dialog.accept(savedViewName))
-  await app.page.getByRole("button", { name: "Save view" }).click()
+  await activate(app.page.getByRole("button", { name: "Save view" }))
   await expect(app.page.getByRole("button", { name: savedViewName })).toBeVisible()
 
   // When: the item is moved through the keyboard-accessible board select.
   const boardResponse = app.page.waitForResponse((response) => response.url().includes("/board"))
-  await app.page.getByRole("button", { name: "Board" }).click()
+  await activate(app.page.getByRole("button", { name: "Board" }))
   expect((await boardResponse).status()).toBe(200)
   const firstCard = app.page.locator("article").filter({
-    has: app.page.getByRole("button", { name: firstTitle, exact: true }),
+    has: app.page.getByRole("button", { name: editedTitle, exact: true }),
   })
   const moveSelect = firstCard.getByLabel("Move")
   const currentState = await moveSelect.inputValue()
@@ -108,23 +163,23 @@ test("owner completes Project, Work, collaboration, view, board, and Work lifecy
   const nextState = stateValues.find((value) => value.length > 0 && value !== currentState)
   expect(nextState).toBeDefined()
   if (nextState === undefined) throw new Error("No alternate workflow state is configured")
-  await moveSelect.selectOption(nextState)
+  await chooseWithKeyboard(moveSelect, nextState)
   await expect(moveSelect).toHaveValue(nextState)
 
   // Then: Work archive/restore commands return their rendered lifecycle states.
-  await app.page.getByRole("button", { name: firstTitle, exact: true }).click()
-  await app.page.getByRole("button", { name: "Archive work item" }).click()
+  await activate(app.page.getByRole("button", { name: editedTitle, exact: true }))
+  await activate(app.page.getByRole("button", { name: "Archive work item" }))
   await expect(app.page.getByRole("button", { name: "Restore work item" })).toBeVisible()
-  await app.page.getByRole("button", { name: "Restore work item" }).click()
+  await activate(app.page.getByRole("button", { name: "Restore work item" }))
   await expect(app.page.getByRole("button", { name: "Archive work item" })).toBeVisible()
-  await app.page.getByRole("button", { name: "Archive work item" }).click()
+  await activate(app.page.getByRole("button", { name: "Archive work item" }))
   await expect(app.page.getByRole("button", { name: "Restore work item" })).toBeVisible()
-  await app.page.getByRole("button", { name: "Close" }).click()
+  await app.page.keyboard.press("Escape")
 
   const projectsResponse = app.page.waitForResponse((response) =>
     response.url().endsWith("/projects/query"),
   )
-  await app.page.getByRole("button", { name: "Projects", exact: true }).click()
+  await activate(app.page.getByRole("button", { name: "Projects", exact: true }))
   expect((await projectsResponse).status()).toBe(200)
   const restoredProjectCard = app.page.locator("article").filter({ hasText: projectName })
   await expect(restoredProjectCard.getByRole("heading", { name: projectName })).toBeVisible()
@@ -136,7 +191,7 @@ test("owner completes Project, Work, collaboration, view, board, and Work lifecy
   const archivedQueryResponse = app.page.waitForResponse((response) =>
     response.url().endsWith("/projects/query"),
   )
-  await restoredProjectCard.getByRole("button", { name: "Archive" }).click()
+  await activate(restoredProjectCard.getByRole("button", { name: "Archive" }))
   const archivedCommand = await archiveResponse
   expect(archivedCommand.status()).toBe(200)
   expect(EntityResultSchema.parse(await archivedCommand.json()).result.id).toBe(projectId)
@@ -153,7 +208,7 @@ test("owner completes Project, Work, collaboration, view, board, and Work lifecy
   const restoredQueryResponse = app.page.waitForResponse((response) =>
     response.url().endsWith("/projects/query"),
   )
-  await restoredProjectCard.getByRole("button", { name: "Restore" }).click()
+  await activate(restoredProjectCard.getByRole("button", { name: "Restore" }))
   const restoredCommand = await restoreResponse
   expect(restoredCommand.status()).toBe(200)
   expect(EntityResultSchema.parse(await restoredCommand.json()).result.id).toBe(projectId)
