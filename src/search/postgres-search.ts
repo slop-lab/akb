@@ -141,6 +141,8 @@ async function materialize(
         and e.lifecycle='active'
         and entity_access_allowed(d.workspace_id,d.entity_id,${principal.principalId},
           case when d.kind='project' then 'project.read' else 'work.read' end)
+        and (d.kind<>'comment' or entity_access_allowed(d.workspace_id,t.id,
+          ${principal.principalId},'work.read'))
         and (d.kind<>'comment' or entity_access_allowed(d.workspace_id,t.subject_entity_id,
           ${principal.principalId},case when subject.kind='project' then 'project.read'
             when subject.kind='work_item' then 'work.read'
@@ -202,6 +204,8 @@ async function readPage(
         and s.credential_id=${principal.credentialId}
         and entity_access_allowed(s.workspace_id,i.entity_id,${principal.principalId},
           case when i.group_key='project' then 'project.read' else 'work.read' end)
+        and (i.group_key<>'comment' or entity_access_allowed(s.workspace_id,t.id,
+          ${principal.principalId},'work.read'))
         and (i.group_key<>'comment' or entity_access_allowed(s.workspace_id,t.subject_entity_id,
           ${principal.principalId},case when subject.kind='project' then 'project.read'
             when subject.kind='work_item' then 'work.read'

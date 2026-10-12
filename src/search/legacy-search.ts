@@ -29,11 +29,16 @@ export async function searchAuthorized(
       from search_documents d
       left join comments c on d.kind='comment' and c.id=d.entity_id
       left join threads t on c.thread_id=t.id
+      left join entities subject on subject.id=t.subject_entity_id
       where d.workspace_id=${principal.workspaceId} and d.kind in ${sql(input.kinds)}
         and entity_access_allowed(d.workspace_id,d.entity_id,${principal.principalId},
           case when d.kind='project' then 'project.read' else 'work.read' end)
-        and (d.kind<>'comment' or entity_access_allowed(d.workspace_id,t.subject_entity_id,
+        and (d.kind<>'comment' or entity_access_allowed(d.workspace_id,t.id,
           ${principal.principalId},'work.read'))
+        and (d.kind<>'comment' or entity_access_allowed(d.workspace_id,t.subject_entity_id,
+          ${principal.principalId},case when subject.kind='project' then 'project.read'
+            when subject.kind='work_item' then 'work.read'
+            else '__unsupported_read_permission__' end))
     ), matched as (
       select *,ts_rank_cd(document,websearch_to_tsquery('simple',${input.text})) rank
       from authorized where document @@ websearch_to_tsquery('simple',${input.text})
