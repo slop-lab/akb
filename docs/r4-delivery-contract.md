@@ -10,8 +10,9 @@ Architecture records for new boundaries remain proposed until maintainer accepta
 The runtime sources now implement the bounded R3/R4 checkpoint described here, but this remains an
 execution contract rather than a phase-completion record. R1-R4 are `In progress`, CI is deferred,
 and no formal exit gate is reported as passing by this document. Recorded native Node 24 live
-export/import/archive evidence and 11 of 11 Chrome scenarios pass their bounded paths; final
-current-HEAD named PostgreSQL, backup, and aggregate R4 reruns remain pending.
+export/import/archive evidence and all 11 Chrome scenarios pass their bounded paths. Independent
+named PostgreSQL, backup, and aggregate R4 gates plus all five review lanes passed at source
+commit `260812d`. Those results remain local evidence, not a formal phase or CI promotion.
 
 R3 prerequisite work includes a normalized Entity/Revision/Relation foundation, restrictive
 object ACL, a versioned generic event/outbox stream, archive/retention foundations, structured

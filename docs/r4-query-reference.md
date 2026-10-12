@@ -178,6 +178,7 @@ writes or collision metadata.
 The route implementations and PostgreSQL tests are local functional evidence. An earlier native
 Node 24 live exercise covered archived-inclusive export, Project query,
 export -> validate -> commit -> replay -> re-export, malformed import, archive/restore queries, and
-snapshot release. The latest recorded Chrome run passed 11 of 11 scenarios in 59.1 seconds. Final
-current-HEAD named PostgreSQL, backup, and aggregate R4 reruns remain pending. These results do not
-mark the R4 phase gate or CI complete.
+snapshot release. Independent acceptance at source commit `260812d` passed all 11 real-Chrome
+scenarios, 71 PostgreSQL tests, 15 R4 contract and 164 R4 PostgreSQL tests, and 28 backup/restore
+tests. All five review lanes returned PASS without blockers. These results do not mark the R4
+phase gate or CI complete.
