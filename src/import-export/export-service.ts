@@ -5,7 +5,7 @@ import { canReadFilterReferences } from "../human-query/filter-reference-authori
 import { lockAuthenticatedPrincipal } from "../identity/authenticate.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import { normalizeExportRecord } from "./export-record-normalizer.ts"
-import { normalizeSavedViewDefinition } from "./saved-view-transfer.ts"
+import { isSavedViewRelevantToScope, normalizeSavedViewDefinition } from "./saved-view-transfer.ts"
 
 const MAX_RECORDS = 100_000
 const MAX_BYTES = 100 * 1024 * 1024
@@ -47,12 +47,17 @@ export async function exportAuthorizedProject(
       }
       if (!(await canReadFilterReferences(transaction, principal, record.definition.filter)))
         continue
+      if (
+        scoped &&
+        record.scopeSpaceId === null &&
+        !isSavedViewRelevantToScope(record.definition, records)
+      )
+        continue
       const normalized = normalizeSavedViewDefinition(record.definition, records)
       if (normalized.kind === "budget_exceeded") throw new ExportValidationError("budget_exceeded")
       if (normalized.kind === "unresolved_reference") {
         throw new ExportValidationError("nonportable_graph")
       }
-      if (scoped && normalized.references.length === 0 && !normalized.matchedRange) continue
       safeRecords.push({ ...record, definition: normalized.definition })
     }
     const outputRecords: readonly ImportRecord[] = [

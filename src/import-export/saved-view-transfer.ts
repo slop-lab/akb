@@ -15,6 +15,51 @@ export type NormalizedSavedView =
   | { readonly kind: "unresolved_reference" }
   | { readonly kind: "budget_exceeded" }
 
+export function isSavedViewRelevantToScope(
+  definition: HumanWorkQuery,
+  records: readonly ImportRecord[],
+): boolean {
+  const graph = referenceGraph(records)
+  const visit = (node: FilterNode): boolean => {
+    switch (node.op) {
+      case "and":
+      case "or":
+        return node.filters.some(visit)
+      case "not":
+        return visit(node.filter)
+      case "relation":
+        return (
+          graph.has(referenceKey("project", node.entityId)) ||
+          graph.has(referenceKey("work_item", node.entityId))
+        )
+      case "eq":
+      case "in": {
+        const kind = referenceKind(node.field)
+        if (kind === undefined) return false
+        const values = node.op === "eq" ? [node.value] : node.values
+        return values.some(
+          (value) => typeof value === "string" && graph.has(referenceKey(kind, value)),
+        )
+      }
+      case "range": {
+        const kind = referenceKind(node.field)
+        if (kind === undefined) return false
+        const candidates = [...graph.values()].filter((reference) => reference.kind === kind)
+        return candidates.some(
+          (reference) =>
+            (node.from === null || reference.id >= node.from) &&
+            (node.to === null || reference.id <= node.to),
+        )
+      }
+      case "is_null":
+        return false
+      default:
+        return assertNever(node)
+    }
+  }
+  return definition.filter !== null && visit(definition.filter)
+}
+
 export function normalizeSavedViewDefinition(
   definition: HumanWorkQuery,
   records: readonly ImportRecord[],
