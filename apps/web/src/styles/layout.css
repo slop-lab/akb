@@ -167,9 +167,13 @@
   background: var(--color-surface-2);
   border-radius: var(--radius-1);
   display: inline-flex;
-  inline-size: 36px;
+  flex: 0 0 auto;
+  inline-size: max-content;
   justify-content: center;
-  overflow: hidden;
+  min-inline-size: var(--control-md);
+  max-inline-size: 100%;
+  padding-inline: var(--space-1);
+  white-space: nowrap;
 }
 .space-key--rail {
   display: none;
