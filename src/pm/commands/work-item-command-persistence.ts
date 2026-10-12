@@ -2,7 +2,12 @@ import type { TransactionSql } from "postgres"
 import { z } from "zod"
 import { CommandInvariantError, EntityNotFoundError } from "../../entities/errors.ts"
 import type { JsonObject, MutationRecord } from "../../entities/mutation-types.ts"
-import { requireActiveHuman, requireEntityRead, stableEntityId } from "./helpers.ts"
+import {
+  requireActiveHuman,
+  requireEntityRead,
+  requireSpaceAccess,
+  stableEntityId,
+} from "./helpers.ts"
 import type { CommandCall } from "./types.ts"
 
 const SnapshotRowSchema = z.strictObject({ snapshot: z.record(z.string(), z.unknown()) })
@@ -10,15 +15,20 @@ const StateRowSchema = z.strictObject({
   category: z.enum(["backlog", "unstarted", "started", "completed", "canceled"]),
 })
 
-export async function requireCallerGrant(
+export async function requireAssignmentAccess(
   transaction: TransactionSql,
   call: CommandCall,
-  permission: string,
+  input: { readonly spaceId: string; readonly entityId?: string },
 ): Promise<void> {
-  const rows =
-    await transaction`select 1 from membership_permissions where workspace_id=${call.workspaceId}
-    and principal_id=${call.principal.principalId} and permission=${permission}`
-  if (rows.length !== 1) throw new CommandInvariantError("assignment_permission_required")
+  await requireSpaceAccess(transaction, {
+    principal: call.principal,
+    spaceId: input.spaceId,
+    permission: "work.assign",
+  })
+  if (input.entityId === undefined) return
+  const rows = await transaction`select 1 where entity_access_allowed(${call.workspaceId},
+    ${input.entityId},${call.principal.principalId},'work.assign')`
+  if (rows.length !== 1) throw new EntityNotFoundError(input.entityId)
 }
 
 export async function validateAssignment(

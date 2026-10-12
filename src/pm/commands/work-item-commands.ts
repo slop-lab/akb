@@ -14,7 +14,7 @@ import {
   appendLegacyEvent,
   appendLegacyRevision,
   replaceLabels,
-  requireCallerGrant,
+  requireAssignmentAccess,
   requireProjectAndLabels,
   requireState,
   validateAssignment,
@@ -55,6 +55,7 @@ export class WorkItemCommandService {
           spaceId: payload.spaceId,
           permission: "work.create",
         })
+        await requireAssignmentAccess(transaction, call, { spaceId: payload.spaceId })
         await insertEntity(transaction, {
           id: entityId,
           workspaceId: call.workspaceId,
@@ -138,7 +139,10 @@ export class WorkItemCommandService {
         )
         const ownerId = payload.accountableOwnerId ?? current.accountable_owner_id
         if (ownerId !== current.accountable_owner_id) {
-          await requireCallerGrant(transaction, call, "work.assign")
+          await requireAssignmentAccess(transaction, call, {
+            spaceId: current.space_id,
+            entityId,
+          })
           await validateAssignment(transaction, call, ownerId, current.space_id)
         }
         const category =
