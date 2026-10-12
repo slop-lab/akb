@@ -38,6 +38,31 @@ test("R4 filters enforce depth and node budgets", () => {
   assert.equal(result.success, false)
 })
 
+test("R4 filters reject range operators for entity references", () => {
+  // Given
+  const fields = ["spaceId", "projectId", "workflowStateId", "labelId"] as const
+
+  // When
+  const results = fields.map((field) =>
+    FilterNodeSchema.safeParse({ op: "range", field, from: "a", to: "z" }),
+  )
+
+  // Then
+  assert.equal(
+    results.every((result) => !result.success),
+    true,
+  )
+  assert.equal(
+    FilterNodeSchema.safeParse({
+      op: "range",
+      field: "dueDate",
+      from: "2026-01-01",
+      to: "2026-12-31",
+    }).success,
+    true,
+  )
+})
+
 test("R4 queries require stable bounded pagination and explicit nulls", () => {
   // Given
   const query = {

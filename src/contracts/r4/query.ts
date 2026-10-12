@@ -25,6 +25,7 @@ export const SORT_FIELDS = [
 ] as const
 const FilterFieldSchema = z.enum(FILTER_FIELDS)
 const FilterScalarSchema = z.union([z.string(), z.number(), z.boolean()])
+const REFERENCE_FILTER_FIELDS = ["spaceId", "projectId", "workflowStateId", "labelId"] as const
 
 export type FilterNode =
   | { readonly op: "and" | "or"; readonly filters: readonly FilterNode[] }
@@ -148,6 +149,9 @@ function validateFilterTypes(node: FilterNode, context: z.RefinementCtx): void {
       validateValues(node.field, node.values, context)
       return
     case "range":
+      if (REFERENCE_FILTER_FIELDS.some((field) => field === node.field)) {
+        context.addIssue({ code: "custom", message: `${node.field} does not support range` })
+      }
       validateValues(node.field, [node.from, node.to], context)
       return
     default:
