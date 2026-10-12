@@ -77,6 +77,10 @@ test("responsive Work surfaces have no page overflow and produce safe evidence",
   for (const breakpoint of BREAKPOINTS) {
     // When: each documented viewport is rendered.
     await app.page.setViewportSize({ width: breakpoint.width, height: breakpoint.height })
+    if (breakpoint.width >= 768) {
+      await expect(app.page.getByRole("button", { name: "Work", exact: true })).toBeVisible()
+      await expect(app.page.getByRole("button", { name: "Projects", exact: true })).toBeVisible()
+    }
 
     // Then: the page remains within its viewport and evidence contains no user records.
     expect(

@@ -171,6 +171,9 @@
   justify-content: center;
   overflow: hidden;
 }
+.space-key--rail {
+  display: none;
+}
 .api-status {
   align-items: center;
   color: var(--color-ink-3);

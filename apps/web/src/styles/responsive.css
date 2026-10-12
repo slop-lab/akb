@@ -107,7 +107,7 @@
 
 @media (min-width: 768px) and (max-width: 1279px) {
   .shell {
-    grid-template-columns: var(--nav-rail-width) minmax(0, 1fr);
+    grid-template-columns: calc(var(--nav-rail-width) + var(--space-10)) minmax(0, 1fr);
   }
   .nav-item span:not(.space-key),
   .sidebar__label,
@@ -117,6 +117,10 @@
   .nav-item {
     justify-content: center;
     padding-inline: var(--space-1);
+  }
+  .space-key--full {
+    display: inline-flex;
+    inline-size: 100%;
   }
   .sidebar {
     overflow-x: hidden;

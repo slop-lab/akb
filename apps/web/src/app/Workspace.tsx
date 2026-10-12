@@ -95,6 +95,8 @@ export function Workspace({
               type="button"
               key={destination}
               className="nav-item"
+              aria-label={label}
+              title={label}
               aria-current={route === destination ? "page" : undefined}
               onClick={() => {
                 if (destination === "work") setWorkProjectId("")
@@ -114,12 +116,16 @@ export function Workspace({
               type="button"
               key={space.id}
               className="nav-item nav-item--space"
+              title={`${space.key} · ${space.name}`}
               onClick={() => {
                 setRoute("work")
                 setNavOpen(false)
               }}
             >
-              <span className="space-key mono">{space.key}</span>
+              <span className="space-key space-key--full mono">{space.key}</span>
+              <span className="space-key space-key--rail mono" aria-hidden="true">
+                {space.key.slice(0, 1)}
+              </span>
               <span>{space.name}</span>
             </button>
           ))}
