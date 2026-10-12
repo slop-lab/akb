@@ -3,7 +3,6 @@ import { useState } from "react"
 import type { Bootstrap } from "../../../../../src/contracts/r4/human.ts"
 import type {
   HumanWorkQuery,
-  Project,
   SavedView,
   SpaceConfig,
 } from "../../../../../src/contracts/r4/index.ts"
@@ -16,8 +15,9 @@ type WorkControlsProps = {
   readonly draft: WorkQueryDraft
   readonly savedViews: readonly SavedView[]
   readonly showSavedViews: boolean
+  readonly session: import("../../app/types.ts").Session
   readonly spaces: readonly { readonly id: string; readonly name: string }[]
-  readonly projects: readonly Project[]
+  readonly onError: (message: string) => void
   readonly config: SpaceConfig | null
   readonly principals: Bootstrap["principals"]
   readonly onViewChange: (view: WorkView) => void
@@ -89,10 +89,11 @@ export function WorkControls(props: WorkControlsProps) {
       </div>
       <WorkFilterFields
         draft={props.draft}
-        projects={props.projects}
+        session={props.session}
         config={props.config}
         principals={props.principals}
         onChange={props.onDraftChange}
+        onError={props.onError}
       />
       {props.showSavedViews || props.savedViews.length > 0 ? (
         <section className="saved-strip" aria-label="Saved views">

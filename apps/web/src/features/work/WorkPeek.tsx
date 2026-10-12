@@ -1,14 +1,12 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import type {
   Comment,
-  Project,
   Relation,
   SpaceConfig,
   WorkItemDetail,
 } from "../../../../../src/contracts/r4/index.ts"
 import type { Session } from "../../app/types.ts"
 import { Button, ErrorPanel } from "../../components/primitives.tsx"
-import { useOwnedSnapshot } from "../../hooks/useOwnedSnapshot.ts"
 import { WorkPeekContent } from "./WorkPeekContent.tsx"
 
 type WorkPeekProps = {
@@ -23,19 +21,16 @@ export function WorkPeek({ session, itemId, onClose, onChanged }: WorkPeekProps)
   const [comments, setComments] = useState<readonly Comment[]>([])
   const [relations, setRelations] = useState<readonly Relation[]>([])
   const [config, setConfig] = useState<SpaceConfig | null>(null)
-  const [projects, setProjects] = useState<readonly Project[]>([])
   const [tab, setTab] = useState("details")
   const [draft, setDraft] = useState("")
   const [error, setError] = useState<string | null>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const canReadProjects = session.bootstrap.permissions.includes("project.read")
-  const runOwnedProjectQuery = useOwnedSnapshot(session.api)
 
   const load = useCallback(async () => {
     setError(null)
     try {
       const detail = await session.api.workItem(itemId)
-      const [nextComments, nextRelations, nextConfig, projectPage] = await Promise.all([
+      const [nextComments, nextRelations, nextConfig] = await Promise.all([
         session.api.comments(itemId).catch((caught) => {
           if (caught instanceof Error && caught.message === "This entity is unavailable.") return []
           throw caught
@@ -45,28 +40,16 @@ export function WorkPeek({ session, itemId, onClose, onChanged }: WorkPeekProps)
           throw caught
         }),
         session.api.spaceConfig(detail.space.id),
-        canReadProjects
-          ? runOwnedProjectQuery(() =>
-              session.api.queryProjects({
-                filter: null,
-                search: null,
-                sort: [{ field: "createdAt", direction: "desc" }],
-                includeArchived: false,
-                page: { size: 100, cursor: null },
-              }),
-            )
-          : Promise.resolve(null),
       ])
       setItem(detail)
       setComments(nextComments)
       setRelations(nextRelations)
       setConfig(nextConfig)
-      setProjects(projectPage?.items ?? [])
       requestAnimationFrame(() => headingRef.current?.focus())
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Work item could not be loaded.")
     }
-  }, [canReadProjects, itemId, runOwnedProjectQuery, session.api])
+  }, [itemId, session.api])
 
   useEffect(() => {
     void load()
@@ -239,7 +222,6 @@ export function WorkPeek({ session, itemId, onClose, onChanged }: WorkPeekProps)
         comments={comments}
         relations={relations}
         config={config}
-        projects={projects}
         draft={draft}
         onTabChange={setTab}
         onDraftChange={setDraft}
@@ -250,6 +232,7 @@ export function WorkPeek({ session, itemId, onClose, onChanged }: WorkPeekProps)
         onAddRelation={(event) => void addRelation(event)}
         onAddParent={(event) => void addParent(event)}
         onRemoveRelation={(relation) => void removeRelation(relation)}
+        onError={setError}
       />
     </aside>
   )

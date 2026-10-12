@@ -1,10 +1,10 @@
 import { Plus } from "@phosphor-icons/react"
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import type { Project } from "../../../../../src/contracts/r4/index.ts"
 import type { ScreenProps } from "../../app/types.ts"
 import { Badge, Button, Dialog, EmptyState, ErrorPanel } from "../../components/primitives.tsx"
 import { ScreenLayout } from "../../components/ScreenLayout.tsx"
-import { useOwnedSnapshot } from "../../hooks/useOwnedSnapshot.ts"
+import { useProjectPages } from "../../hooks/useProjectPages.ts"
 import { ProjectForm } from "./ProjectForm.tsx"
 
 export function ProjectsScreen({
@@ -12,35 +12,20 @@ export function ProjectsScreen({
   announce,
   onOpenWork,
 }: ScreenProps & { readonly onOpenWork: (project: Project) => void }) {
-  const [projects, setProjects] = useState<readonly Project[]>([])
   const [selected, setSelected] = useState<Project | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const runOwnedQuery = useOwnedSnapshot(session.api)
   const canManage = session.bootstrap.permissions.includes("project.manage")
-
-  const load = useCallback(async () => {
-    setError(null)
-    try {
-      const page = await runOwnedQuery(() =>
-        session.api.queryProjects({
-          filter: null,
-          search: null,
-          sort: [{ field: "createdAt", direction: "desc" }],
-          includeArchived: true,
-          page: { size: 100, cursor: null },
-        }),
-      )
-      setProjects(page.items)
-      announce(`${page.matched} projects loaded`)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Projects could not be loaded.")
-    }
-  }, [announce, runOwnedQuery, session.api])
+  const { projects, nextCursor, matched, isLoadingMore, load, loadMore } = useProjectPages({
+    session,
+    includeArchived: true,
+    search: "",
+    onError: setError,
+  })
 
   useEffect(() => {
-    void load()
-  }, [load])
+    if (matched !== null) announce(`${matched} projects loaded`)
+  }, [announce, matched])
 
   async function lifecycle(project: Project, action: "archive" | "restore") {
     try {
@@ -137,6 +122,11 @@ export function ProjectsScreen({
             </article>
           ))}
         </div>
+      )}
+      {nextCursor === null ? null : (
+        <Button variant="quiet" busy={isLoadingMore} onClick={() => void loadMore()}>
+          Load more projects
+        </Button>
       )}
       <Dialog
         title={selected === null ? "Create project" : `Edit ${selected.name}`}

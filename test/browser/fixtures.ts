@@ -24,17 +24,19 @@ const SnapshotResponseSchema = z.object({
 
 type Role = "owner" | "viewer"
 
-type AppFixture = {
+export type AppFixture = {
   readonly context: BrowserContext
   readonly page: Page
   readonly signIn: (role?: Role) => Promise<SignedInIdentity>
   readonly expectEmptyBrowserStorage: () => Promise<void>
   readonly ownerCommand: (request: CommandRequest) => Promise<APIResponse>
+  readonly ownerRead: (path: string) => Promise<APIResponse>
 }
 
 type SignedInIdentity = {
   readonly workspaceId: string
   readonly principalId: string
+  readonly spaceId: string
 }
 
 type CommandRequest = {
@@ -94,6 +96,7 @@ export const test = base.extend<BrowserFixtures>({
       return {
         workspaceId: authenticated.workspace.id,
         principalId: authenticated.principal.id,
+        spaceId: authenticated.currentSpaceId ?? authenticated.spaces[0]?.id ?? "",
       }
     }
 
@@ -123,7 +126,14 @@ export const test = base.extend<BrowserFixtures>({
       )
     }
 
-    await use({ context, page, signIn, expectEmptyBrowserStorage, ownerCommand })
+    function ownerRead(path: string): Promise<APIResponse> {
+      return context.request.get(
+        `/api/human/v1/workspaces/${encodeURIComponent(environment.R4_WORKSPACE_ID)}${path}`,
+        { headers: { authorization: `Bearer ${environment.R4_OWNER_TOKEN}` } },
+      )
+    }
+
+    await use({ context, page, signIn, expectEmptyBrowserStorage, ownerCommand, ownerRead })
     await Promise.all(snapshotReads)
     if (activeToken !== null) {
       const releases = await Promise.all(

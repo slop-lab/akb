@@ -1,14 +1,17 @@
 import type { Bootstrap } from "../../../../../src/contracts/r4/human.ts"
-import type { Project, SpaceConfig } from "../../../../../src/contracts/r4/index.ts"
+import type { SpaceConfig } from "../../../../../src/contracts/r4/index.ts"
+import type { Session } from "../../app/types.ts"
 import { Field, SelectField } from "../../components/primitives.tsx"
+import { ProjectSelect } from "../projects/ProjectSelect.tsx"
 import type { WorkQueryDraft } from "./work-query.ts"
 
 type Props = {
   readonly draft: WorkQueryDraft
-  readonly projects: readonly Project[]
+  readonly session: Session
   readonly config: SpaceConfig | null
   readonly principals: Bootstrap["principals"]
   readonly onChange: (change: Partial<Omit<WorkQueryDraft, "source">>) => void
+  readonly onError: (message: string) => void
 }
 
 const categoryOptions = ["backlog", "unstarted", "started", "completed", "canceled"] as const
@@ -22,20 +25,19 @@ const sortOptions = [
 ] as const
 const directionOptions = ["asc", "desc"] as const
 
-export function WorkFilterFields({ draft, projects, config, principals, onChange }: Props) {
+export function WorkFilterFields({ draft, session, config, principals, onChange, onError }: Props) {
   return (
     <details className="filter-panel">
       <summary>More filters and sort</summary>
       <div className="filter-grid">
-        <SelectField
+        <ProjectSelect
+          session={session}
           label="Project"
           name="work-project"
           value={draft.projectId}
           onChange={(projectId) => onChange({ projectId })}
-          options={[
-            { value: "", label: "All projects" },
-            ...projects.map((project) => ({ value: project.id, label: project.name })),
-          ]}
+          emptyLabel="All projects"
+          onError={onError}
         />
         <SelectField
           label="Workflow state"

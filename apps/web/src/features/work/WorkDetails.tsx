@@ -1,18 +1,19 @@
 import { useState } from "react"
-import type { Project, SpaceConfig, WorkItemDetail } from "../../../../../src/contracts/r4/index.ts"
+import type { SpaceConfig, WorkItemDetail } from "../../../../../src/contracts/r4/index.ts"
 import type { Session } from "../../app/types.ts"
 import { Badge, Button, Field, SelectField } from "../../components/primitives.tsx"
+import { ProjectSelect } from "../projects/ProjectSelect.tsx"
 
 type Props = {
   readonly session: Session
   readonly item: WorkItemDetail
   readonly config: SpaceConfig | null
-  readonly projects: readonly Project[]
   readonly onUpdate: (field: string, value: unknown) => void
   readonly onLifecycle: (action: "archive" | "restore") => void
+  readonly onError: (message: string) => void
 }
 
-export function WorkDetails({ session, item, config, projects, onUpdate, onLifecycle }: Props) {
+export function WorkDetails({ session, item, config, onUpdate, onLifecycle, onError }: Props) {
   const labelIds = new Set(item.labels.map((label) => label.id))
   const [title, setTitle] = useState(item.title)
   const [type, setType] = useState(item.type)
@@ -76,15 +77,14 @@ export function WorkDetails({ session, item, config, projects, onUpdate, onLifec
         }))}
       />
       <span>Project</span>
-      <SelectField
+      <ProjectSelect
+        session={session}
         label="Project"
         name="peek-project"
         value={item.project?.id ?? ""}
         onChange={(value) => onUpdate("projectId", value || null)}
-        options={[
-          { value: "", label: "No project" },
-          ...projects.map((project) => ({ value: project.id, label: project.name })),
-        ]}
+        emptyLabel="No project"
+        onError={onError}
       />
       <span>Type</span>
       <Field

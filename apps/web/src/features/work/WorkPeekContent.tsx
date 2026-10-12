@@ -1,7 +1,6 @@
 import { type FormEvent, type KeyboardEvent, useId } from "react"
 import type {
   Comment,
-  Project,
   Relation,
   SpaceConfig,
   WorkItemDetail,
@@ -18,7 +17,6 @@ type WorkPeekContentProps = {
   readonly comments: readonly Comment[]
   readonly relations: readonly Relation[]
   readonly config: SpaceConfig | null
-  readonly projects: readonly Project[]
   readonly draft: string
   readonly onTabChange: (tab: string) => void
   readonly onDraftChange: (draft: string) => void
@@ -29,6 +27,7 @@ type WorkPeekContentProps = {
   readonly onAddRelation: (event: FormEvent<HTMLFormElement>) => void
   readonly onAddParent: (event: FormEvent<HTMLFormElement>) => void
   readonly onRemoveRelation: (relation: Relation) => void
+  readonly onError: (message: string) => void
 }
 
 export function WorkPeekContent(props: WorkPeekContentProps) {
@@ -74,9 +73,9 @@ export function WorkPeekContent(props: WorkPeekContentProps) {
             session={props.session}
             item={props.item}
             config={props.config}
-            projects={props.projects}
             onUpdate={props.onUpdate}
             onLifecycle={props.onLifecycle}
+            onError={props.onError}
           />
         </div>
       ) : null}
