@@ -41,6 +41,12 @@ export function compileProjectFilter(
       return sql`(${node.from === null ? sql`true` : sql`${field(sql, node.field)} >= ${node.from}`}
         and ${node.to === null ? sql`true` : sql`${field(sql, node.field)} <= ${node.to}`})`
     case "is_null":
+      if (node.field === "spaceId") {
+        const readableSpace = sql`exists(select 1 from project_spaces ps where ps.project_id=p.id
+          and entity_access_allowed(ps.workspace_id,
+            stable_space_entity_id(ps.workspace_id,ps.space_id),${principalId},'space.read'))`
+        return node.value ? sql`not (${readableSpace})` : readableSpace
+      }
       return node.value
         ? sql`${field(sql, node.field)} is null`
         : sql`${field(sql, node.field)} is not null`

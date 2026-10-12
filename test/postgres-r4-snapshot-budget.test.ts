@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { afterEach, beforeEach, test } from "node:test"
 import { z } from "zod"
 import { HumanQueryService, QueryBudgetExceededError } from "../src/human-query/service.ts"
+import { IdentityAdmin } from "../src/identity/admin.ts"
 import {
   type ContinuationFixture,
   createContinuationFixture,
@@ -63,8 +64,13 @@ test("workspace row exhaustion returns typed 507 on every query surface without 
 })
 
 test("workspace snapshot rows are reserved atomically across different principals", async () => {
-  await reserveRows([100_000, 100_000, 49_997])
   const fixture = runtime.fixture
+  await new IdentityAdmin(fixture.database.sql).setPermissions({
+    workspaceId: "search",
+    principalId: "viewer",
+    permissions: ["work.read", "space.read", "project.read"],
+  })
+  await reserveRows([100_000, 100_000, 49_997])
   const query = {
     model: "r4",
     filter: null,

@@ -15,6 +15,11 @@ export async function readFrozenWorkItem(
       from entities e join entity_revisions r on r.entity_id=e.id and r.revision=e.current_revision
       where e.workspace_id=${workspaceId} and e.id=${id} and e.kind='work_item'
         and entity_access_allowed(e.workspace_id,e.id,${principal.principalId},'work.read')
+        and entity_access_allowed(e.workspace_id,
+          stable_space_entity_id(e.workspace_id,r.canonical_snapshot->>'space_id'),
+          ${principal.principalId},'space.read')
+        and entity_access_allowed(e.workspace_id,r.canonical_snapshot->>'workflow_state_id',
+          ${principal.principalId},'space.read')
     ) select gen_random_uuid()::text snapshot_id,
       to_char(clock_timestamp()+interval '15 minutes','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') expires_at,
       1::integer matched,1::integer ordinal,p.source_revision,p.snapshot,
@@ -50,6 +55,11 @@ export async function readFrozenWorkPage(
         and s.credential_id=${principal.credentialId}
         and (${binding.group}::text is null or i.group_key=${binding.group})
         and entity_access_allowed(s.workspace_id,i.entity_id,${principal.principalId},'work.read')
+        and entity_access_allowed(s.workspace_id,
+          stable_space_entity_id(s.workspace_id,r.canonical_snapshot->>'space_id'),
+          ${principal.principalId},'space.read')
+        and entity_access_allowed(s.workspace_id,r.canonical_snapshot->>'workflow_state_id',
+          ${principal.principalId},'space.read')
       order by i.ordinal limit ${size}
     ) select p.snapshot_id::text,
       to_char(p.expires_at,'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') expires_at,

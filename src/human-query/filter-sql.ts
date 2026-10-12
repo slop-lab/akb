@@ -13,14 +13,23 @@ export function compileWorkFilter(
   node: FilterNode | null,
   principalId: string,
 ): Fragment {
+  const filter = compileFilterNode(sql, node, principalId)
+  return sql`${workMetadataAllowed(sql, principalId)} and (${filter})`
+}
+
+function compileFilterNode(
+  sql: TransactionSql,
+  node: FilterNode | null,
+  principalId: string,
+): Fragment {
   if (node === null) return sql`true`
   switch (node.op) {
     case "and":
-      return sql`(${node.filters.map((child, index) => sql`${index === 0 ? sql`` : sql`and`} ${compileWorkFilter(sql, child, principalId)}`)})`
+      return sql`(${node.filters.map((child, index) => sql`${index === 0 ? sql`` : sql`and`} ${compileFilterNode(sql, child, principalId)}`)})`
     case "or":
-      return sql`(${node.filters.map((child, index) => sql`${index === 0 ? sql`` : sql`or`} ${compileWorkFilter(sql, child, principalId)}`)})`
+      return sql`(${node.filters.map((child, index) => sql`${index === 0 ? sql`` : sql`or`} ${compileFilterNode(sql, child, principalId)}`)})`
     case "not":
-      return sql`not (${compileWorkFilter(sql, node.filter, principalId)})`
+      return sql`not (${compileFilterNode(sql, node.filter, principalId)})`
     case "eq":
       return (
         referenceFilter(sql, node.field, [node.value], principalId) ??
@@ -35,9 +44,12 @@ export function compileWorkFilter(
       return sql`(${node.from === null ? sql`true` : sql`${field(sql, node.field)} >= ${node.from}`}
         and ${node.to === null ? sql`true` : sql`${field(sql, node.field)} <= ${node.to}`})`
     case "is_null":
-      return node.value
-        ? sql`${field(sql, node.field)} is null`
-        : sql`${field(sql, node.field)} is not null`
+      return (
+        referenceNullFilter(sql, node.field, node.value, principalId) ??
+        (node.value
+          ? sql`${field(sql, node.field)} is null`
+          : sql`${field(sql, node.field)} is not null`)
+      )
     case "relation":
       return sql`exists (select 1 from relations r join entities rf on rf.id=r.from_entity_id
         join entities rt on rt.id=r.to_entity_id where r.workspace_id=e.workspace_id
@@ -64,24 +76,57 @@ function referenceFilter(
   values: readonly (string | number | boolean)[],
   principalId: string,
 ): Fragment | undefined {
-  if (name === "spaceId") {
-    return sql`pm.space_id in ${sql([...values])} and entity_access_allowed(e.workspace_id,
-      stable_space_entity_id(e.workspace_id,pm.space_id),${principalId},'space.read')`
-  }
-  if (name === "projectId") {
-    return sql`pm.project_id in ${sql([...values])} and entity_access_allowed(e.workspace_id,
-      pm.project_id,${principalId},'project.read')`
-  }
-  if (name === "workflowStateId") {
-    return sql`pm.workflow_state_id in ${sql([...values])} and entity_access_allowed(e.workspace_id,
-      pm.workflow_state_id,${principalId},'space.read')`
-  }
+  const value = readableReference(sql, name, principalId)
+  if (value !== undefined) return sql`${value} in ${sql([...values])}`
   if (name === "labelId") {
     return sql`exists(select 1 from work_item_labels wl where wl.work_item_id=e.id
       and wl.label_id in ${sql([...values])}
       and entity_access_allowed(e.workspace_id,wl.label_id,${principalId},'space.read'))`
   }
   return undefined
+}
+
+function referenceNullFilter(
+  sql: TransactionSql,
+  name: FilterField,
+  isNull: boolean,
+  principalId: string,
+): Fragment | undefined {
+  const value = readableReference(sql, name, principalId)
+  if (value !== undefined) return isNull ? sql`${value} is null` : sql`${value} is not null`
+  if (name === "labelId") {
+    const exists = sql`exists(select 1 from work_item_labels wl where wl.work_item_id=e.id
+      and entity_access_allowed(e.workspace_id,wl.label_id,${principalId},'space.read'))`
+    return isNull ? sql`not (${exists})` : exists
+  }
+  return undefined
+}
+
+function readableReference(
+  sql: TransactionSql,
+  name: FilterField,
+  principalId: string,
+): Fragment | undefined {
+  if (name === "spaceId") {
+    return sql`case when entity_access_allowed(e.workspace_id,
+      stable_space_entity_id(e.workspace_id,pm.space_id),${principalId},'space.read')
+      then pm.space_id end`
+  }
+  if (name === "projectId") {
+    return sql`case when entity_access_allowed(e.workspace_id,pm.project_id,
+      ${principalId},'project.read') then pm.project_id end`
+  }
+  if (name === "workflowStateId") {
+    return sql`case when entity_access_allowed(e.workspace_id,pm.workflow_state_id,
+      ${principalId},'space.read') then pm.workflow_state_id end`
+  }
+  return undefined
+}
+
+function workMetadataAllowed(sql: TransactionSql, principalId: string): Fragment {
+  return sql`entity_access_allowed(e.workspace_id,
+    stable_space_entity_id(e.workspace_id,pm.space_id),${principalId},'space.read')
+    and entity_access_allowed(e.workspace_id,pm.workflow_state_id,${principalId},'space.read')`
 }
 
 export function compileWorkOrder(sql: TransactionSql, sorts: readonly Sort[]): Fragment {
