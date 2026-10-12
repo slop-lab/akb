@@ -116,6 +116,10 @@ test("import validation is read-only and commit atomically maps every record fam
     (select count(*)::integer from entity_events_v1) events,
     (select count(*)::integer from entity_outbox_events_v1) outbox,
     (select count(*)::integer from search_documents) search,
+    (select count(*)::integer from workflow_states where active) active_states,
     (select count(*)::integer from import_batches where import_id=${importId} and state='committed') batches`
-  assert.deepEqual([...after], [{ mappings: 8, events: 8, outbox: 8, search: 3, batches: 1 }])
+  assert.deepEqual(
+    [...after],
+    [{ mappings: 8, events: 8, outbox: 8, search: 3, active_states: 6, batches: 1 }],
+  )
 })

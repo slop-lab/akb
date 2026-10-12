@@ -10,6 +10,7 @@ const BOOTSTRAP_CATEGORIES = ["backlog", "unstarted", "started", "completed", "c
 const STABLE_STATE_ID = /^state:[0-9a-f]{64}$/
 
 type StateRecord = Extract<ImportRecord, { readonly kind: "workflow_state" }>
+type SpaceRecord = Extract<ImportRecord, { readonly kind: "space" }>
 type BootstrapRow = {
   readonly category: string
   readonly id: string
@@ -45,10 +46,35 @@ export async function reconcileCreatedBootstrapStates(
     const stateRecords = context.records
       .filter(isWorkflowState)
       .filter((record) => record.spaceId === sourceSpaceId)
+    const spaceRecord = context.records.find(
+      (record): record is SpaceRecord =>
+        record.kind === "space" && record.externalId === sourceSpaceId,
+    )
     const rows = await transaction<BootstrapRow[]>`select id,category,position,
       revision::integer revision from workflow_states
       where workspace_id=${context.principal.workspaceId} and space_id=${destinationSpaceId}`
-    const matched = pairCanonicalBootstrapStates(stateRecords, rows)
+    const authoritative =
+      spaceRecord?.workflowStateScope !== undefined || isUnambiguousLegacyExport(stateRecords)
+    const matched = authoritative ? pairBootstrapStates(stateRecords, rows) : []
+    const matchedRowIds = new Set(matched.map(({ row }) => row.id))
+    if (authoritative) {
+      for (const row of rows) {
+        if (matchedRowIds.has(row.id)) continue
+        const key = `import:${context.importId}:${sourceSpaceId}:bootstrap:${row.id}:archive`
+        archives.push({
+          workspaceId: context.principal.workspaceId,
+          principal: context.principal,
+          commandId: key,
+          idempotencyKey: key,
+          baseRevision: row.revision,
+          action: "workflow-state.archive",
+          route: "import:workflow_state",
+          resourceId: row.id,
+          parentId: destinationSpaceId,
+          payload: {},
+        })
+      }
+    }
     const usedPositions = new Set([
       ...rows.map((row) => row.position),
       ...stateRecords.map(
@@ -95,14 +121,14 @@ export async function reconcileCreatedBootstrapStates(
   return { archives, reconciled }
 }
 
-function pairCanonicalBootstrapStates(
+function pairBootstrapStates(
   records: readonly StateRecord[],
   rows: readonly BootstrapRow[],
 ): readonly BootstrapPair[] {
   const pairs: BootstrapPair[] = []
   for (const category of BOOTSTRAP_CATEGORIES) {
     const row = rows.find((candidate) => candidate.category === category)
-    if (row === undefined) return []
+    if (row === undefined) continue
     const exact = records.find(
       (record) => record.category === category && record.externalId === row.id,
     )
@@ -113,11 +139,40 @@ function pairCanonicalBootstrapStates(
     const candidates = records.filter(
       (record) => record.category === category && STABLE_STATE_ID.test(record.externalId),
     )
-    const record = candidates.length === 1 ? candidates[0] : undefined
-    if (record === undefined) return []
-    pairs.push({ record, row })
+    const stable = candidates.length === 1 ? candidates[0] : undefined
+    if (stable !== undefined) {
+      pairs.push({ record: stable, row })
+      continue
+    }
+    const replacement = records
+      .filter((record) => record.category === category)
+      .sort(compareReplacementCandidates)[0]
+    if (replacement !== undefined) pairs.push({ record: replacement, row })
   }
   return pairs
+}
+
+function isUnambiguousLegacyExport(records: readonly StateRecord[]): boolean {
+  return (
+    records.some((record) => STABLE_STATE_ID.test(record.externalId)) &&
+    BOOTSTRAP_CATEGORIES.every((category) =>
+      records.some((record) => record.category === category),
+    ) &&
+    records.every(
+      (record) =>
+        record.color !== undefined &&
+        record.position !== undefined &&
+        record.isDefault !== undefined,
+    )
+  )
+}
+
+function compareReplacementCandidates(left: StateRecord, right: StateRecord): number {
+  return (
+    Number(right.isDefault) - Number(left.isDefault) ||
+    (left.position ?? MAX_POSITION) - (right.position ?? MAX_POSITION) ||
+    left.externalId.localeCompare(right.externalId)
+  )
 }
 
 function stateUpdateCall(
