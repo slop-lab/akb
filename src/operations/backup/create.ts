@@ -19,7 +19,11 @@ export async function createBackup(
 ): Promise<{
   readonly overallDigest: string
   readonly formatVersion: 1 | 2
-  readonly profile: "r3-schema-004-public" | "r4-schema-008-public-v1"
+  readonly profile:
+    | "r3-schema-004-public"
+    | "r4-schema-008-public-v1"
+    | "r4-schema-009-public-v1"
+    | "r4-schema-010-public-v1"
 }> {
   const paths = await createArtifactDirectory(artifactDirectory)
   const connection = toolConnection(databaseUrl)
@@ -87,7 +91,7 @@ export async function createBackup(
       const manifest = createManifest(
         snapshotResult.profile.id === "r3-schema-004-public"
           ? { formatVersion: 1, scope: "r3-schema-004-public", ...common }
-          : { formatVersion: 2, profile: "r4-schema-008-public-v1", ...common },
+          : { formatVersion: 2, profile: snapshotResult.profile.id, ...common },
       )
       const manifestHandle = await openPrivateNewFile(paths.manifest)
       try {
