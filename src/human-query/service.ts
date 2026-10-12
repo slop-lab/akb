@@ -12,16 +12,10 @@ import { type CursorBinding, decodeCursor, encodeCursor, InvalidCursorError } fr
 import { compileWorkFilter, compileWorkOrder } from "./filter-sql.ts"
 import { frozenWorkCard, parseFrozenWorkRow } from "./frozen-work.ts"
 import { readFrozenWorkItem, readFrozenWorkPage } from "./frozen-work-query.ts"
+import { allocateQuerySnapshot, QueryBudgetExceededError } from "./snapshot-allocation.ts"
 import { SnapshotConflictError, validateStoredSnapshot } from "./snapshot-validation.ts"
 
-export { SnapshotConflictError }
-
-export class QueryBudgetExceededError extends Error {
-  override readonly name = "QueryBudgetExceededError"
-  constructor() {
-    super("query_budget_exceeded")
-  }
-}
+export { QueryBudgetExceededError, SnapshotConflictError }
 
 export class HumanQueryService {
   private readonly sql: Sql
@@ -45,7 +39,9 @@ export class HumanQueryService {
       const sortHash = digest(query.sort)
       const binding =
         query.page.cursor === null
-          ? await materialize(transaction, principal, query, queryHash, sortHash, authorityEpoch)
+          ? await allocateQuerySnapshot(transaction, workspaceId, () =>
+              materialize(transaction, principal, query, queryHash, sortHash, authorityEpoch),
+            )
           : validateContinuation(
               query.page.cursor,
               this.signingKey,
@@ -115,8 +111,6 @@ async function materialize(
   sortHash: string,
   authorityEpoch: number,
 ): Promise<CursorBinding> {
-  await transaction`delete from human_query_snapshots where id in
-    (select id from human_query_snapshots where expires_at <= clock_timestamp() order by expires_at limit 100)`
   const snapshotId = randomUUID()
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString()
   const search = query.search ?? ""
