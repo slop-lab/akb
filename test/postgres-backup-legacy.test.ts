@@ -12,7 +12,9 @@ import { verifyBackupArtifact } from "../src/operations/backup/verify.ts"
 import {
   createOwnedDatabase,
   migrateBackupSchema004,
+  migrateBackupSchema008,
   populateBackupSource004,
+  populateR4BackupState,
   requiredEnvironment,
 } from "./postgres-backup-fixture.ts"
 
@@ -20,7 +22,7 @@ const adminUrl = requiredEnvironment("DATABASE_URL")
 const pgDumpPath = requiredEnvironment("PG_DUMP_PATH")
 const pgRestorePath = requiredEnvironment("PG_RESTORE_PATH")
 
-test("a real format-1 artifact restores through the registered schema-004 to schema-008 upgrade", async (context) => {
+test("a real format-1 artifact restores through the registered schema-004 to schema-010 upgrade", async (context) => {
   // Given
   const root = await mkdtemp(join(tmpdir(), "afw-postgres-backup-legacy-"))
   const admin = postgres(adminUrl, { max: 1 })
@@ -57,7 +59,7 @@ test("a real format-1 artifact restores through the registered schema-004 to sch
   assert.equal(manifest.formatVersion, 1)
   assert.equal(restored.activationAllowed, true)
   assert.equal(restored.sourceProfile, "r3-schema-004-public")
-  assert.equal(restored.finalProfile, "r4-schema-008-public-v1")
+  assert.equal(restored.finalProfile, "r4-schema-010-public-v1")
   assert.equal(await authenticateToken(target, fixture.activeToken), undefined)
   const state = await target<
     {
@@ -72,7 +74,7 @@ test("a real format-1 artifact restores through the registered schema-004 to sch
     (select count(*)::integer from outbox_jobs where state = 'leased') as legacy_leases,
     (select count(*)::integer from entity_outbox_jobs_v1 where state = 'leased') as generic_leases`
   assert.deepEqual(state[0], {
-    migrations: 8,
+    migrations: 10,
     active_credentials: 0,
     legacy_leases: 0,
     generic_leases: 0,
@@ -86,7 +88,7 @@ test("a real format-1 artifact restores through the registered schema-004 to sch
       quarantinePolicyVersion: z.literal(2),
       sourceOverallDigest: z.string().length(64),
       sourceProfile: z.literal("r3-schema-004-public"),
-      finalProfile: z.literal("r4-schema-008-public-v1"),
+      finalProfile: z.literal("r4-schema-010-public-v1"),
       sourceSchemaFingerprint: z.string().length(64),
       finalSchemaFingerprint: z.string().length(64),
       sourceBaselineDigest: z.string().length(64),
@@ -106,4 +108,63 @@ test("a real format-1 artifact restores through the registered schema-004 to sch
     .parse(JSON.parse(await readFile(join(root, "report.json"), "utf8")))
   assert.equal(report.sourceBaselineTables.length, 16)
   assert.equal(report.baselineTables.length, 48)
+})
+
+test("a real profile-008 artifact restores through the registered schema-008 to schema-010 upgrade", async (context) => {
+  // Given
+  const root = await mkdtemp(join(tmpdir(), "afw-postgres-backup-008-"))
+  const admin = postgres(adminUrl, { max: 1 })
+  const sourceDatabase = await createOwnedDatabase(admin, adminUrl, "backup_008_source")
+  const targetDatabase = await createOwnedDatabase(admin, adminUrl, "backup_008_target")
+  const source = postgres(sourceDatabase.url, { max: 2 })
+  const target = postgres(targetDatabase.url, { max: 2 })
+  context.after(async () => {
+    await source.end({ timeout: 5 })
+    await target.end({ timeout: 5 })
+    await admin`drop database ${admin(sourceDatabase.name)} with (force)`
+    await admin`drop database ${admin(targetDatabase.name)} with (force)`
+    await admin`drop role ${admin(sourceDatabase.role)}`
+    await admin`drop role ${admin(targetDatabase.role)}`
+    await admin.end({ timeout: 5 })
+    await rm(root, { recursive: true })
+  })
+  await migrateBackupSchema004(source)
+  await populateBackupSource004(source)
+  await migrateBackupSchema008(source)
+  await populateR4BackupState(source)
+  const artifact = join(root, "artifact")
+  await createBackup(artifact, sourceDatabase.url, pgDumpPath)
+
+  // When
+  const manifest = await verifyBackupArtifact(artifact, pgRestorePath)
+  const restored = await restoreBackup({
+    artifactDirectory: artifact,
+    confirmedDatabase: targetDatabase.name,
+    reportPath: join(root, "report.json"),
+    databaseUrl: targetDatabase.url,
+    pgRestorePath,
+  })
+
+  // Then
+  assert.equal(manifest.formatVersion, 2)
+  if (manifest.formatVersion !== 2) throw new TypeError("profile-008 manifest expected")
+  assert.equal(manifest.profile, "r4-schema-008-public-v1")
+  assert.equal(restored.sourceProfile, "r4-schema-008-public-v1")
+  assert.equal(restored.finalProfile, "r4-schema-010-public-v1")
+  const [state] = await target`select
+    (select count(*)::integer from schema_migrations) migrations,
+    (select count(*)::integer from principal_credentials where revoked_at is null) active,
+    (select count(*)::integer from outbox_jobs where state='leased') legacy_leases,
+    (select count(*)::integer from entity_outbox_jobs_v1 where state='leased') generic_leases,
+    (select count(*)::integer from import_batches where state='committed') committed_imports,
+    (select count(*)::integer from import_record_ids r join import_batches b using(import_id)
+      where b.state='committed') committed_mappings`
+  assert.deepEqual(state, {
+    migrations: 10,
+    active: 0,
+    legacy_leases: 0,
+    generic_leases: 0,
+    committed_imports: 1,
+    committed_mappings: 1,
+  })
 })
