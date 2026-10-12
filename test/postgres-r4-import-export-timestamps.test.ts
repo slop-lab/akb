@@ -64,7 +64,10 @@ test("export canonicalizes database offsets and re-imports completed and archive
       archived_at=${SOURCE_TIMESTAMPS.projectArchivedAt}::timestamptz where id=${ids.project}`
     await fixture.sql`update labels set archived_at=${SOURCE_TIMESTAMPS.labelArchivedAt}::timestamptz
       where id=${ids.label}`
-    await fixture.sql`update work_item_pm set completed_at=${SOURCE_TIMESTAMPS.workCompletedAt}::timestamptz,
+    await fixture.sql`update work_items set state='completed' where id=${ids.work}`
+    await fixture.sql`update work_item_pm set
+      workflow_state_id=stable_r4_entity_id('state','w','space:completed'),
+      completed_at=${SOURCE_TIMESTAMPS.workCompletedAt}::timestamptz,
       archived_at=${SOURCE_TIMESTAMPS.workArchivedAt}::timestamptz where work_item_id=${ids.work}`
     await fixture.sql`update relations set valid_to=${SOURCE_TIMESTAMPS.relationArchivedAt}::timestamptz
       where id=${ids.relation}`
@@ -215,10 +218,12 @@ function assertTimestamp(
 
 function assertExportedTimestamps(records: readonly Readonly<Record<string, unknown>>[]): void {
   const exportedWork = records.find(
-    (record) => record["kind"] === "work_item" && record["title"] === "Imported work",
+    (record) =>
+      Reflect.get(record, "kind") === "work_item" &&
+      Reflect.get(record, "title") === "Imported work",
   )
   if (exportedWork === undefined) throw new TypeError("completed work item missing")
-  assert.equal(pick(records, "project")["startDate"], "2026-10-01")
+  assert.equal(Reflect.get(pick(records, "project"), "startDate"), "2026-10-01")
   assertTimestamp(pick(records, "project"), "completedAt", SOURCE_TIMESTAMPS.projectCompletedAt)
   assertTimestamp(pick(records, "project"), "archivedAt", SOURCE_TIMESTAMPS.projectArchivedAt)
   assertTimestamp(exportedWork, "completedAt", SOURCE_TIMESTAMPS.workCompletedAt)

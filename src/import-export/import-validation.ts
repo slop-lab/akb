@@ -1,6 +1,7 @@
 import type { TransactionSql } from "postgres"
 import type { FilterNode, ImportRecord } from "../contracts/r4/index.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
+import { validateCompletion } from "./import-completion-validation.ts"
 import type { ValidatedBatch } from "./import-service.ts"
 import { ImportValidationError } from "./import-service.ts"
 import { validateWorkflowStates } from "./import-workflow-validation.ts"
@@ -18,6 +19,7 @@ export async function prepareImport(
   const records = batch.records.filter((record) => record.kind !== "manifest")
   const byId = new Map(records.map((record) => [record.externalId, record]))
   for (const record of records) validateRecord(record, byId, principal)
+  validateCompletion(records)
   validateParents(records)
   validateWorkflowStates(records)
   await requireHumans(transaction, principal, records)
