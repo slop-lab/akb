@@ -155,16 +155,22 @@ async function mapReusableLabel(
 ): Promise<boolean> {
   const spaceId = context.spaces.get(record.spaceId)
   if (spaceId === undefined) throw new ImportValidationError("label space is not mapped")
-  const rows = await transaction<{ readonly id: string }[]>`select l.id from labels l
+  const rows = await transaction<
+    { readonly accessible: boolean; readonly id: string }[]
+  >`select l.id,
+      entity_access_allowed(l.workspace_id,stable_space_entity_id(l.workspace_id,l.space_id),
+        ${context.principal.principalId},'space.manage')
+      and entity_access_allowed(l.workspace_id,l.id,
+        ${context.principal.principalId},'space.read') accessible
+    from labels l
     join entities e on e.id=l.id and e.workspace_id=l.workspace_id and e.kind='label'
     where l.workspace_id=${context.principal.workspaceId} and l.space_id=${spaceId}
       and e.scope_space_id=l.space_id and e.lifecycle='active'
       and l.name=${record.name} and l.color=${record.color} and l.archived_at is null
-      and entity_access_allowed(l.workspace_id,stable_space_entity_id(l.workspace_id,l.space_id),
-        ${context.principal.principalId},'space.manage')
-      and entity_access_allowed(l.workspace_id,l.id,${context.principal.principalId},'work.read')`
+    limit 1`
   const row = rows[0]
   if (row === undefined) return false
+  if (!row.accessible) throw new ImportValidationError("label is not reusable")
   context.entities.set(record.externalId, row.id)
   return true
 }
@@ -221,7 +227,8 @@ async function requireReplayAccess(
   const denied = await transaction`select 1 from import_record_ids i where i.import_id=${importId}
     and not entity_access_allowed(${principal.workspaceId},i.entity_id,${principal.principalId},case
       when i.record_kind='project' then 'project.read' when i.record_kind='saved_view' then 'view.read'
-      when i.record_kind in ('space','workflow_state') then 'space.read' else 'work.read' end) limit 1`
+      when i.record_kind in ('space','workflow_state','label') then 'space.read'
+      else 'work.read' end) limit 1`
   if (denied.length > 0) throw new ImportValidationError("import replay authority denied")
 }
 

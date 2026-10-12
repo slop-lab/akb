@@ -127,12 +127,13 @@ test("restricted reusable state and label collisions fail closed without canonic
 
   // Then
   assert.equal(stateResponse.status, 500)
-  assert.equal(labelResponse.status, 500)
-  const responses = `${await stateResponse.text()}${await labelResponse.text()}`
-  assert.equal(responses.includes(targetState), false)
-  assert.equal(responses.includes("target-label"), false)
-  assert.equal(responses.includes("Started"), false)
-  assert.equal(responses.includes("Shared label"), false)
+  assert.equal(labelResponse.status, 400)
+  assert.deepEqual(await labelResponse.json(), { error: { code: "invalid_import" } })
+  const response = await stateResponse.text()
+  assert.equal(response.includes(targetState), false)
+  assert.equal(response.includes("target-label"), false)
+  assert.equal(response.includes("Started"), false)
+  assert.equal(response.includes("Shared label"), false)
   assert.deepEqual(await canonicalCounts(), before)
 })
 
