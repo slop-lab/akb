@@ -37,17 +37,18 @@ The first PostgreSQL adapter now durably stores Work Item current state, immutab
 semantic events, workspace event sequences, and create-idempotency records in one transaction. It
 uses target-row locks for patch concurrency, tuple-scoped advisory locks for duplicate creation, and
 per-workspace sequence rows rather than global write serialization. Its explicit migration and
-real-database tests are evidence for the compatible legacy slice. Migrations `005`-`008` now add the
+real-database tests are evidence for the compatible legacy slice. Migrations `005`-`010` now add the
 broader entity registry, relations, restrictive ACL, versioned generic outbox/replay, PostgreSQL
-full-text search, PM records, snapshots, import mappings, and retention policy data. The full
-canonical product and formal R3/R4 gates remain incomplete.
+full-text search, PM records, snapshots, import mappings, retention policy data, deterministic legacy
+workflow history, and a transient frozen legacy PM query sidecar. The full canonical product and
+formal R3/R4 gates remain incomplete.
 S3-compatible object storage is planned for large artifacts, attachments, and raw traces. A search
 index, embedding service, summary cache, or object store must never become canonical domain truth.
 
 The in-memory and PostgreSQL adapters must implement the same observable application contracts:
 stable IDs, monotonic entity revisions, optimistic revision checks, command idempotency, atomic
 command results, ordered events, and explicit authorization. Adapter substitution must not change
-domain semantics. Registered schema-004 and schema-008 snapshot profiles and guarded
+domain semantics. Registered schema-004, schema-008, schema-009, and schema-010 snapshot profiles and guarded
 restore/upgrade rehearsal now exist; PITR, encrypted storage, scheduling, replication, and other
 PostgreSQL production guarantees remain gated.
 
@@ -87,7 +88,7 @@ The shared entity registry provides identity, tenancy, timestamps, current revis
 state. Specialized, normalized tables hold the constraints and query fields of hot domains.
 
 Generic JSON or entity-attribute-value storage is prohibited as a replacement for core Project,
-Cycle, workflow, relation, or general entity ACL structures. Migrations `005`-`008` provide explicit
+Cycle, workflow, relation, or general entity ACL structures. Migrations `005`-`010` provide explicit
 columns, foreign keys, uniqueness constraints, and indexes for the delivered entity ACL, workflow,
 Project, Work metadata, relation, comment, Saved View, search, snapshot, import, and retention
 domains. JSONB is permitted for bounded extension

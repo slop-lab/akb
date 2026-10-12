@@ -4,8 +4,8 @@
 
 This document records locally implemented source and executable evidence. It does not mark R1, R2,
 R3, or R4 complete. CI is deferred and the canonical phase gates remain open. Recorded native Node
-24 live export/import/archive checks and all 10 real-browser scenarios pass their bounded paths; the
-aggregate `npm run test:r4` command has not been recorded as passing.
+24 live export/import/archive checks and 11 of 11 Chrome scenarios pass their bounded paths; final
+current-HEAD named PostgreSQL, backup, and aggregate R4 reruns remain pending.
 
 ## Additive storage foundation
 
@@ -15,6 +15,8 @@ aggregate `npm run test:r4` command has not been recorded as passing.
 | `006_entity_event_outbox.sql` | Versioned generic event, outbox, jobs, inbox, and command idempotency | [`migrations/006_entity_event_outbox.sql`](../migrations/006_entity_event_outbox.sql), [`test/postgres-r4-operations-outbox.test.ts`](../test/postgres-r4-operations-outbox.test.ts) |
 | `007_r4_pm_core.sql` | Space configuration, workflows/states, Projects, Work metadata, labels, relations, comments, Saved Views, search documents | [`migrations/007_r4_pm_core.sql`](../migrations/007_r4_pm_core.sql), [`test/postgres-r4-commands.test.ts`](../test/postgres-r4-commands.test.ts) |
 | `008_human_query_import_retention.sql` | Human Query snapshots, stable import IDs, import batches, and retention policy data | [`migrations/008_human_query_import_retention.sql`](../migrations/008_human_query_import_retention.sql), [`test/postgres-r4-query-security.test.ts`](../test/postgres-r4-query-security.test.ts) |
+| `009_legacy_workflow_revision_history.sql` | Deterministic revision-1 workflow/state history for legacy Spaces; unresolved actors stay null and later history is untouched | [`migrations/009_legacy_workflow_revision_history.sql`](../migrations/009_legacy_workflow_revision_history.sql), [`test/postgres-r4-legacy-workflow-history.test.ts`](../test/postgres-r4-legacy-workflow-history.test.ts) |
+| `010_legacy_work_query_projection.sql` | Nullable schema-tagged snapshot-item sidecar for frozen legacy PM query projections; incompatible transient snapshots are discarded | [`migrations/010_legacy_work_query_projection.sql`](../migrations/010_legacy_work_query_projection.sql), [`test/postgres-r4-legacy-work-projection-migration.test.ts`](../test/postgres-r4-legacy-work-projection-migration.test.ts) |
 
 The registry gives each first-class object a stable ID, kind, Workspace, optional Space scope,
 lifecycle, current revision, and timestamps. Specialized tables remain canonical for domain
@@ -54,12 +56,34 @@ authority state, expiry, and snapshot position. Clients release abandoned snapsh
 `DELETE /api/human/v1/workspaces/:workspaceId/query-snapshots/:snapshotId`, which returns `204`
 without disclosing ownership.
 
+Current read and interchange hardening includes effective-authority checks for assignment; typed
+metadata, counts, history, and frozen current/list/continuation projections; ACL-safe reference-ID
+ranges; and Saved View current-scope enforcement. Portable NDJSON normalizes relevant reference
+ranges to at most 50 explicit typed references while preserving null, negation, and query-result
+semantics. Unauthorized and scope-irrelevant views are omitted before output; duplicate IDs,
+out-of-scope relevant views, unresolved references, AST-budget overflow, and nonportable graphs fail
+with typed errors. Primary evidence includes
+[`test/postgres-r4-command-assignment-authorization.test.ts`](../test/postgres-r4-command-assignment-authorization.test.ts),
+[`test/postgres-r4-saved-view-transfer-results.test.ts`](../test/postgres-r4-saved-view-transfer-results.test.ts),
+[`test/postgres-r4-saved-view-scope-export.test.ts`](../test/postgres-r4-saved-view-scope-export.test.ts),
+and [`test/postgres-r4-legacy-work-query.test.ts`](../test/postgres-r4-legacy-work-query.test.ts).
+
+Workflow interchange distinguishes markerless partial additive files from complete
+`workflowStateScope: "active" | "all"` files. Complete workflows require exactly one active default
+in any canonical category and at least one active state in every canonical category. Default
+handover emits a canonical revision/event for the former state and rolls back atomically. See
+[`test/r4-import-workflow-validation.test.ts`](../test/r4-import-workflow-validation.test.ts),
+[`test/postgres-r4-workflow-default-handover.test.ts`](../test/postgres-r4-workflow-default-handover.test.ts),
+and [`test/postgres-r4-workflow-partial-default.test.ts`](../test/postgres-r4-workflow-partial-default.test.ts).
+
 ## Backup profile registry
 
 | Profile | Artifact format | Migration ledger | Catalog | Restore behavior |
 | --- | ---: | --- | --- | --- |
-| `r3-schema-004-public` | 1 | `001`-`004` | schema-004 public resources | Validate/quarantine 004, then registered forward upgrade to 008 |
-| `r4-schema-008-public-v1` | 2 | `001`-`008` | 48-table schema-008 public resources, including trusted `pgcrypto` in `public` | Validate 008 directly and quarantine authority, leases, and transient state |
+| `r3-schema-004-public` | 1 | `001`-`004` | schema-004 public resources | Validate/quarantine source, then registered forward upgrade to 010 |
+| `r4-schema-008-public-v1` | 2 | `001`-`008` | 48-table schema-008 public resources, including trusted `pgcrypto` in `public` | Validate source, then registered forward upgrade to 010 |
+| `r4-schema-009-public-v1` | 2 | `001`-`009` | Same resources and fingerprint as 008; deterministic legacy history is data-only | Validate source, then registered forward upgrade to 010 |
+| `r4-schema-010-public-v1` | 2 | `001`-`010` | Current 48-table catalog with nullable frozen legacy projection sidecar | Validate 010 directly and quarantine authority, leases, and transient state |
 
 The source of truth is [`src/operations/backup/profiles.ts`](../src/operations/backup/profiles.ts)
 and [`src/operations/backup/resources.ts`](../src/operations/backup/resources.ts). Profile checks pin
@@ -71,11 +95,13 @@ committed import identity mappings.
 Profiles do not provide PITR, encryption, authenticity signatures, scheduling, replication,
 object-storage lifecycle, or full R8 release operations.
 
-Backup tests cover restore under an ordinary database owner, format-1 `r3-schema-004-public`
-upgrade to format-2 `r4-schema-008-public-v1`, catalog equivalence, and preservation of existing
-grant boundaries. Evidence is in [`test/postgres-backup.test.ts`](../test/postgres-backup.test.ts),
+Backup tests cover restore under an ordinary database owner, every older registered profile upgraded
+to `r4-schema-010-public-v1`, catalog equivalence, and preservation of existing grant boundaries.
+The 009 and 010 migration checksums and schema fingerprints are pinned in
+[`src/operations/backup/profiles.ts`](../src/operations/backup/profiles.ts). Evidence is in
+[`test/postgres-backup.test.ts`](../test/postgres-backup.test.ts),
 [`test/postgres-backup-legacy.test.ts`](../test/postgres-backup-legacy.test.ts), and
-[`test/postgres-backup-catalog.test.ts`](../test/postgres-backup-catalog.test.ts).
+[`test/postgres-backup-profile-009.test.ts`](../test/postgres-backup-profile-009.test.ts).
 
 ## Runtime and scale evidence
 
@@ -84,9 +110,27 @@ through native Node 24 strip-only loading. [`test/utc-datetime.test.ts`](../test
 checks UTC normalization. The public 100,000-item snapshot boundary and list/board traversal are
 covered by [`test/postgres-r4-scale.test.ts`](../test/postgres-r4-scale.test.ts) and
 [`test/postgres-r4-query-scale.test.ts`](../test/postgres-r4-query-scale.test.ts); both passed in
-individual recorded runs. Unit (54), integration (40), TypeScript/DOM, `build:r4`, and the
-10-scenario real-browser suite also have passing recorded runs. This evidence does not substitute
-for deferred CI, the complete formal gate, or an unrun aggregate `npm run test:r4` command.
+individual recorded runs.
+
+The latest recorded local checks passed 66 unit and 40 integration tests, web and browser
+TypeScript, `build:r4`, and 11 of 11 Chrome scenarios in 59.1 seconds. The R4 PostgreSQL suite
+recorded 151 passing tests before four scoped-view cases were added; no arithmetic projection is a
+current result. Older named aggregates recorded 71 `test:postgres`, 28 `test:backup`, and 141
+`test:r4` tests on an earlier revision. Final current-HEAD named-gate reruns are pending, so these
+figures do not substitute for deferred CI or a formal phase gate. A legacy SDK driver separately
+observed a schema-004 -> schema-010 database upgrade, detail/list/continuation behavior, and unchanged history.
+
+The latest browser coverage includes 101-Project pagination, searchable Project selectors with
+latest-response-wins ordering, selection retention across later pages and reloads, empty browser
+credential storage, keyboard paths, and maximum-length Space keys. Evidence is in
+[`test/browser/project-pagination.spec.ts`](../test/browser/project-pagination.spec.ts),
+[`test/browser/security.spec.ts`](../test/browser/security.spec.ts),
+[`test/browser/quality.spec.ts`](../test/browser/quality.spec.ts), and
+[`test/browser/transfer.spec.ts`](../test/browser/transfer.spec.ts).
+
+Known low-severity residuals remain around private-Project slug warning metadata and deployment
+hardening for static dotfiles and an operator-controlled secure asset root. They are not production
+release, PITR, encryption, scheduling, OIDC, or R5 completion claims.
 
 ## Machine contract evidence
 
