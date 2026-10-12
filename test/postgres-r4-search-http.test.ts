@@ -111,7 +111,7 @@ test("HTTP search rejects unknown request fields and forged cursors", async () =
       text: "frozen",
       kinds: ["work_item"],
       limit: 1,
-      cursor: `${cursor.slice(0, -1)}x`,
+      cursor: `x${cursor.slice(1)}`,
     }),
   })
 

@@ -176,10 +176,16 @@ test("continuation rejects tampering actors credentials epochs and database expi
   }
   const first = await search.search(fixture.owner, "search", request)
   const cursor = requiredCursor(first.nextCursor)
+  // Flip a full signature byte, not the final base64url character's padding bits.
+  const signatureStart = cursor.lastIndexOf(".") + 1
+  const tamperedCursor =
+    cursor.slice(0, signatureStart) +
+    (cursor[signatureStart] === "A" ? "B" : "A") +
+    cursor.slice(signatureStart + 1)
 
   // When / Then
   await assert.rejects(
-    search.search(fixture.owner, "search", { ...request, cursor: `${cursor.slice(0, -1)}x` }),
+    search.search(fixture.owner, "search", { ...request, cursor: tamperedCursor }),
     InvalidCursorError,
   )
   await assert.rejects(
