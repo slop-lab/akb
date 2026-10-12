@@ -8,7 +8,8 @@ import {
   SearchResultSchema,
 } from "../contracts/r4/search.ts"
 import type { CursorBinding } from "../human-query/cursor.ts"
-import { QueryBudgetExceededError, SnapshotConflictError } from "../human-query/service.ts"
+import { QueryBudgetExceededError } from "../human-query/service.ts"
+import { validateStoredSnapshot } from "../human-query/snapshot-validation.ts"
 import { lockAuthenticatedPrincipal } from "../identity/authenticate.ts"
 import {
   AuthenticationRequiredError,
@@ -28,13 +29,6 @@ const MaterializedRowSchema = z.strictObject({
   expires_at: z.string().nullable(),
   matched: z.number().int().nonnegative(),
   persisted: z.boolean(),
-})
-const SnapshotRowSchema = z.strictObject({
-  query_hash: z.string(),
-  authority_hash: z.string(),
-  expires_at: z.string(),
-  expired: z.boolean(),
-  matched: z.number().int().nonnegative(),
 })
 const PageRowSchema = z.strictObject({
   ordinal: z.number().int().positive(),
@@ -73,7 +67,7 @@ class PostgresR4Search implements R4SearchQuery {
               pageSize: request.limit,
               authority,
             })
-      const snapshot = await readSnapshot(transaction, principal, binding)
+      const snapshot = await validateStoredSnapshot(transaction, binding)
       const rows = await readPage(transaction, principal, binding, request.limit)
       const results = rows.map((row) =>
         SearchResultSchema.parse({
@@ -85,7 +79,7 @@ class PostgresR4Search implements R4SearchQuery {
       )
       const last = rows.at(-1)
       return SearchPageSchema.parse({
-        snapshot: { id: binding.snapshotId, expiresAt: snapshot.expires_at },
+        snapshot: { id: binding.snapshotId, expiresAt: binding.expiresAt },
         results,
         matched: snapshot.matched,
         nextCursor:
@@ -110,9 +104,8 @@ async function authorize(
     throw new AuthenticationRequiredError()
   }
   if (workspaceId !== principal.workspaceId) throw new WorkspaceNotFoundError()
-  const rows = await transaction<{ readonly epoch: number; readonly now: string }[]>`
-    select epoch::integer,to_char(clock_timestamp(),'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') now
-    from workspace_authority_epochs where workspace_id=${workspaceId} for share`
+  const rows = await transaction<{ readonly epoch: number }[]>`
+    select epoch::integer from workspace_authority_epochs where workspace_id=${workspaceId} for share`
   const row = rows[0]
   if (row === undefined) throw new WorkspaceNotFoundError()
   return row
@@ -174,7 +167,8 @@ async function materialize(
       from snapshot cross join candidates c returning 1
     )
     select stats.matched,exists(select 1 from snapshot) persisted,
-      (select to_char(expires_at,'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') from snapshot) expires_at
+      (select to_char(expires_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') from snapshot)
+        expires_at
     from stats`
   const row = MaterializedRowSchema.parse(rows[0])
   if (!row.persisted || row.expires_at === null) throw new QueryBudgetExceededError()
@@ -186,32 +180,6 @@ async function materialize(
     epoch,
     expiresAt: row.expires_at,
   })
-}
-
-async function readSnapshot(
-  transaction: TransactionSql,
-  principal: AuthenticatedPrincipal,
-  binding: CursorBinding,
-): Promise<z.infer<typeof SnapshotRowSchema>> {
-  const rows = await transaction`
-    select query_hash,authority_hash,matched::integer,
-      to_char(expires_at,'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') expires_at,
-      expires_at<=clock_timestamp() expired
-    from human_query_snapshots where id=${binding.snapshotId}::uuid
-      and workspace_id=${principal.workspaceId} and principal_id=${principal.principalId}
-      and credential_id=${principal.credentialId}`
-  const row = rows[0]
-  if (row === undefined) throw new SnapshotConflictError("snapshot_stale")
-  const snapshot = SnapshotRowSchema.parse(row)
-  if (snapshot.expired) throw new SnapshotConflictError("snapshot_expired")
-  if (
-    snapshot.query_hash !== binding.queryHash ||
-    snapshot.authority_hash !== binding.authorityHash ||
-    snapshot.expires_at !== binding.expiresAt
-  ) {
-    throw new SnapshotConflictError("snapshot_stale")
-  }
-  return snapshot
 }
 
 async function readPage(

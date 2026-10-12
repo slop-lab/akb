@@ -13,7 +13,6 @@ const SEARCH_SORT_HASH = digest("r4-search-rank-v1")
 
 export type SearchAuthority = {
   readonly epoch: number
-  readonly now: string
 }
 
 export function searchQueryHash(text: string, kinds: readonly string[]): string {
@@ -53,9 +52,6 @@ export function continuationBinding(input: {
   readonly authority: SearchAuthority
 }): CursorBinding {
   const binding = decodeCursor(input.cursor, input.signingKey)
-  if (Date.parse(binding.expiresAt) <= Date.parse(input.authority.now)) {
-    throw new SnapshotConflictError("snapshot_expired")
-  }
   if (
     binding.group !== SEARCH_GROUP ||
     binding.principalId !== input.principal.principalId ||
