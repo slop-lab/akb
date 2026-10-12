@@ -10482,9 +10482,13 @@
                       "position": {
                         "type": "integer",
                         "minimum": 0,
-                        "maximum": 19
+                        "maximum": 2147483647
                       },
                       "isDefault": {
+                        "type": "boolean"
+                      },
+                      "active": {
+                        "default": true,
                         "type": "boolean"
                       }
                     },

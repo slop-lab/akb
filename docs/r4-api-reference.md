@@ -34,6 +34,10 @@ Allowed fields are `spaceId`, `projectId`, `workflowStateId`, `stateCategory`, `
 `archived`. Sort fields are `createdAt`, `updatedAt`, `title`, `priority`, `dueDate`, and
 `workflowPosition`; servers append entity ID as the final tie-breaker.
 
+`range` is not supported for reference IDs (`spaceId`, `projectId`, `workflowStateId`, `labelId`).
+Nullable reference filters operate only on readable references, including under negation.
+These semantic refinements are enforced at runtime even where JSON Schema cannot express them.
+
 ## Command route inventory
 
 All command routes use `POST`, `PATCH`, or `PUT` under `/api/commands/v1/workspaces/:w` and derive

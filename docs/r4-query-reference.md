@@ -46,6 +46,13 @@ ranking, counting, grouping, or limiting. R4 Work Item responses exclude legacy 
 Space. Project participation, ownership, accountability, authorship, and Workspace role never
 bypass private-Space or restricted-entity ACL.
 
+Work projections require effective read authority for the Work Item, its Space, and its workflow
+state because these metadata fields are non-null in the DTO. Unreadable nullable references are
+treated as absent before filtering, including `is_null` and negation. Reference IDs (`spaceId`,
+`projectId`, `workflowStateId`, and `labelId`) do not support `range`; such input returns `400`.
+Comment/thread history also requires subject access, relation history requires both endpoints,
+and historical Saved View definitions are omitted when their own filter references are unreadable.
+
 ### Work query example
 
 ```http
@@ -61,6 +68,14 @@ Cursors are HMAC authenticated and bind the snapshot, ordinal/group, Principal, 
 Workspace, canonical query, sort, page size, authority epoch/hash, and expiry. Restart after
 `409 snapshot_stale`; restart after `410 snapshot_expired`. Page size is 1-100 and board size is
 1-25. Snapshots expire after 15 minutes and materialize at most 100,000 authorized members.
+
+Continuation validates and locks the stored snapshot, not only its signed cursor. A released or
+missing snapshot returns `409 snapshot_stale`; database expiry returns `410 snapshot_expired`.
+Allocation is serialized per Workspace across all query surfaces: each Principal can retain at
+most eight active snapshots and a Workspace at most 250,000 materialized rows. Exhaustion returns
+`507 query_budget_exceeded`; releasing an owned snapshot restores capacity. Board column metadata
+is read from immutable state revisions at snapshot creation, so later state archival does not
+remove frozen column members from an existing traversal.
 
 Work, Project, board, and paged search snapshots are transient. A client that replaces or abandons
 a query should call `R4Api.releaseSnapshot(snapshotId)`, which sends
@@ -134,6 +149,12 @@ The token binds the byte digest, import ID, Workspace, Principal, credential, au
 expiry. A changed byte, actor, credential, Workspace, authority epoch, or expired token is rejected.
 An identical committed `importId` and digest replays; a changed digest conflicts. Cross-Workspace
 owner changes require an explicit owner map in the command dispatcher and never transfer authority.
+
+Workflow-state records include `active`; older files that omit it default to `true`. Archived
+states remain inactive through commit, replay, and re-export, including imports into a workflow
+already holding 20 active states. Inactive states cannot be defaults. Positions are nonnegative
+PostgreSQL integers; inaccessible or incompatible reusable-state/label collisions return typed
+`400 invalid_import` without canonical writes or collision metadata.
 
 ## Evidence boundary
 
