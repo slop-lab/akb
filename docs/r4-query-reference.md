@@ -48,10 +48,13 @@ bypass private-Space or restricted-entity ACL.
 
 Work projections require effective read authority for the Work Item, its Space, and its workflow
 state because these metadata fields are non-null in the DTO. Unreadable nullable references are
-treated as absent before filtering, including `is_null` and negation. Reference IDs (`spaceId`,
-`projectId`, `workflowStateId`, and `labelId`) do not support `range`; such input returns `400`.
+treated as absent before filtering, including `is_null` and negation. Reference-ID ranges
+(`spaceId`, `projectId`, `workflowStateId`, and `labelId`) compare only readable references;
+unreadable scalar references evaluate as SQL null and unreadable label associations are ignored.
 Comment/thread history also requires subject access, relation history requires both endpoints,
 and historical Saved View definitions are omitted when their own filter references are unreadable.
+Saved View list, mutation, history, and export paths also recheck the view's current Space scope;
+moving or narrowing a view cannot use a requested new scope to bypass its existing authority.
 
 ### Work query example
 
@@ -102,6 +105,16 @@ Search text is limited to 500 characters and is passed as a PostgreSQL parameter
 `application/x-ndjson`. The manifest is first. Records are ordered by dependency and stable ID.
 The server rejects an export above 100,000 records or 100 MiB before returning the body. It never
 exports memberships, grants, credentials, bearer tokens, or unauthorized relation endpoints.
+Saved Views are filtered before output: unauthorized views and views irrelevant to the exported
+graph are omitted. Portable reference-ID ranges are normalized to explicit typed references while
+preserving nullable, negated, and query-result semantics. Normalization is bounded to 50 referenced
+IDs and the existing filter AST budget. Duplicate graph IDs, unresolved or out-of-scope relevant
+views, and graphs that cannot preserve equivalent range behavior fail with typed `400` import/export
+errors rather than emitting a nonportable graph.
+
+A Space export includes `workflowStateScope: "active"` or `"all"` only when the output contains an
+authorized complete workflow-state set for that scope. Otherwise the marker is omitted, and import
+treats the available states as a partial additive set rather than asserting completeness.
 
 ```http
 POST /api/human/v1/workspaces/acme/export
@@ -150,18 +163,21 @@ expiry. A changed byte, actor, credential, Workspace, authority epoch, or expire
 An identical committed `importId` and digest replays; a changed digest conflicts. Cross-Workspace
 owner changes require an explicit owner map in the command dispatcher and never transfer authority.
 
-Workflow-state records include `active`; older files that omit it default to `true`. Archived
-states remain inactive through commit, replay, and re-export, including imports into a workflow
-already holding 20 active states. Inactive states cannot be defaults. Positions are nonnegative
-PostgreSQL integers; inaccessible or incompatible reusable-state/label collisions return typed
-`400 invalid_import` without canonical writes or collision metadata.
+Space records may declare `workflowStateScope: "active"` or `"all"`. Either marker denotes a
+complete workflow and requires exactly one active default, permits that default in any canonical
+category, and requires at least one active state in each of backlog, unstarted, started, completed,
+and canceled. Markerless files remain partial additive imports. Workflow-state records include
+`active`; older files that omit it default to `true`. Archived states remain inactive through
+commit, replay, and re-export, including imports into a workflow already holding 20 active states.
+Inactive states cannot be defaults. Positions are nonnegative PostgreSQL integers; inaccessible or
+incompatible reusable-state/label collisions return typed `400 invalid_import` without canonical
+writes or collision metadata.
 
 ## Evidence boundary
 
-The route implementations and PostgreSQL tests are local functional evidence. A native Node 24 live
-exercise returned `200` for `includeArchived: true` export (44,441 NDJSON bytes) and Project query
-(8,699 response bytes), completed export -> validate -> commit -> replay -> re-export with `200`
-responses, rejected malformed import with `400`, returned `200` for archive/restore queries, and
-released snapshots with `204`. The 10-scenario real-browser suite passed without mocks or skips.
-These results do not mark the R4 phase gate or CI complete, and the aggregate `npm run test:r4`
-command is not reported as passing.
+The route implementations and PostgreSQL tests are local functional evidence. An earlier native
+Node 24 live exercise covered archived-inclusive export, Project query,
+export -> validate -> commit -> replay -> re-export, malformed import, archive/restore queries, and
+snapshot release. The latest recorded Chrome run passed 11 of 11 scenarios in 59.1 seconds. Final
+current-HEAD named PostgreSQL, backup, and aggregate R4 reruns remain pending. These results do not
+mark the R4 phase gate or CI complete.

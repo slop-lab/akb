@@ -10,8 +10,8 @@ Architecture records for new boundaries remain proposed until maintainer accepta
 The runtime sources now implement the bounded R3/R4 checkpoint described here, but this remains an
 execution contract rather than a phase-completion record. R1-R4 are `In progress`, CI is deferred,
 and no formal exit gate is reported as passing by this document. Recorded native Node 24 live
-export/import/archive evidence and all 10 real-browser scenarios pass their bounded paths; the
-aggregate `npm run test:r4` command remains unreported as a passing aggregate gate.
+export/import/archive evidence and 11 of 11 Chrome scenarios pass their bounded paths; final
+current-HEAD named PostgreSQL, backup, and aggregate R4 reruns remain pending.
 
 R3 prerequisite work includes a normalized Entity/Revision/Relation foundation, restrictive
 object ACL, a versioned generic event/outbox stream, archive/retention foundations, structured
@@ -32,6 +32,10 @@ proposals, and review remain later work. CI is explicitly deferred rather than a
   normalized Work Item metadata/labels, typed relations, threads/comments, Saved Views, and search.
 - `008_human_query_import_retention.sql`: bounded materialized Human Query snapshots, import identity
   mappings, retention policy, and non-destructive retention dry-run.
+- `009_legacy_workflow_revision_history.sql`: deterministic missing revision-1 snapshots for legacy
+  workflows and canonical states without rewriting later history.
+- `010_legacy_work_query_projection.sql`: nullable transient snapshot-item projection for frozen
+  legacy PM reads without rewriting legacy fingerprints, events, or revisions.
 
 Legacy Work Items retain their exact scope and revision, including NULL Space scope. Backfill
 must not fabricate Workspaces, Spaces, Principals, grants, or historical delivery jobs. Historical
@@ -76,6 +80,11 @@ reject parent cycles. Related endpoints are canonically ordered. Relation archiv
 Comments are bounded plain Markdown-compatible text. Saved View definitions use the server query
 schema. Archive and restore are revision-safe mutations, not deletes.
 
+Workflow imports without a scope marker remain partial and additive. A declared
+`workflowStateScope` of `active` or `all` is complete and must contain exactly one active default in
+any canonical category plus at least one active state in every canonical category. Changing the
+default records the former state's canonical event/revision and rolls back both sides on failure.
+
 ## Versioned command and query surfaces
 
 New commands are under `/api/commands/v1/workspaces/:w`. Their strict envelope has `commandId`,
@@ -100,6 +109,12 @@ Work queries contain `model`, strict bounded filter AST, search text, 1-3 sort e
 category, priority, owner, type, label, dates, timestamps, archive, and typed relations. AST depth is
 at most 5 and node count at most 50. Sorts include creation/update time, title, priority, due date,
 and workflow position with ID as final tie-breaker.
+
+Assignment requires effective `work.assign` authority. Saved View reads, mutations, history, and
+export recheck the current Space scope. Reference-ID ranges compare only authorized references;
+portable interchange normalizes relevant ranges to no more than 50 typed IDs while preserving null,
+negation, and result equivalence. Unauthorized or irrelevant views are omitted before output;
+duplicate IDs, unresolved relevant references, and nonportable graphs fail with typed errors.
 
 ## Stable pagination
 
@@ -133,12 +148,12 @@ the default `work-item-v1` stream and DTOs remain unchanged. Retention dry-run n
 entities, revisions, events, or comments. Request telemetry contains only correlation ID, route
 template, method/status, duration/bytes, and error code, never IDs, queries, bodies, or credentials.
 
-Backup uses explicit trusted profiles. Existing format-1/schema-004 artifacts remain verifiable and
-restorable with their pinned migration/catalog policy. New artifacts use format 2 and profile
-`r4-schema-008-public-v1`, pinned from final migration bytes and fresh-schema fingerprints. Restoring
-004 validates and quarantines that baseline before the registered forward upgrade, validates the
-final profile, clears transient query/import state, and reasserts zero restored authority/leases.
-Rollback is fresh-target restore, never editing applied migration files or destructive down migration.
+Backup uses explicit trusted profiles for schemas 004, 008, 009, and 010. Every profile retains its
+pinned migration/catalog policy; 008 and 009 share the unchanged schema fingerprint, while 010 pins
+the sidecar catalog. Restoring any older profile validates and quarantines that source before the
+registered forward upgrade to 010, validates the final profile, clears transient query/import state,
+and reasserts zero restored authority/leases. Rollback is fresh-target restore, never editing applied
+migration files or destructive down migration.
 
 ## Browser boundary and required evidence
 
@@ -151,10 +166,13 @@ Screens cover login, Projects, Space/workflow/labels, list/board/peek, Work meta
 comments, Saved Views, search, import validation/commit, and export. Keyboard bindings follow the
 canonical design; inputs/editors are guarded. Revision conflict rolls back only optimistic edits
 while retaining unsent text and offering reload. Board movement supports keyboard alternatives.
+Project lists page beyond 100 records; searchable selectors retain later-page selections and use
+latest-response-wins ordering. Browser credential storage remains empty, and maximum-length Space
+keys remain intact across supported QA widths.
 
-Required local exit evidence includes old API compatibility, 004-to-008 upgrade, ACL non-disclosure on every
+Required local exit evidence includes old API compatibility, every older profile upgraded to 010, ACL non-disclosure on every
 surface, mutation rollback, 100,000-item list/board traversal through concurrent changes, cursor
-binding/expiry/revocation, relation-cycle constraints, complete import/export round trip, both backup
+binding/expiry/revocation, relation-cycle constraints, complete import/export round trip, all four backup
 profiles, and real-browser keyboard-only create/edit/filter/move/peek/comment/archive flows. R5+
 features and deferred CI remain explicitly outside the implemented checkpoint. This list states the
 gate, not that every item has passed. Recorded live and browser exercises cover the bounded R4 paths,
