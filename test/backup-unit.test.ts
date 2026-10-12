@@ -22,6 +22,8 @@ import { redactDiagnostic, runTool, toolConnection } from "../src/operations/bac
 import {
   PROFILE_004,
   PROFILE_008,
+  PROFILE_009,
+  PROFILE_010,
   profileFromLedger,
   SCHEMA_008_FINGERPRINT,
 } from "../src/operations/backup/profiles.ts"
@@ -297,7 +299,7 @@ test("strict manifest detects semantic and serialized tampering", async () => {
   assert.throws(() => assertManifestMigrationCatalog(forged, migrations), /trusted catalog/)
 })
 
-test("format 2 selects only the immutable schema-008 profile", () => {
+test("format 2 selects exact immutable schema-008 through schema-010 profiles", () => {
   // Given
   const emptyDigest = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   const input = {
@@ -328,15 +330,40 @@ test("format 2 selects only the immutable schema-008 profile", () => {
   assert.equal(manifestFromJson(serializeManifest(manifest)).formatVersion, 2)
   assert.equal(profileFromLedger(PROFILE_004.migrations), PROFILE_004)
   assert.equal(profileFromLedger(PROFILE_008.migrations), PROFILE_008)
+  assert.equal(profileFromLedger(PROFILE_009.migrations), PROFILE_009)
+  assert.equal(profileFromLedger(PROFILE_010.migrations), PROFILE_010)
   assert.throws(
     () =>
       profileFromLedger([
-        ...PROFILE_008.migrations,
-        { name: "009_unknown.sql", checksum: emptyDigest },
+        ...PROFILE_010.migrations,
+        { name: "011_unknown.sql", checksum: emptyDigest },
       ]),
     /no registered backup profile/,
   )
   const mixed = JSON.parse(serializeManifest(manifest))
   mixed.scope = "r3-schema-004-public"
   assert.throws(() => manifestFromJson(JSON.stringify(mixed)))
+  const latest = createManifest({
+    ...input,
+    profile: "r4-schema-009-public-v1",
+    sourceDatabase: "fixture009",
+    migrations: PROFILE_009.migrations,
+    migrationDigest: computeMigrationDigest(PROFILE_009.migrations),
+  })
+  const parsedLatest = manifestFromJson(serializeManifest(latest))
+  assert.equal(parsedLatest.formatVersion, 2)
+  if (parsedLatest.formatVersion !== 2) throw new TypeError("format-2 manifest expected")
+  assert.equal(parsedLatest.profile, "r4-schema-009-public-v1")
+  const current = createManifest({
+    ...input,
+    profile: "r4-schema-010-public-v1",
+    sourceDatabase: "fixture010",
+    migrations: PROFILE_010.migrations,
+    migrationDigest: computeMigrationDigest(PROFILE_010.migrations),
+    schemaFingerprint: PROFILE_010.schemaFingerprint,
+  })
+  const parsedCurrent = manifestFromJson(serializeManifest(current))
+  assert.equal(parsedCurrent.formatVersion, 2)
+  if (parsedCurrent.formatVersion !== 2) throw new TypeError("format-2 manifest expected")
+  assert.equal(parsedCurrent.profile, "r4-schema-010-public-v1")
 })

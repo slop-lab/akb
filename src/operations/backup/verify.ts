@@ -10,7 +10,7 @@ import {
 } from "./manifest.ts"
 import { requireToolMajor, runTool } from "./process.ts"
 import { readTrustedLocalProfiles } from "./profile-catalog.ts"
-import { PROFILE_004, PROFILE_008 } from "./profiles.ts"
+import { PROFILE_004, profileFromId } from "./profiles.ts"
 
 export async function verifyBackupArtifact(
   artifactDirectory: string,
@@ -21,7 +21,9 @@ export async function verifyBackupArtifact(
   await readTrustedLocalProfiles()
   assertManifestMigrationCatalog(
     manifest,
-    manifest.formatVersion === 1 ? PROFILE_004.migrations : PROFILE_008.migrations,
+    manifest.formatVersion === 1
+      ? PROFILE_004.migrations
+      : profileFromId(manifest.profile).migrations,
   )
   const archive = await stat(paths.archive)
   const archiveDigest = await hashFile(paths.archive)

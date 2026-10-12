@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { z } from "zod"
 import { backupError } from "./errors.ts"
-import { PROFILE_004, PROFILE_008, profileFromId } from "./profiles.ts"
+import { PROFILE_004, PROFILE_008, PROFILE_009, PROFILE_010, profileFromId } from "./profiles.ts"
 
 const HexDigestSchema = z.string().regex(/^[0-9a-f]{64}$/)
 const MigrationSchema = z.strictObject({
@@ -45,7 +45,7 @@ const Format1ManifestSchema = z.strictObject({
   ...ManifestContentsSchema,
 })
 
-const Format2ManifestSchema = z.strictObject({
+const Format2Manifest008Schema = z.strictObject({
   formatVersion: z.literal(2),
   profile: z.literal("r4-schema-008-public-v1"),
   ...ManifestMetadataSchema,
@@ -53,9 +53,27 @@ const Format2ManifestSchema = z.strictObject({
   ...ManifestContentsSchema,
 })
 
-const ManifestShapeSchema = z.discriminatedUnion("formatVersion", [
+const Format2Manifest009Schema = z.strictObject({
+  formatVersion: z.literal(2),
+  profile: z.literal("r4-schema-009-public-v1"),
+  ...ManifestMetadataSchema,
+  schemaFingerprint: z.literal(PROFILE_009.schemaFingerprint),
+  ...ManifestContentsSchema,
+})
+
+const Format2Manifest010Schema = z.strictObject({
+  formatVersion: z.literal(2),
+  profile: z.literal("r4-schema-010-public-v1"),
+  ...ManifestMetadataSchema,
+  schemaFingerprint: z.literal(PROFILE_010.schemaFingerprint),
+  ...ManifestContentsSchema,
+})
+
+const ManifestShapeSchema = z.union([
   Format1ManifestSchema,
-  Format2ManifestSchema,
+  Format2Manifest008Schema,
+  Format2Manifest009Schema,
+  Format2Manifest010Schema,
 ])
 
 export type MigrationDigest = z.infer<typeof MigrationSchema>
@@ -63,7 +81,9 @@ export type TableDigest = z.infer<typeof TableDigestSchema>
 export type BackupManifest = z.infer<typeof ManifestShapeSchema>
 export type ManifestInput =
   | Omit<z.infer<typeof Format1ManifestSchema>, "overallDigest">
-  | Omit<z.infer<typeof Format2ManifestSchema>, "overallDigest">
+  | Omit<z.infer<typeof Format2Manifest008Schema>, "overallDigest">
+  | Omit<z.infer<typeof Format2Manifest009Schema>, "overallDigest">
+  | Omit<z.infer<typeof Format2Manifest010Schema>, "overallDigest">
 
 export function sha256(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex")
