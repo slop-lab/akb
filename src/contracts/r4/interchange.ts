@@ -33,6 +33,7 @@ const SpaceRecordSchema = BaseRecordSchema.extend({
   description: z.string().max(10_000).optional(),
   icon: z.string().max(200).nullable().optional(),
   leadId: IdSchema.nullable().optional(),
+  workflowStateScope: z.enum(["active", "all"]).optional(),
 }).strict()
 
 const WorkflowStateRecordSchema = BaseRecordSchema.extend({

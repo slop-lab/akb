@@ -124,7 +124,14 @@ async function readRecords(
     ), records as (
       select 10 ordering,d.space_key stable,jsonb_build_object('kind','space','externalId',s.id,
         'key',d.space_key,'name',s.name,'visibility',s.visibility,'description',d.description,
-        'icon',d.icon,'leadId',d.lead_id) record
+        'icon',d.icon,'leadId',d.lead_id) || case when not exists(
+          select 1 from workflow_states required where required.workspace_id=s.workspace_id
+            and required.space_id=s.id
+            and (${request.includeArchived} or required.active)
+            and not exists(select 1 from authorized state_access where state_access.id=required.id)
+        ) then jsonb_build_object('workflowStateScope',
+          case when ${request.includeArchived} then 'all' else 'active' end)
+        else '{}'::jsonb end record
       from selected_spaces x join spaces s on s.workspace_id=${principal.workspaceId} and s.id=x.space_id
         join space_details d on d.workspace_id=s.workspace_id and d.space_id=s.id
       union all select 20,ws.id,jsonb_build_object('kind','workflow_state','externalId',ws.id,
