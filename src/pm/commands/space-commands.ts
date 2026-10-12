@@ -1,14 +1,12 @@
-import type { TransactionSql } from "postgres"
 import {
   ArchivePayloadSchema,
   SpaceAccessPayloadSchema,
   SpaceCreatePayloadSchema,
   SpaceUpdatePayloadSchema,
-  WorkflowStateCreatePayloadSchema,
   WorkflowStateUpdatePayloadSchema,
   WorkflowUpdatePayloadSchema,
 } from "../../contracts/r4/command-payloads.ts"
-import { CommandInvariantError, EntityNotFoundError } from "../../entities/errors.ts"
+import { CommandInvariantError } from "../../entities/errors.ts"
 import type { EntityMutationEngine } from "../../entities/mutation-engine.ts"
 import type { MutationResult } from "../../entities/mutation-types.ts"
 import {
@@ -19,6 +17,12 @@ import {
   requireSpaceAccess,
   stableEntityId,
 } from "./helpers.ts"
+import {
+  mutationInput,
+  parseStateCreate,
+  required,
+  requireStateScope,
+} from "./space-command-helpers.ts"
 import { spaceRecord as record, spaceSnapshot, stateSnapshot } from "./space-command-persistence.ts"
 import type { CommandCall } from "./types.ts"
 
@@ -152,7 +156,7 @@ export class SpaceCommandService {
   }
 
   #createState(call: CommandCall): Promise<MutationResult> {
-    const payload = WorkflowStateCreatePayloadSchema.parse(call.payload)
+    const { active, payload } = parseStateCreate(call)
     const spaceId = required(call.parentId)
     const workflowId = stableEntityId("workflow", call.workspaceId, spaceId)
     const entityId = newEntityId("state")
@@ -168,7 +172,7 @@ export class SpaceCommandService {
         const counts = await transaction<{ readonly count: number }[]>`
           select count(*)::integer count from workflow_states
           where workflow_id=${workflowId} and active`
-        if ((counts[0]?.count ?? 0) >= 20) {
+        if (active && (counts[0]?.count ?? 0) >= 20) {
           throw new CommandInvariantError("workflow_state_limit")
         }
         await insertEntity(transaction, {
@@ -182,9 +186,9 @@ export class SpaceCommandService {
           await transaction`update workflow_states set is_default=false where workflow_id=${workflowId}`
         }
         await transaction`insert into workflow_states
-          (id,workflow_id,workspace_id,space_id,name,category,color,position,is_default,revision)
+          (id,workflow_id,workspace_id,space_id,name,category,color,position,is_default,active,revision)
           values (${entityId},${workflowId},${call.workspaceId},${spaceId},${payload.name},
-            ${payload.category},${payload.color},${payload.position},${payload.isDefault},${revision})`
+            ${payload.category},${payload.color},${payload.position},${payload.isDefault},${active},${revision})`
         return record(entityId, revision, "entity.created", json({ id: entityId, ...payload }), {
           id: entityId,
         })
@@ -235,28 +239,4 @@ export class SpaceCommandService {
       },
     )
   }
-}
-
-async function requireStateScope(
-  transaction: TransactionSql,
-  call: CommandCall,
-  entityId: string,
-): Promise<void> {
-  const spaceId = required(call.parentId)
-  const rows = await transaction`select 1 from workflow_states where id=${entityId}
-    and workspace_id=${call.workspaceId} and space_id=${spaceId}`
-  if (rows.length !== 1) throw new EntityNotFoundError(entityId)
-}
-
-function mutationInput(
-  call: CommandCall,
-  permission: "space.manage",
-  targetEntityId: string | null,
-) {
-  return { ...call, permission, targetEntityId }
-}
-
-function required(value: string | null): string {
-  if (value === null) throw new CommandInvariantError("resource_id_required")
-  return value
 }

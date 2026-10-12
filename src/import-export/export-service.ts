@@ -118,7 +118,7 @@ async function readRecords(
         join space_details d on d.workspace_id=s.workspace_id and d.space_id=s.id
       union all select 20,ws.id,jsonb_build_object('kind','workflow_state','externalId',ws.id,
         'spaceId',ws.space_id,'name',ws.name,'category',ws.category,'color',ws.color,
-        'position',ws.position,'isDefault',ws.is_default)
+        'position',ws.position,'isDefault',ws.is_default,'active',ws.active)
       from workflow_states ws join selected_spaces x on x.space_id=ws.space_id join authorized a on a.id=ws.id
       where ${request.includeArchived} or ws.active
       union all select 30,p.id,jsonb_build_object('kind','project','externalId',p.id,'name',p.name,

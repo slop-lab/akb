@@ -7,6 +7,7 @@ import type {
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import type { CommandCall } from "../pm/commands/types.ts"
 import { ImportValidationError } from "./import-service.ts"
+import { nextStatePosition } from "./workflow-state-position.ts"
 
 export type ImportMappingContext = {
   readonly principal: AuthenticatedPrincipal
@@ -57,6 +58,7 @@ export function toImportCommand(
           color: record.color ?? "#64748B",
           position: record.position ?? nextStatePosition(record, context.records),
           isDefault: record.isDefault ?? false,
+          active: record.active,
         },
       }
     case "project":
@@ -233,22 +235,4 @@ function resolve(map: ReadonlyMap<string, string>, id: string): string {
   const value = map.get(id)
   if (value === undefined) throw new ImportValidationError("import reference has not been mapped")
   return value
-}
-
-function nextStatePosition(
-  record: Extract<ImportRecord, { readonly kind: "workflow_state" }>,
-  records: readonly ImportRecord[],
-): number {
-  return (
-    records
-      .filter(isWorkflowState)
-      .filter((item) => item.spaceId === record.spaceId)
-      .findIndex((item) => item.externalId === record.externalId) + 5
-  )
-}
-
-function isWorkflowState(
-  record: ImportRecord,
-): record is Extract<ImportRecord, { readonly kind: "workflow_state" }> {
-  return record.kind === "workflow_state"
 }

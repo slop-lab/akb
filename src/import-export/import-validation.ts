@@ -3,6 +3,7 @@ import type { FilterNode, ImportRecord } from "../contracts/r4/index.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import type { ValidatedBatch } from "./import-service.ts"
 import { ImportValidationError } from "./import-service.ts"
+import { validateWorkflowStates } from "./import-workflow-validation.ts"
 
 export type ImportPreparation = {
   readonly warnings: readonly string[]
@@ -111,23 +112,6 @@ function validateParents(records: readonly ImportRecord[]): void {
       if (visited.has(current)) throw new ImportValidationError("parent relation cycle")
       visited.add(current)
     }
-  }
-}
-
-function validateWorkflowStates(records: readonly ImportRecord[]): void {
-  const spaces = records.filter((record) => record.kind === "space")
-  for (const space of spaces) {
-    const states = records
-      .filter(isWorkflowState)
-      .filter((record) => record.spaceId === space.externalId)
-    if (states.length > 20) throw new ImportValidationError("workflow has at most 20 states")
-    const positions = states.flatMap((state) =>
-      state.position === undefined ? [] : [state.position],
-    )
-    if (new Set(positions).size !== positions.length)
-      throw new ImportValidationError("workflow state positions must be unique")
-    if (states.filter((state) => state.isDefault === true).length > 1)
-      throw new ImportValidationError("workflow has one default state")
   }
 }
 
@@ -253,10 +237,4 @@ function filterReferences(
     case "is_null":
       return []
   }
-}
-
-function isWorkflowState(
-  record: ImportRecord,
-): record is Extract<ImportRecord, { readonly kind: "workflow_state" }> {
-  return record.kind === "workflow_state"
 }

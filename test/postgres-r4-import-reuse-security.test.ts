@@ -73,14 +73,12 @@ beforeEach(async () => {
   if (address === null || typeof address === "string") throw new TypeError("server did not listen")
   base = `http://127.0.0.1:${(address satisfies AddressInfo).port}`
 })
-
 afterEach(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((error) => (error === undefined ? resolve() : reject(error))),
   )
   await fixture.close()
 })
-
 test("import reuse maps states and labels only from the authorized target workspace", async () => {
   // Given
   const importId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -111,7 +109,6 @@ test("import reuse maps states and labels only from the authorized target worksp
     ],
   )
 })
-
 test("restricted reusable state and label collisions fail closed without canonical writes", async () => {
   // Given
   const targetState = await startedStateId("w")
@@ -126,8 +123,9 @@ test("restricted reusable state and label collisions fail closed without canonic
   const labelResponse = await validateAndCommit(labelBody, "cccccccc-cccc-4ccc-8ccc-cccccccccccd")
 
   // Then
-  assert.equal(stateResponse.status, 500)
+  assert.equal(stateResponse.status, 400)
   assert.equal(labelResponse.status, 400)
+  assert.deepEqual(await stateResponse.clone().json(), { error: { code: "invalid_import" } })
   assert.deepEqual(await labelResponse.json(), { error: { code: "invalid_import" } })
   const response = await stateResponse.text()
   assert.equal(response.includes(targetState), false)
@@ -140,8 +138,8 @@ test("restricted reusable state and label collisions fail closed without canonic
 async function validateAndCommit(body: string, commandId: string): Promise<Response> {
   const validated = await requestImport(body, "validate", commandId)
   assert.equal(validated.status, 200)
-  const response = z.record(z.string(), z.unknown()).parse(await validated.json())
-  return requestImport(body, "commit", commandId, z.string().parse(response["validationToken"]))
+  const response = z.object({ validationToken: z.string() }).parse(await validated.json())
+  return requestImport(body, "commit", commandId, response.validationToken)
 }
 
 function requestImport(
@@ -236,19 +234,15 @@ async function seedLabels(): Promise<void> {
     (id,workspace_id,kind,scope_space_id,current_revision,created_by,created_at,updated_at) values
     ('foreign-label','foreign','label','shared',1,'foreign-owner',clock_timestamp(),clock_timestamp()),
     ('target-label','w','label','shared',1,'owner',clock_timestamp(),clock_timestamp())`
-  await fixture.sql`insert into entity_acl_policies values
-    ('foreign-label','inherit'),('target-label','inherit')`
-  await fixture.sql`insert into labels
-    (id,workspace_id,space_id,name,color,revision) values
-    ('foreign-label','foreign','shared','Shared label','blue',1),
-    ('target-label','w','shared','Shared label','blue',1)`
+  await fixture.sql`insert into entity_acl_policies values ('foreign-label','inherit'),
+    ('target-label','inherit')`
+  await fixture.sql`insert into labels (id,workspace_id,space_id,name,color,revision) values
+    ('foreign-label','foreign','shared','Shared label','blue',1),('target-label','w','shared','Shared label','blue',1)`
 }
 
 async function canonicalCounts() {
-  const [counts] = await fixture.sql`select
-    (select count(*)::integer from import_batches) batches,
-    (select count(*)::integer from import_record_ids) mappings,
-    (select count(*)::integer from entity_events_v1) events,
+  const [counts] = await fixture.sql`select (select count(*)::integer from import_batches) batches,
+    (select count(*)::integer from import_record_ids) mappings,(select count(*)::integer from entity_events_v1) events,
     (select count(*)::integer from entity_outbox_events_v1) outbox`
   return counts
 }

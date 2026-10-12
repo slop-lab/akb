@@ -3,7 +3,8 @@ import { z } from "zod"
 import type { ImportRecord } from "../contracts/r4/index.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import { R4CommandService } from "../pm/commands/service.ts"
-import type { CommandAction, CommandCall } from "../pm/commands/types.ts"
+import type { CommandCall } from "../pm/commands/types.ts"
+import { archiveCommand } from "./command-dispatcher-archive.ts"
 import { orderedImportRecords, toImportCommand } from "./command-dispatcher-mapping.ts"
 import {
   type ImportCommandDispatcher,
@@ -84,7 +85,10 @@ async function importCommands(
       spaces.set(record.externalId, id)
     } else entities.set(record.externalId, id)
     const archive = archiveCommand(call, record, id, result.revision)
-    if (archive !== null) archives.push(archive)
+    if (archive !== null) {
+      if (record.kind === "workflow_state") await commands.execute(archive)
+      else archives.push(archive)
+    }
   }
   for (const archive of archives) await commands.execute(archive)
   await transaction`insert into import_batches
@@ -131,19 +135,24 @@ async function mapReusableState(
 ): Promise<boolean> {
   const spaceId = context.spaces.get(record.spaceId)
   if (spaceId === undefined) throw new ImportValidationError("state space is not mapped")
-  const rows = await transaction<{ readonly id: string }[]>`select s.id from workflow_states s
+  const rows = await transaction<
+    { readonly accessible: boolean; readonly id: string; readonly reusable: boolean }[]
+  >`select s.id,
+    entity_access_allowed(s.workspace_id,stable_space_entity_id(s.workspace_id,s.space_id),
+      ${context.principal.principalId},'space.manage') and entity_access_allowed(s.workspace_id,s.id,
+      ${context.principal.principalId},'space.read') accessible,
+    s.name=${record.name} and s.category=${record.category} and s.color=${record.color ?? "#64748B"}
+      and s.is_default=${record.isDefault ?? false} and s.active=${record.active}
+      and e.lifecycle=${record.active ? "active" : "archived"} reusable
+    from workflow_states s
     join workflows w on w.id=s.workflow_id and w.workspace_id=s.workspace_id and w.space_id=s.space_id
     join entities e on e.id=s.id and e.workspace_id=s.workspace_id and e.kind='workflow_state'
     where s.workspace_id=${context.principal.workspaceId} and w.workspace_id=${context.principal.workspaceId}
-      and s.space_id=${spaceId} and e.scope_space_id=s.space_id and e.lifecycle='active'
-      and s.name=${record.name} and s.category=${record.category}
-      and s.color=${record.color ?? "#64748B"} and s.position=${record.position ?? -1}
-      and s.is_default=${record.isDefault ?? false} and s.active and w.active
-      and entity_access_allowed(s.workspace_id,stable_space_entity_id(s.workspace_id,s.space_id),
-        ${context.principal.principalId},'space.manage')
-      and entity_access_allowed(s.workspace_id,s.id,${context.principal.principalId},'space.read')`
+      and s.space_id=${spaceId} and e.scope_space_id=s.space_id
+      and s.position=${record.position ?? -1} and w.active limit 1`
   const row = rows[0]
   if (row === undefined) return false
+  if (!row.accessible || !row.reusable) throw new ImportValidationError("state is not reusable")
   context.entities.set(record.externalId, row.id)
   return true
 }
@@ -173,50 +182,6 @@ async function mapReusableLabel(
   if (!row.accessible) throw new ImportValidationError("label is not reusable")
   context.entities.set(record.externalId, row.id)
   return true
-}
-
-function archiveCommand(
-  create: CommandCall,
-  record: Exclude<ImportRecord, { readonly kind: "manifest" }>,
-  entityId: string,
-  revision: number,
-): CommandCall | null {
-  if (!("archivedAt" in record) || record.archivedAt === null || record.archivedAt === undefined)
-    return null
-  const action = archiveAction(record.kind)
-  if (action === null)
-    throw new ImportValidationError(`${record.kind} archive cannot be preserved canonically`)
-  return {
-    ...create,
-    action,
-    commandId: `${create.commandId}:archive`,
-    idempotencyKey: `${create.idempotencyKey}:archive`,
-    baseRevision: revision,
-    resourceId: entityId,
-    payload: {},
-    restoredAt: record.archivedAt,
-  }
-}
-
-function archiveAction(kind: ImportRecord["kind"]): CommandAction | null {
-  switch (kind) {
-    case "project":
-      return "project.archive"
-    case "label":
-      return "label.archive"
-    case "work_item":
-      return "work-item.archive"
-    case "relation":
-      return "relation.archive"
-    case "comment":
-      return "comment.archive"
-    case "saved_view":
-      return "saved-view.archive"
-    case "manifest":
-    case "space":
-    case "workflow_state":
-      return null
-  }
 }
 
 async function requireReplayAccess(
