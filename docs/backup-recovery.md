@@ -172,8 +172,9 @@ The suite covers fresh-owner fingerprint equivalence, ordinary-owner format-2 re
 registered profile upgraded through 010, and a real format-1 artifact. A separate legacy SDK driver
 observed a schema-004 -> schema-010 database upgrade, detail/list/continuation behavior, and unchanged history.
 Recovery operators still need an explicit post-restore `grant-r4-permissions` action for existing
-members; recovery never widens old membership grants implicitly. The last recorded 28-test backup
-aggregate predates the current HEAD, so the final named rerun remains pending.
+members; recovery never widens old membership grants implicitly. Independent `npm run test:backup`
+acceptance passed all 28 tests at source commit `260812d`, including real registered
+004/008/009/010 recovery paths. This is local recovery evidence, not a production or CI claim.
 
 Use only generated disposable databases. The default PostgreSQL suite remains `npm run
 test:postgres`; the backup suite is separate because it creates and restores whole databases.

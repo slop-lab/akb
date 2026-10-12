@@ -4,8 +4,8 @@
 
 This document records locally implemented source and executable evidence. It does not mark R1, R2,
 R3, or R4 complete. CI is deferred and the canonical phase gates remain open. Recorded native Node
-24 live export/import/archive checks and 11 of 11 Chrome scenarios pass their bounded paths; final
-current-HEAD named PostgreSQL, backup, and aggregate R4 reruns remain pending.
+24 live export/import/archive checks and all 11 Chrome scenarios pass their bounded paths.
+Independent named local gates and all five review lanes passed at source commit `260812d`.
 
 ## Additive storage foundation
 
@@ -112,12 +112,14 @@ covered by [`test/postgres-r4-scale.test.ts`](../test/postgres-r4-scale.test.ts)
 [`test/postgres-r4-query-scale.test.ts`](../test/postgres-r4-query-scale.test.ts); both passed in
 individual recorded runs.
 
-The latest recorded local checks passed 66 unit and 40 integration tests, web and browser
-TypeScript, `build:r4`, and 11 of 11 Chrome scenarios in 59.1 seconds. The R4 PostgreSQL suite
-recorded 151 passing tests before four scoped-view cases were added; no arithmetic projection is a
-current result. Older named aggregates recorded 71 `test:postgres`, 28 `test:backup`, and 141
-`test:r4` tests on an earlier revision. Final current-HEAD named-gate reruns are pending, so these
-figures do not substitute for deferred CI or a formal phase gate. A legacy SDK driver separately
+Independent acceptance at source commit `260812d` passed `npm run check` (66 unit and 40
+integration tests), `test:postgres` (71), `test:r4` (15 contract and 164 PostgreSQL), and
+`test:backup` (28, including registered 004/008/009/010 recovery). Web/browser TypeScript and
+the production web build passed; the real-Chrome suite passed all 11 scenarios in approximately
+one minute, with no mocks or skips. All five review lanes returned PASS without blockers.
+The live API matrix observed 36 expected outcomes, and fresh responsive captures covered
+375, 768, and 1280 px. These local results do not substitute for deferred CI or a formal phase
+gate. A legacy SDK driver separately
 observed a schema-004 -> schema-010 database upgrade, detail/list/continuation behavior, and unchanged history.
 
 The latest browser coverage includes 101-Project pagination, searchable Project selectors with

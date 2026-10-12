@@ -3,12 +3,13 @@
 ## Scope and evidence boundary
 
 This runbook starts the locally implemented R3/R4 application through migration 010. It does not
-pass a roadmap phase or CI. The latest recorded local evidence includes 66 unit and 40 integration
-tests, passing web/browser TypeScript and R4 builds, and 11 of 11 Chrome scenarios in 59.1 seconds.
+pass a roadmap phase or CI. Independent acceptance at source commit `260812d` passed 66 unit,
+40 integration, 71 PostgreSQL, 15 R4 contract and 164 R4 PostgreSQL, and 28 backup/restore tests,
+plus web/browser TypeScript, the production web build, and all 11 Chrome scenarios.
 An earlier native Node 24 live run covered archived-inclusive export, Project query,
 export/import/replay/re-export, malformed import, archive/restore queries, and snapshot release.
-Final current-HEAD named PostgreSQL, backup, and aggregate R4 reruns remain pending. These results
-are bounded evidence, not a formal gate promotion.
+The named local gates and all five review lanes passed at that source commit. These results are
+bounded evidence, not a formal gate promotion.
 
 ## Requirements
 
