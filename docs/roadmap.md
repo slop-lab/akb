@@ -169,10 +169,11 @@ and Work metadata, relations/comments/Saved Views, stable Project/Work/board/sea
 import/export, and the React/Vite human surface. PM and Human UX are therefore `In progress`, not
 `Planned`. Current contracts include effective-authority assignment, ACL-safe reference ranges and
 Saved View scope checks, portable range normalization, complete/partial workflow interchange, and
-legacy Work query continuity through schema 010. The latest recorded local checks include 66 unit,
-40 integration, and 11 of 11 Chrome scenarios; older named database aggregates are historical.
-The formal gate remains open: CI, the complete end-to-end team scenario, and final current-HEAD
-named PostgreSQL, backup, and aggregate R4 reruns are not reported as passing.
+legacy Work query continuity through schema 010. Independent acceptance at source commit
+`260812d` passed 66 unit, 40 integration, 71 PostgreSQL, 15 R4 contract and 164 R4 PostgreSQL,
+28 backup/restore tests, and all 11 real-Chrome scenarios. All five review lanes returned PASS.
+The formal gate remains open: deferred CI and the full dependency-ordered phase and team
+scenario have not been promoted by these bounded local results.
 
 **Deliverables**
 

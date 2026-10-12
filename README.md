@@ -40,15 +40,16 @@ The locally delivered R3/R4 checkpoint includes:
 - immutable PostgreSQL 17 backup profiles for schemas 004, 008, 009, and 010, including registered
   upgrades from every older profile to 010 and authority/lease/transient-state quarantine.
 
-This is local functional evidence, not a phase-completion claim. On the latest recorded working
-state, `npm run check` passed 66 unit and 40 integration tests; web and browser TypeScript checks,
-the R4 build, and 11 of 11 Chrome scenarios passed (59.1 seconds). An earlier native Node 24 live
+This is local functional evidence, not a phase-completion claim. Independent acceptance at source
+commit `260812d` passed 66 unit, 40 integration, 71 PostgreSQL, 15 R4 contract and 164 R4 PostgreSQL,
+and 28 backup/restore tests. Web and browser TypeScript checks, the production web build, and all
+11 real-Chrome scenarios also passed. All five review lanes reported no blocking findings. An earlier native Node 24 live
 exercise returned `200` for archived-inclusive export and Project query, completed
 export -> validate -> commit -> replay -> re-export, rejected malformed import, exercised
 archive/restore queries, and released snapshots. A separate legacy SDK driver exercised a
 schema-004 database upgraded through 010, detail/list/continuation reads, and unchanged history.
-Final named PostgreSQL, backup, and aggregate R4 gates have not been rerun at the current HEAD. CI
-and the complete dependency-ordered exit scenarios also remain open; this README does not mark any
+The named local gates passed at that reviewed source commit. CI and the complete
+dependency-ordered formal exit scenarios remain open; this README does not mark any
 R1-R4 phase as passing.
 
 Later work still includes R5 planning/documents/collaboration, R6 progressive agent retrieval and

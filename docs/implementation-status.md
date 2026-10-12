@@ -18,8 +18,9 @@ satisfy behavioral gates. The [README](../README.md#current-status) records the 
 Work Item API and opt-in PostgreSQL adapters now present. R1, R2, R3, and R4 are `In progress`:
 executable evidence exists, including native Node 24 live export/import/archive and passing
 11-scenario Chrome exercises, but their full dependency-ordered exit gates and deferred CI have not
-passed. No canonical section is `Implemented`; final named PostgreSQL, backup, and aggregate R4
-reruns remain pending at the current HEAD.
+passed. No canonical section is `Implemented`. Independent named PostgreSQL, backup, aggregate
+R4, and browser gates passed at source commit `260812d`, and all five review lanes returned PASS;
+these local results do not promote the dependency-ordered formal gates or deferred CI.
 
 The [R1/R2 verification and CI deferral record](r1-r2-verification.md) distinguishes
 clean-checkout and pinned-container results from the still-unexecuted Actions gate.
