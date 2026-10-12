@@ -13,6 +13,7 @@ import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import { type CursorBinding, decodeCursor, encodeCursor } from "./cursor.ts"
 import { compileProjectFilter, compileProjectOrder } from "./project-filter-sql.ts"
 import { QueryBudgetExceededError, SnapshotConflictError } from "./service.ts"
+import { validateStoredSnapshot } from "./snapshot-validation.ts"
 import { UtcDateTimeSchema } from "./utc-datetime.ts"
 
 const ProjectSnapshotSchema = z.strictObject({
@@ -78,6 +79,7 @@ export class ProjectQueryService {
               query.page.size,
               epoch,
             )
+      if (query.page.cursor !== null) await validateStoredSnapshot(transaction, binding)
       const rows = await readPage(transaction, principal, binding, query.page.size)
       const parsed = rows.map((row) => ProjectRowSchema.parse(row))
       const items = parsed.map(projectFromRow)
@@ -199,8 +201,6 @@ function continuation(
   epoch: number,
 ): CursorBinding {
   const binding = decodeCursor(cursor, key)
-  if (Date.parse(binding.expiresAt) <= Date.now())
-    throw new SnapshotConflictError("snapshot_expired")
   if (
     binding.principalId !== principal.principalId ||
     binding.credentialId !== principal.credentialId ||
