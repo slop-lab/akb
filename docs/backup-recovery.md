@@ -170,7 +170,7 @@ npm run test:backup
 
 The suite covers fresh-owner fingerprint equivalence, ordinary-owner format-2 restore, each older
 registered profile upgraded through 010, and a real format-1 artifact. A separate legacy SDK driver
-observed schema-004 -> schema-010 restore, detail/list/continuation behavior, and unchanged history.
+observed a schema-004 -> schema-010 database upgrade, detail/list/continuation behavior, and unchanged history.
 Recovery operators still need an explicit post-restore `grant-r4-permissions` action for existing
 members; recovery never widens old membership grants implicitly. The last recorded 28-test backup
 aggregate predates the current HEAD, so the final named rerun remains pending.
