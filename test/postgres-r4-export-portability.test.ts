@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import { afterEach, beforeEach, test } from "node:test"
 import { z } from "zod"
+import { IdentityAdmin } from "../src/identity/admin.ts"
 import { createInterchangeHttpFixture } from "./r4-interchange-http-fixture.ts"
 
 let fixture: Awaited<ReturnType<typeof createInterchangeHttpFixture>>
@@ -64,6 +65,136 @@ test("export rejects a v1 graph with duplicate cross-kind external IDs", async (
     },
   })
 })
+
+for (const spaceId of [undefined, "visible-space"] as const) {
+  test(`export omits Saved Views with unreadable exact references from ${spaceId ?? "workspace"} exports`, async () => {
+    await command("/spaces", {
+      id: "visible-space",
+      key: "VIS",
+      name: "Visible Space",
+      visibility: "public",
+      description: "",
+      icon: null,
+      leadId: null,
+    })
+    await command("/spaces", {
+      id: "secret-space-reference",
+      key: "SEC",
+      name: "Secret Space",
+      visibility: "private",
+      description: "",
+      icon: null,
+      leadId: null,
+    })
+    const projectId = await command("/projects", {
+      name: "Secret Project",
+      slug: "secret-project",
+      summary: "",
+      ownerId: "owner",
+      leadIds: [],
+      participatingSpaceIds: ["visible-space"],
+      state: "active",
+      health: "on_track",
+      priority: "none",
+      startDate: null,
+      targetDate: null,
+    })
+    const labelId = await command("/spaces/visible-space/labels", {
+      name: "Secret Label",
+      color: "blue",
+    })
+    const [state] = await fixture.sql<{ readonly id: string }[]>`
+      select id from workflow_states where workspace_id='w' and space_id='visible-space'
+        and is_default`
+    if (state === undefined) throw new TypeError("default workflow state missing")
+    const exactReferences = {
+      projectId,
+      workflowStateId: state.id,
+      labelId,
+      spaceId: "secret-space-reference",
+    }
+    for (const [field, value] of Object.entries(exactReferences)) {
+      await command("/saved-views", {
+        name: `hidden-view-${field}`,
+        access: "workspace",
+        scopeSpaceId: null,
+        definition: definition(
+          { op: "range", field, from: value, to: value },
+          `secret-search-${field}`,
+        ),
+      })
+    }
+    await command("/saved-views", {
+      name: "portable-lexical-view",
+      access: "workspace",
+      scopeSpaceId: null,
+      definition: definition(
+        { op: "range", field: "projectId", from: "lexical-a", to: "lexical-z" },
+        "portable-lexical-search",
+      ),
+    })
+    await command("/saved-views", {
+      name: "portable-readable-view",
+      access: "workspace",
+      scopeSpaceId: null,
+      definition: definition(
+        { op: "eq", field: "spaceId", value: "visible-space" },
+        "portable-readable-search",
+      ),
+    })
+    await fixture.sql`update entity_acl_policies set mode='restricted' where entity_id in
+      (${projectId},${state.id},${labelId},stable_space_entity_id('w','secret-space-reference'))`
+    const identity = new IdentityAdmin(fixture.sql)
+    await identity.provisionPrincipal({
+      workspaceId: "w",
+      principalId: "reader",
+      displayName: "Reader",
+      kind: "human",
+      role: "member",
+      permissions: ["work.read", "space.read", "project.read", "view.read"],
+    })
+    const reader = await identity.issueToken({
+      workspaceId: "w",
+      principalId: "reader",
+      expiresAt: "2030-01-01T00:00:00.000Z",
+    })
+
+    const response = await fixture.request("/api/human/v1/workspaces/w/export", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${reader.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        includeArchived: true,
+        ...(spaceId === undefined ? {} : { spaceId }),
+      }),
+    })
+    const output = await response.text()
+
+    assert.equal(response.status, 200, output)
+    for (const [field, value] of Object.entries(exactReferences)) {
+      assert.doesNotMatch(output, new RegExp(`hidden-view-${field}|secret-search-${field}`))
+      assert.equal(output.includes(value), false)
+    }
+    assert.match(output, /portable-lexical-view/)
+    assert.match(output, /portable-lexical-search/)
+    assert.match(output, /portable-readable-view/)
+    assert.match(output, /portable-readable-search/)
+    assert.doesNotMatch(output, /"kind":"project"/)
+  })
+}
+
+function definition(filter: Readonly<Record<string, unknown>>, search: string) {
+  return {
+    model: "r4",
+    filter,
+    search,
+    sort: [{ field: "updatedAt", direction: "desc" }],
+    includeArchived: false,
+    page: { size: 50, cursor: null },
+  }
+}
 
 async function command(path: string, payload: unknown): Promise<string> {
   const key = randomUUID()

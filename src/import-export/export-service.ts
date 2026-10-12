@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import type { Sql, TransactionSql } from "postgres"
 import { type ExportRequest, type ImportRecord, ImportRecordSchema } from "../contracts/r4/index.ts"
+import { canReadFilterReferences } from "../human-query/filter-reference-authorization.ts"
 import { lockAuthenticatedPrincipal } from "../identity/authenticate.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import { normalizeExportRecord } from "./export-record-normalizer.ts"
@@ -44,6 +45,8 @@ export async function exportAuthorizedProject(
         safeRecords.push(record)
         continue
       }
+      if (!(await canReadFilterReferences(transaction, principal, record.definition.filter)))
+        continue
       const normalized = normalizeSavedViewDefinition(record.definition, records)
       if (normalized.kind === "budget_exceeded") throw new ExportValidationError("budget_exceeded")
       if (normalized.kind === "unresolved_reference") {
