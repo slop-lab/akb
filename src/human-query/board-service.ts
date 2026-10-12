@@ -21,6 +21,7 @@ import { compileWorkFilter, compileWorkOrder } from "./filter-sql.ts"
 import { frozenWorkCard, parseFrozenWorkRow } from "./frozen-work.ts"
 import { readFrozenWorkPage } from "./frozen-work-query.ts"
 import { QueryBudgetExceededError, SnapshotConflictError } from "./service.ts"
+import { allocateQuerySnapshot } from "./snapshot-allocation.ts"
 import { validateStoredSnapshot } from "./snapshot-validation.ts"
 
 export class BoardService {
@@ -49,7 +50,9 @@ export class BoardService {
       const context = { principal, queryHash, sortHash, epoch }
       const binding =
         request.page.cursor === null
-          ? await materialize(transaction, request, context)
+          ? await allocateQuerySnapshot(transaction, workspaceId, () =>
+              materialize(transaction, request, context),
+            )
           : continueColumn(request, this.signingKey, context)
       if (request.page.cursor !== null) await validateStoredSnapshot(transaction, binding)
       const snapshot = { transaction, principal, binding }
@@ -94,9 +97,6 @@ async function materialize(
   context: BoardQueryContext,
 ): Promise<CursorBinding> {
   const { principal, queryHash, sortHash, epoch } = context
-  await transaction`delete from human_query_snapshots where id in
-    (select id from human_query_snapshots where expires_at<=clock_timestamp()
-      order by expires_at limit 100)`
   const snapshotId = randomUUID()
   const expiresAt = new Date(Date.now() + 900_000).toISOString()
   const filter = compileWorkFilter(transaction, request.filter, principal.principalId)
