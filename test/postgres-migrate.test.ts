@@ -42,6 +42,8 @@ test("concurrent first migrations serialize before creating migration metadata",
       ["006_entity_event_outbox.sql", 64],
       ["007_r4_pm_core.sql", 64],
       ["008_human_query_import_retention.sql", 64],
+      ["009_legacy_workflow_revision_history.sql", 64],
+      ["010_legacy_work_query_projection.sql", 64],
     ],
   )
 })
@@ -69,6 +71,8 @@ test("a separate client can repeat completed migrations", async () => {
       "006_entity_event_outbox.sql",
       "007_r4_pm_core.sql",
       "008_human_query_import_retention.sql",
+      "009_legacy_workflow_revision_history.sql",
+      "010_legacy_work_query_projection.sql",
     ],
   )
 })
@@ -190,6 +194,8 @@ async function copyMigrations(): Promise<string> {
     "006_entity_event_outbox.sql",
     "007_r4_pm_core.sql",
     "008_human_query_import_retention.sql",
+    "009_legacy_workflow_revision_history.sql",
+    "010_legacy_work_query_projection.sql",
   ] as const) {
     await writeFile(join(directory, name), await readFile(join(process.cwd(), "migrations", name)))
   }
