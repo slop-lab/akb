@@ -81,11 +81,10 @@ export async function reconcileCreatedBootstrapStates(
         (record) => record.position ?? nextStatePosition(record, context.records),
       ),
     ])
-    const revisions = new Map<string, number>()
     for (const { record, row } of matched) {
       const temporary = nextFreePosition(usedPositions)
       usedPositions.add(temporary)
-      const result = await commands.execute(
+      await commands.execute(
         stateUpdateCall(
           context,
           record,
@@ -98,19 +97,29 @@ export async function reconcileCreatedBootstrapStates(
           "prepare",
         ),
       )
-      revisions.set(record.externalId, result.revision)
     }
     for (const { record, row } of [...matched].sort(
       (left, right) => Number(right.record.isDefault) - Number(left.record.isDefault),
     )) {
-      const revision = revisions.get(record.externalId)
-      if (revision === undefined) continue
-      const call = stateUpdateCall(context, record, destinationSpaceId, row.id, revision, {
-        name: record.name,
-        color: record.color ?? "#64748B",
-        position: record.position ?? nextStatePosition(record, context.records),
-        isDefault: record.isDefault ?? false,
-      })
+      const current = await transaction<{ readonly revision: number }[]>`
+        select e.current_revision::integer revision from workflow_states s
+        join entities e on e.id=s.id and e.workspace_id=s.workspace_id
+        where s.id=${row.id} and s.workspace_id=${context.principal.workspaceId}
+          and s.space_id=${destinationSpaceId}`
+      if (current[0] === undefined) continue
+      const call = stateUpdateCall(
+        context,
+        record,
+        destinationSpaceId,
+        row.id,
+        current[0].revision,
+        {
+          name: record.name,
+          color: record.color ?? "#64748B",
+          position: record.position ?? nextStatePosition(record, context.records),
+          isDefault: record.isDefault ?? false,
+        },
+      )
       const result = await commands.execute(call)
       context.entities.set(record.externalId, row.id)
       reconciled.add(record.externalId)
@@ -129,6 +138,13 @@ function pairBootstrapStates(
   for (const category of BOOTSTRAP_CATEGORIES) {
     const row = rows.find((candidate) => candidate.category === category)
     if (row === undefined) continue
+    const activeDefault = records.find(
+      (record) => record.category === category && record.active && record.isDefault === true,
+    )
+    if (activeDefault !== undefined) {
+      pairs.push({ record: activeDefault, row })
+      continue
+    }
     const exact = records.find(
       (record) => record.category === category && record.externalId === row.id,
     )
@@ -155,8 +171,9 @@ function pairBootstrapStates(
 function isUnambiguousLegacyExport(records: readonly StateRecord[]): boolean {
   return (
     records.some((record) => STABLE_STATE_ID.test(record.externalId)) &&
+    records.filter((record) => record.active && record.isDefault === true).length === 1 &&
     BOOTSTRAP_CATEGORIES.every((category) =>
-      records.some((record) => record.category === category),
+      records.some((record) => record.active && record.category === category),
     ) &&
     records.every(
       (record) =>
