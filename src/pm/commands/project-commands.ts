@@ -189,7 +189,7 @@ export class ProjectCommandService {
           priority=coalesce(${payload.priority ?? null},priority),
           start_date=case when ${payload.startDate !== undefined} then ${payload.startDate ?? null} else start_date end,
           target_date=case when ${payload.targetDate !== undefined} then ${payload.targetDate ?? null} else target_date end,
-          completed_at=case when ${payload.state === "completed"} then clock_timestamp()
+          completed_at=case when ${payload.state === "completed"} then coalesce(completed_at,clock_timestamp())
             when ${payload.state !== undefined} then null else completed_at end,
           revision=${revision},updated_at=clock_timestamp() where id=${entityId}`
         if (payload.participatingSpaceIds !== undefined) {
