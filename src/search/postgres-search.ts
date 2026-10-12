@@ -9,6 +9,7 @@ import {
 } from "../contracts/r4/search.ts"
 import type { CursorBinding } from "../human-query/cursor.ts"
 import { QueryBudgetExceededError } from "../human-query/service.ts"
+import { allocateQuerySnapshot } from "../human-query/snapshot-allocation.ts"
 import { validateStoredSnapshot } from "../human-query/snapshot-validation.ts"
 import { lockAuthenticatedPrincipal } from "../identity/authenticate.ts"
 import {
@@ -58,7 +59,9 @@ class PostgresR4Search implements R4SearchQuery {
       const queryHash = searchQueryHash(request.text, request.kinds)
       const binding =
         request.cursor === null
-          ? await materialize(transaction, principal, request, queryHash, authority.epoch)
+          ? await allocateQuerySnapshot(transaction, workspaceId, () =>
+              materialize(transaction, principal, request, queryHash, authority.epoch),
+            )
           : continuationBinding({
               cursor: request.cursor,
               signingKey: this.signingKey,
@@ -118,9 +121,6 @@ async function materialize(
   queryHash: string,
   epoch: number,
 ): Promise<CursorBinding> {
-  await transaction`delete from human_query_snapshots where id in
-    (select id from human_query_snapshots where expires_at<=clock_timestamp()
-      order by expires_at limit 100)`
   const snapshotId = randomUUID()
   const seedBinding = initialBinding({
     snapshotId,
