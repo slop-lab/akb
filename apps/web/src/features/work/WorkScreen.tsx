@@ -1,12 +1,6 @@
 import { Plus } from "@phosphor-icons/react"
 import { useCallback, useEffect, useState } from "react"
-import type {
-  Board,
-  BoardRequest,
-  QueryPage,
-  WorkItemDetail,
-} from "../../../../../src/contracts/r4/index.ts"
-import type { ScreenProps } from "../../app/types.ts"
+import type { Board, QueryPage, WorkItemDetail } from "../../../../../src/contracts/r4/index.ts"
 import { Button, ErrorPanel } from "../../components/primitives.tsx"
 import { ScreenLayout } from "../../components/ScreenLayout.tsx"
 import { useOwnedSnapshot } from "../../hooks/useOwnedSnapshot.ts"
@@ -22,6 +16,12 @@ import {
   hydrateWorkQueryDraft,
   type WorkView,
 } from "./work-query.ts"
+import {
+  boardRequest,
+  initialAppliedWorkQuery,
+  initialWorkSpaceId,
+  type WorkScreenProps,
+} from "./work-screen-setup.ts"
 
 export function WorkScreen({
   session,
@@ -29,17 +29,12 @@ export function WorkScreen({
   initialSavedViews,
   initialProjectId = "",
   initialSpaceId: requestedSpaceId = "",
-}: ScreenProps & {
-  readonly initialSavedViews: boolean
-  readonly initialProjectId?: string
-  readonly initialSpaceId?: string
-}) {
-  const initialSpaceId =
-    requestedSpaceId || session.bootstrap.currentSpaceId || session.bootstrap.spaces[0]?.id || ""
+}: WorkScreenProps) {
+  const initialSpaceId = initialWorkSpaceId(session, requestedSpaceId)
   const [view, setView] = useState<WorkView>("list")
   const [draft, setDraft] = useState(() => createWorkQueryDraft(initialSpaceId, initialProjectId))
-  const [appliedQuery, setAppliedQuery] = useState(() =>
-    applyWorkQueryDraft(createWorkQueryDraft(initialSpaceId, initialProjectId), "list"),
+  const [appliedQuery, setAppliedQuery] = useState(
+    initialAppliedWorkQuery(initialSpaceId, initialProjectId),
   )
   const [page, setPage] = useState<QueryPage | null>(null)
   const [board, setBoard] = useState<Board | null>(null)
@@ -47,7 +42,7 @@ export function WorkScreen({
   const [createOpen, setCreateOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const runOwnedQuery = useOwnedSnapshot(session.api)
-  const { config, projects, savedViews, loadSavedViews } = useWorkReferences({
+  const { config, savedViews, loadSavedViews } = useWorkReferences({
     session,
     spaceId: draft.spaceId,
     onError: setError,
@@ -63,11 +58,7 @@ export function WorkScreen({
         setBoard(null)
         announce(`${result.completeness.matched} work items matched`)
       } else {
-        const request: BoardRequest = {
-          ...appliedQuery,
-          workflowStateId: null,
-          page: { size: Math.min(appliedQuery.page.size, 25), cursor: null },
-        }
+        const request = boardRequest(appliedQuery)
         const result = await runOwnedQuery(() => session.api.board(request))
         setBoard(result)
         setPage(null)
@@ -78,9 +69,7 @@ export function WorkScreen({
     }
   }, [announce, appliedQuery, runOwnedQuery, session.api, view])
 
-  useEffect(() => {
-    void load()
-  }, [load])
+  useEffect(() => void load(), [load])
 
   async function loadMore() {
     if (page?.nextCursor === null || page === null) return
@@ -199,7 +188,7 @@ export function WorkScreen({
         </Button>
       }
     >
-      {error === null ? null : (
+      {error !== null && (
         <ErrorPanel
           message={error}
           actions={<Button onClick={() => void load()}>Restart query</Button>}
@@ -207,11 +196,12 @@ export function WorkScreen({
       )}
       <WorkControls
         view={view}
+        session={session}
         draft={draft}
         savedViews={savedViews}
         showSavedViews={initialSavedViews}
         spaces={session.bootstrap.spaces}
-        projects={projects}
+        onError={setError}
         config={config}
         principals={session.bootstrap.principals}
         onViewChange={(nextView) => {
@@ -241,7 +231,7 @@ export function WorkScreen({
         onLoadMoreBoard={(stateId, cursor) => void loadMoreBoard(stateId, cursor)}
         onMove={(card, stateId) => void move(card, stateId)}
       />
-      {selectedId === null ? null : (
+      {selectedId !== null && (
         <WorkPeek
           session={session}
           itemId={selectedId}
