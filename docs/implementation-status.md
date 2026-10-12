@@ -16,10 +16,10 @@ current evidence. It must be updated when evidence changes, not when intent chan
 Statuses describe product delivery, not document completion. Documentation and schemas do not
 satisfy behavioral gates. The [README](../README.md#current-status) records the bounded in-memory
 Work Item API and opt-in PostgreSQL adapters now present. R1, R2, R3, and R4 are `In progress`:
-executable evidence exists, including passing native Node 24 live export/import/archive and
-real-browser exercises, but their full dependency-ordered exit gates and deferred CI have not
-passed. No canonical section is `Implemented`, and the aggregate `npm run test:r4` command has not
-been recorded as passing.
+executable evidence exists, including native Node 24 live export/import/archive and passing
+11-scenario Chrome exercises, but their full dependency-ordered exit gates and deferred CI have not
+passed. No canonical section is `Implemented`; final named PostgreSQL, backup, and aggregate R4
+reruns remain pending at the current HEAD.
 
 The [R1/R2 verification and CI deferral record](r1-r2-verification.md) distinguishes
 clean-checkout and pinned-container results from the still-unexecuted Actions gate.
@@ -43,16 +43,16 @@ canonical section.
 | 6 | Document and Knowledge System | Planned | R5 documents and R7 knowledge | [Design §6](../agent-first-workspace-v1-design.md#6-document-and-knowledge-system); [R5](roadmap.md#r5-planning-documents-and-collaboration); [R7](roadmap.md#r7-knowledge-promotion-proposals-and-review) |
 | 7 | Human-Agent Collaboration | Planned | R6 runtime; R7 review completion | [Design §7](../agent-first-workspace-v1-design.md#7-human-agent-collaboration); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 8 | Progressive Retrieval | Planned | R6 | [Design §8](../agent-first-workspace-v1-design.md#8-progressive-retrieval); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
-| 9 | Human UX | In progress | R4-R8 | [web source](../apps/web/src); [browser scenarios](../test/browser); 10 real-browser scenarios passed locally while the formal phase gate remains open |
+| 9 | Human UX | In progress | R4-R8 | [web source](../apps/web/src); [browser scenarios](../test/browser); 11 Chrome scenarios passed locally while the formal phase gate remains open |
 | 10 | API | In progress | R1 contracts, R2 narrow API, completed through R7 | [legacy OpenAPI](openapi.json); [R4 OpenAPI](openapi-r4.json); [route inventory test](../test/r4-route-inventory.test.ts) |
-| 11 | Data Model | In progress | R3 | [entity registry](../migrations/005_entity_registry_acl.sql); [generic stream](../migrations/006_entity_event_outbox.sql); [PM model](../migrations/007_r4_pm_core.sql); [query/import model](../migrations/008_human_query_import_retention.sql) |
+| 11 | Data Model | In progress | R3 | [entity registry](../migrations/005_entity_registry_acl.sql); [generic stream](../migrations/006_entity_event_outbox.sql); [PM model](../migrations/007_r4_pm_core.sql); [query/import model](../migrations/008_human_query_import_retention.sql); [legacy workflow history](../migrations/009_legacy_workflow_revision_history.sql); [legacy query sidecar](../migrations/010_legacy_work_query_projection.sql) |
 | 12 | Search and Indexing | In progress | R4 lexical baseline; R6 full retrieval pipeline | [paged search schema](../src/contracts/r4/search.ts); [search router](../src/http/human-v1/search-router.ts); [security tests](../test/postgres-r4-search-security.test.ts); embeddings and R6 retrieval remain planned |
 | 13 | Runtime Protocol | Planned | R6 | [Design §13](../agent-first-workspace-v1-design.md#13-runtime-protocol); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
 | 14 | Automation and Extensibility | Planned | R8 | [Design §14](../agent-first-workspace-v1-design.md#14-automation-and-extensibility); [R8](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
 | 15 | Real-Time Behavior, Concurrency, and Consistency | In progress | R2 revision conflict baseline; R3-R6 completion | [stale-write tests](../test/work-item-store.test.ts); [concurrent HTTP PATCH](../test/work-item-concurrency-http.test.ts); durable concurrency remains planned |
 | 16 | Security | In progress | R3 foundation; verified through R8 | [identity tests](../test/postgres-identity.test.ts); [Space ACL tests](../test/postgres-space-acl.test.ts); bounded Work Item Space inheritance is implemented while the broader private-object and retrieval ACL remains planned |
 | 17 | Architecture | In progress | R1 workspace foundation; R3-R8 components | [R4 composition](../src/postgres/r4-application.ts); [foundation inventory](r3-r4-foundation.md); [ADR registry](adr/README.md) |
-| 18 | Operations and Performance | In progress | R3 operational baseline; R8 release proof | [backup runbook](backup-recovery.md); [profile source](../src/operations/backup/profiles.ts); schema-004/008 profiles exist while PITR, encryption, scheduling, and release operations remain planned |
+| 18 | Operations and Performance | In progress | R3 operational baseline; R8 release proof | [backup runbook](backup-recovery.md); [profile source](../src/operations/backup/profiles.ts); schema-004/008/009/010 profiles exist while PITR, encryption, scheduling, and release operations remain planned |
 | 19 | Test Strategy | In progress | R1 harness; expanded as a gate in every phase | [domain tests](../test/work-item-store.test.ts); [HTTP tests](../test/work-item-http.test.ts) |
 | 20 | Implementation Sequence | In progress | R0 roadmap; R1-R4 underway and all behavioral phases remain unpassed | [Dependency sequence](roadmap.md#dependency-sequence); [current tests](../test/) |
 | 21 | Estimated Scale of Work | Documented | Reassess at every phase boundary; not a behavior gate | [Design §21](../agent-first-workspace-v1-design.md#21-estimated-scale-of-work) |
@@ -93,7 +93,7 @@ are 10,000 current Work Items and 100,000 audit records, with one immutable revi
 pair for every effective create or patch and no history eviction. Exhausting an applicable budget
 causes a pre-mutation `507 budget_exceeded` response with truthful resource and capacity details.
 The PostgreSQL adapters provide durable Work Item and generic entity transactions plus normalized
-Workspace, Principal, Membership, ACL, hash-only credential storage, and schema-004/schema-008
+Workspace, Principal, Membership, ACL, hash-only credential storage, and schema-004/008/009/010
 backup profiles. PITR, encrypted backup storage, network delivery, full production operations, and
 the remaining formal R3/R4 gates remain planned.
 Exact OpenAPI constraints are structurally checked against shared Zod schemas, stable statuses are

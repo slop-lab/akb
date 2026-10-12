@@ -136,9 +136,10 @@ transaction, or outbox guarantees assigned to R3.
 Current local evidence includes authenticated PostgreSQL persistence, the entity/revision registry,
 restrictive entity ACL, private-Space inheritance, versioned generic event/outbox/replay,
 non-destructive retention inspection, structured request telemetry, and registered schema-004 and
-schema-008 backup/restore profiles. The [foundation inventory](r3-r4-foundation.md) links the source
-and tests. The formal R3 exit gate remains open because dependency, CI, and complete operational
-proof have not been promoted.
+schema-008/009/010 backup/restore profiles. Deterministic legacy workflow history and a transient
+legacy query-projection sidecar preserve prior fingerprints, events, and revisions. The
+[foundation inventory](r3-r4-foundation.md) links the source and tests. The formal R3 exit gate
+remains open because dependency, CI, and complete operational proof have not been promoted.
 
 - Introduce PostgreSQL migrations for Workspace, Principal, Membership, Entity, Revision,
   Relation, domain event, outbox, and persisted Work Item state.
@@ -166,11 +167,12 @@ proof have not been promoted.
 **Current checkpoint:** Local runtime code exists for all 27 command routes, Project/Space/workflow
 and Work metadata, relations/comments/Saved Views, stable Project/Work/board/search snapshots,
 import/export, and the React/Vite human surface. PM and Human UX are therefore `In progress`, not
-`Planned`. Native Node 24 live checks now cover archived-inclusive export and Project query,
-export/import/replay/re-export, malformed import, archive/restore queries, and snapshot release.
-All 10 real-browser scenarios passed without mocks or skips, and the public 100,000-item list and
-board tests passed individually. The formal gate remains open: CI, the complete end-to-end team
-scenario, and the aggregate `npm run test:r4` command are not reported as passing.
+`Planned`. Current contracts include effective-authority assignment, ACL-safe reference ranges and
+Saved View scope checks, portable range normalization, complete/partial workflow interchange, and
+legacy Work query continuity through schema 010. The latest recorded local checks include 66 unit,
+40 integration, and 11 of 11 Chrome scenarios; older named database aggregates are historical.
+The formal gate remains open: CI, the complete end-to-end team scenario, and final current-HEAD
+named PostgreSQL, backup, and aggregate R4 reruns are not reported as passing.
 
 **Deliverables**
 

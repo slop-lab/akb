@@ -19,7 +19,7 @@ Two application generations coexist intentionally:
 
 The locally delivered R3/R4 checkpoint includes:
 
-- checksum-verified additive migrations `005` through `008` over the compatible `001`-`004`
+- checksum-verified additive migrations `005` through `010` over the compatible `001`-`004`
   baseline;
 - a Workspace-scoped entity/revision registry, restrictive entity ACL, 15 permission atoms, and
   authority epochs;
@@ -31,21 +31,25 @@ The locally delivered R3/R4 checkpoint includes:
   `actorId`;
 - human bootstrap/read, Project and Work queries, board, paged lexical search, transient signed
   snapshots, explicit snapshot release, and ACL-first counts and projections;
-- bounded NDJSON export plus validate/commit import with signed byte-bound validation tokens;
+- bounded portable NDJSON export plus validate/commit import with signed byte-bound validation
+  tokens, typed reference normalization, and ACL-safe Saved View transfer;
+- complete or additive workflow interchange, deterministic legacy workflow history, and frozen
+  legacy Work Item PM projections without rewriting prior revisions or events;
 - bounded retention inspection, structured request telemetry, and generic outbox/replay behavior;
 - a React/Vite human surface that consumes server-authoritative projections; and
-- immutable PostgreSQL 17 backup profiles for schema 004 and schema 008, including registered
-  004-to-008 restore upgrade and authority/lease quarantine.
+- immutable PostgreSQL 17 backup profiles for schemas 004, 008, 009, and 010, including registered
+  upgrades from every older profile to 010 and authority/lease/transient-state quarantine.
 
-This is local functional evidence, not a phase-completion claim. The latest native Node 24 live
-exercise returned `200` for an archived-inclusive export (44,441 NDJSON bytes) and Project query
-(8,699 response bytes), completed export -> validate -> commit -> replay -> re-export with `200`
-responses, rejected malformed import with `400`, returned `200` for archive/restore queries, and
-released snapshots with `204`. The real-browser suite passed all 10 scenarios in 23.7 seconds with
-no mocks or skips. Unit (54) and integration (40) tests, TypeScript/DOM checks, `build:r4`, and the
-public 100,000-item list and board scale tests also passed in their recorded runs. CI, the complete
-dependency-ordered exit scenarios, and the aggregate `npm run test:r4` command remain unpromoted;
-this README does not mark any R1-R4 phase as passing.
+This is local functional evidence, not a phase-completion claim. On the latest recorded working
+state, `npm run check` passed 66 unit and 40 integration tests; web and browser TypeScript checks,
+the R4 build, and 11 of 11 Chrome scenarios passed (59.1 seconds). An earlier native Node 24 live
+exercise returned `200` for archived-inclusive export and Project query, completed
+export -> validate -> commit -> replay -> re-export, rejected malformed import, exercised
+archive/restore queries, and released snapshots. A separate legacy SDK driver exercised a
+schema-004 database upgraded through 010, detail/list/continuation reads, and unchanged history.
+Final named PostgreSQL, backup, and aggregate R4 gates have not been rerun at the current HEAD. CI
+and the complete dependency-ordered exit scenarios also remain open; this README does not mark any
+R1-R4 phase as passing.
 
 Later work still includes R5 planning/documents/collaboration, R6 progressive agent retrieval and
 runtime control, R7 knowledge/proposals/review, and R8 release completeness. Network webhooks,
@@ -125,7 +129,8 @@ node --test build/test/r4-route-inventory.test.js
 node script/generate-api-r4.mjs --check
 ```
 
-These are named local gates. A local exit code of zero is evidence for that command only. The latest
-recorded evidence ran the relevant R4 PostgreSQL tests individually; it did not run the aggregate
-`npm run test:r4` command. GitHub Actions/CI remains deferred, and no document may translate local
-checks into a passing formal phase gate.
+These are named local gates. A local exit code of zero is evidence for that command only. Prior
+recorded runs reported 71 `test:postgres`, 28 `test:backup`, and 141 `test:r4` tests on an older
+revision; they are historical evidence, not current-HEAD totals. Final named-gate reruns remain
+pending. GitHub Actions/CI remains deferred, and no document may translate local checks into a
+passing formal phase gate.
