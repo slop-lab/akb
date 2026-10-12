@@ -27,7 +27,33 @@ export async function canReadEntity(
   const allowed = await transaction<{ readonly allowed: boolean }[]>`
     select entity_access_allowed(${principal.workspaceId},${id},${principal.principalId},
       ${permission}) allowed`
-  return allowed[0]?.allowed === true
+  if (allowed[0]?.allowed !== true) return false
+  switch (kind) {
+    case "comment": {
+      const [comment] = await transaction<{ readonly thread_id: string }[]>`
+        select thread_id from comments where workspace_id=${principal.workspaceId} and id=${id}`
+      return comment !== undefined && canReadEntity(transaction, principal, comment.thread_id)
+    }
+    case "thread": {
+      const [thread] = await transaction<{ readonly subject_entity_id: string }[]>`
+        select subject_entity_id from threads where workspace_id=${principal.workspaceId} and id=${id}`
+      return thread !== undefined && canReadEntity(transaction, principal, thread.subject_entity_id)
+    }
+    case "relation": {
+      const [relation] = await transaction<
+        { readonly from_entity_id: string; readonly to_entity_id: string }[]
+      >`select from_entity_id,to_entity_id from relations
+        where workspace_id=${principal.workspaceId} and id=${id}`
+      if (relation === undefined) return false
+      const endpoints = await Promise.all([
+        canReadEntity(transaction, principal, relation.from_entity_id),
+        canReadEntity(transaction, principal, relation.to_entity_id),
+      ])
+      return endpoints.every(Boolean)
+    }
+    default:
+      return true
+  }
 }
 
 export async function hasPermission(
