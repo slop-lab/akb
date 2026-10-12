@@ -45,10 +45,21 @@ test("ten navigation cycles complete through released server snapshots", async (
 
   // When: the user performs ten complete Projects -> Work -> Projects cycles.
   for (let index = 0; index < 10; index += 1) {
+    const workQuery = app.page.waitForResponse(
+      (response) => response.url().includes("/work-items/query") && response.status() === 200,
+    )
+    const workProjectQuery = app.page.waitForResponse(
+      (response) => response.url().endsWith("/projects/query") && response.status() === 200,
+    )
     await app.page.getByRole("button", { name: "Work", exact: true }).click()
     await expect(app.page.getByRole("heading", { name: "Work" })).toBeVisible()
+    await Promise.all([workQuery, workProjectQuery])
+    const projectQuery = app.page.waitForResponse(
+      (response) => response.url().endsWith("/projects/query") && response.status() === 200,
+    )
     await app.page.getByRole("button", { name: "Projects", exact: true }).click()
     await expect(app.page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible()
+    await projectQuery
   }
 
   // Then: every cycle caused a successful query rather than exhausting snapshot ownership.
