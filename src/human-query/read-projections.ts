@@ -1,7 +1,7 @@
 import type { TransactionSql } from "postgres"
 import { z } from "zod"
 import { ProjectSchema, type Space, SpaceSchema } from "../contracts/r4/index.ts"
-import type { FilterNode } from "../contracts/r4/query.ts"
+import { type FilterNode, HumanWorkQuerySchema } from "../contracts/r4/query.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import { canReadEntity } from "./read-authorization.ts"
 import { UtcDateTimeSchema } from "./utc-datetime.ts"
@@ -73,6 +73,12 @@ export async function redactSnapshot(
   row: z.infer<typeof HistoryRowSchema>,
 ): Promise<Readonly<Record<string, unknown>>> {
   const snapshot = stripSensitiveFields(row.snapshot) as Record<string, unknown>
+  if (row.kind === "saved_view") {
+    const definition = HumanWorkQuerySchema.parse(Reflect.get(row.snapshot, "definition"))
+    if (!(await canReadFilterReferences(transaction, principal, definition.filter))) {
+      Reflect.deleteProperty(snapshot, "definition")
+    }
+  }
   const rawProjectId = Reflect.get(snapshot, "project_id")
   const projectId = typeof rawProjectId === "string" ? rawProjectId : null
   if (projectId !== null && !(await canReadEntity(transaction, principal, projectId))) {
