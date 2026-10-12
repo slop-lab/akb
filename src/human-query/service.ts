@@ -129,10 +129,18 @@ async function materialize(
       join work_item_pm pm on pm.work_item_id=e.id join workflow_states ws on ws.id=pm.workflow_state_id
       where ${filter} and (${search}='' or to_tsvector('simple',w.title || ' ' || pm.description)
         @@ websearch_to_tsquery('simple',${search}))
+    ), label_sets as materialized (
+      select wl.work_item_id,jsonb_agg(wl.label_id order by wl.label_id) label_ids
+      from work_item_labels wl join filtered f on f.id=wl.work_item_id group by wl.work_item_id
     ), candidates as materialized (
-      select e.id,e.current_revision,row_number() over(order by ${order})::integer ordinal
+      select e.id,e.current_revision,r.schema_version,pm.sequence,pm.workflow_state_id,pm.project_id,
+        pm.description,pm.item_type,pm.priority,pm.start_date,pm.due_date,pm.completed_at,pm.archived_at,
+        coalesce(labels.label_ids,'[]') label_ids,row_number() over(order by ${order})::integer ordinal
       from filtered f join entities e on e.id=f.id join work_items w on w.id=e.id
       join work_item_pm pm on pm.work_item_id=e.id join workflow_states ws on ws.id=pm.workflow_state_id
+      join entity_revisions r on r.entity_id=e.id and r.revision=e.current_revision
+      left join label_sets labels on labels.work_item_id=e.id
+      where r.schema_version in ('work-item.r4.v1','work-item.legacy.v1')
       order by ${order} limit 100001
     ), stats as (select count(*)::integer matched from candidates), snapshot as (
       insert into human_query_snapshots
@@ -142,8 +150,16 @@ async function materialize(
       from stats where stats.matched<=100000
       returning id,matched
     ), members as (
-      insert into human_query_snapshot_items(snapshot_id,ordinal,entity_id,source_revision)
-      select snapshot.id,c.ordinal,c.id,c.current_revision from snapshot cross join candidates c returning 1
+      insert into human_query_snapshot_items
+        (snapshot_id,ordinal,entity_id,source_revision,legacy_work_pm_projection)
+      select snapshot.id,c.ordinal,c.id,c.current_revision,
+        case when c.schema_version='work-item.legacy.v1' then jsonb_build_object(
+          '_schema','legacy-work-pm-query.v1','sequence',c.sequence,
+          'workflow_state_id',c.workflow_state_id,'project_id',c.project_id,
+          'description',c.description,'item_type',c.item_type,'priority',c.priority,
+          'start_date',c.start_date,'due_date',c.due_date,'completed_at',c.completed_at,
+          'archived_at',c.archived_at,'labelIds',c.label_ids) end
+      from snapshot cross join candidates c returning 1
     ) select stats.matched,exists(select 1 from snapshot) persisted from stats`
   const result = rows[0]
   if (result === undefined) throw new InvalidCursorError()
