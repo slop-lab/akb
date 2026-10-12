@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto"
 import type { Sql, TransactionSql } from "postgres"
-import { z } from "zod"
 import { type Board, type BoardRequest, BoardSchema } from "../contracts/r4/human.ts"
 import type { FilterNode } from "../contracts/r4/query.ts"
 import { lockAuthenticatedPrincipal } from "../identity/authenticate.ts"
@@ -10,6 +9,7 @@ import {
   WorkspaceNotFoundError,
 } from "../identity/authorization-errors.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
+import { type ColumnRow, readColumns } from "./board-columns.ts"
 import type {
   BoardBindingOptions,
   BoardPageOptions,
@@ -21,19 +21,7 @@ import { compileWorkFilter, compileWorkOrder } from "./filter-sql.ts"
 import { frozenWorkCard, parseFrozenWorkRow } from "./frozen-work.ts"
 import { readFrozenWorkPage } from "./frozen-work-query.ts"
 import { QueryBudgetExceededError, SnapshotConflictError } from "./service.ts"
-
-const ColumnRowSchema = z.strictObject({
-  id: z.string(),
-  revision: z.number().int().positive(),
-  name: z.string(),
-  category: z.enum(["backlog", "unstarted", "started", "completed", "canceled"]),
-  color: z.string(),
-  position: z.number().int().nonnegative(),
-  isDefault: z.boolean(),
-  total: z.number().int().nonnegative(),
-  lastOrdinal: z.number().int().nonnegative(),
-})
-type ColumnRow = z.infer<typeof ColumnRowSchema>
+import { validateStoredSnapshot } from "./snapshot-validation.ts"
 
 export class BoardService {
   private readonly sql: Sql
@@ -63,6 +51,7 @@ export class BoardService {
         request.page.cursor === null
           ? await materialize(transaction, request, context)
           : continueColumn(request, this.signingKey, context)
+      if (request.page.cursor !== null) await validateStoredSnapshot(transaction, binding)
       const snapshot = { transaction, principal, binding }
       const columns = await readColumns(
         snapshot,
@@ -145,29 +134,6 @@ async function materialize(
   return binding(snapshotId, context, { pageSize: request.page.size, expiresAt, group: null })
 }
 
-async function readColumns(
-  snapshot: BoardSnapshotRead,
-  selectedStateId: string | null,
-  spaceIds: readonly string[],
-): Promise<readonly ColumnRow[]> {
-  const { transaction, principal, binding: bindingValue } = snapshot
-  const rows = await transaction`select ws.id,state_entity.current_revision::integer revision,
-      ws.name,ws.category,ws.color,ws.position,
-      ws.is_default "isDefault",count(i.entity_id)::integer total,
-      coalesce(max(i.ordinal),0)::integer "lastOrdinal"
-    from workflow_states ws join entities state_entity on state_entity.id=ws.id
-    left join human_query_snapshot_items i on i.snapshot_id=${bindingValue.snapshotId}::uuid
-      and i.group_key=ws.id
-    where ws.workspace_id=${principal.workspaceId} and ws.active
-      and (${selectedStateId}::text is null or ws.id=${selectedStateId})
-      and (${spaceIds.length}=0 or ws.space_id in ${transaction(spaceIds)})
-      and entity_access_allowed(ws.workspace_id,ws.id,${principal.principalId},'space.read')
-      and entity_access_allowed(ws.workspace_id,stable_space_entity_id(ws.workspace_id,ws.space_id),
-        ${principal.principalId},'space.read')
-    group by ws.id,state_entity.current_revision order by ws.position,ws.id`
-  return rows.map((row) => ColumnRowSchema.parse(row))
-}
-
 async function renderColumn(
   snapshot: BoardSnapshotRead,
   column: ColumnRow,
@@ -205,7 +171,6 @@ function continueColumn(
 ): CursorBinding {
   const { principal, queryHash, sortHash, epoch } = context
   const value = decodeCursor(request.page.cursor ?? "", key)
-  if (Date.parse(value.expiresAt) <= Date.now()) throw new SnapshotConflictError("snapshot_expired")
   if (
     value.group !== request.workflowStateId ||
     value.principalId !== principal.principalId ||
