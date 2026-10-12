@@ -45,7 +45,7 @@ test("cursor rejects tampering and a different actor when bindings are verified"
 
   // When / Then
   assert.deepEqual(decodeCursor(cursor, key), binding)
-  assert.throws(() => decodeCursor(`${cursor.slice(0, -1)}x`, key), /invalid cursor/)
+  assert.throws(() => decodeCursor(`x${cursor.slice(1)}`, key), /invalid cursor/)
   assert.notEqual(decodeCursor(cursor, key).principalId, "p2")
 })
 
