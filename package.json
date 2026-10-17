@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24"
+    "node": ">=24.22.0"
   },
   "scripts": {
     "format:check": "biome format src test app apps/web/src apps/web/index.html apps/web/vite.config.ts playwright.config.ts package.json tsconfig.json tsconfig.browser.json tsconfig.web.json biome.json README.md --diagnostic-level=error",
@@ -14,11 +14,13 @@
     "test:unit": "npm run build && node --test build/test/browser-uuid.test.js build/test/input-contract.test.js build/test/outbox-unit.test.js build/test/owned-snapshot.test.js build/test/r4-contracts.test.js build/test/r4-import-workflow-validation.test.js build/test/r4-native-runtime.test.js build/test/r4-route-inventory.test.js build/test/space-id.test.js build/test/store-limits.test.js build/test/utc-datetime.test.js build/test/work-item-audit-capacity.test.js build/test/work-item-hardening.test.js build/test/work-item-patch-nonmutation.test.js build/test/work-item-store.test.js build/test/work-query.test.js",
     "test:integration": "npm run build && node --test build/test/health.test.js build/test/http-hardening.test.js build/test/openapi-contract.test.js build/test/openapi-examples.test.js build/test/openapi-operations.test.js build/test/path-segment-http.test.js build/test/request-boundary.test.js build/test/source-import.test.js build/test/store-port.test.js build/test/web-assets.test.js build/test/work-item-concurrency-http.test.js build/test/work-item-http.test.js build/test/work-item-list-restart.test.js",
     "test:browser": "playwright test --config playwright.config.ts",
+    "test:agent": "node --test test/part-*.test.ts",
+    "agent": "node app/agent-runtime.mjs",
     "test:postgres": "npm run build && node --test --test-concurrency=1 build/test/postgres-migrate.test.js build/test/postgres-r4-foundation.test.js build/test/postgres-r4-scale.test.js build/test/postgres-identity.test.js build/test/postgres-store.test.js build/test/postgres-authorized-store.test.js build/test/postgres-authorization-races.test.js build/test/postgres-http.test.js build/test/postgres-outbox.test.js build/test/postgres-outbox-atomicity.test.js build/test/postgres-outbox-locking.test.js build/test/postgres-replay.test.js build/test/postgres-space-acl.test.js build/test/postgres-space-acl-races.test.js build/test/postgres-space-http.test.js build/test/postgres-space-admin-cli.test.js",
     "test:r4": "npm run build && node --test build/test/r4-contracts.test.js build/test/r4-command-payloads.test.js && node -e \"if (!process.env.DATABASE_URL) process.exit(2)\" && node --test --test-concurrency=1 build/test/postgres-r4-*.test.js",
     "test:commands": "npm run build && node --test build/test/r4-command-payloads.test.js && node -e \"if (!process.env.DATABASE_URL) process.exit(2)\" && node --test --test-concurrency=1 build/test/postgres-r4-commands.test.js build/test/postgres-r4-command-lifecycle.test.js build/test/postgres-r4-command-invariants.test.js build/test/postgres-r4-command-advanced-invariants.test.js build/test/postgres-r4-command-atomicity.test.js build/test/postgres-r4-import-dispatcher.test.js",
     "test:backup": "npm run build && node --test --test-concurrency=1 build/test/backup-unit.test.js build/test/postgres-backup-catalog.test.js build/test/postgres-backup-legacy.test.js build/test/postgres-backup-profile-009.test.js build/test/postgres-backup.test.js",
-    "test": "npm run test:unit && npm run test:integration",
+    "test": "npm run test:unit && npm run test:integration && npm run test:agent",
     "build": "npm run clean && tsc",
     "web:typecheck": "tsc -p tsconfig.web.json",
     "web:build": "vite build --config apps/web/vite.config.ts",
@@ -51,6 +53,9 @@
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
+    "@slop-lab/part": "0.1.0",
+    "@slop-lab/part-node": "0.1.0",
+    "@slop-lab/part-plugins": "0.1.0",
     "ky": "^2.2.0",
     "postgres": "3.4.9",
     "react": "^19.3.0",
