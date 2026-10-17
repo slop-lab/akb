@@ -59,6 +59,11 @@ and production operations are not delivered by this checkpoint.
 
 ## API Contracts
 
+A bounded [Part-based agent runtime](docs/agent-runtime.md) is available through
+`npm run agent -- help`, with read-only Workspace tools by default and ACP stdio support.
+It requires Node.js 24.22.0 or newer. It is a trusted local adapter over existing R4 authority,
+not completion of the planned R6 identity, persistence, or progressive-retrieval protocol.
+
 - [`docs/openapi.json`](docs/openapi.json) is the byte-preserved legacy R2 OpenAPI contract.
 - [`docs/openapi-r4.json`](docs/openapi-r4.json) is the generated R3/R4 machine inventory.
 - [`script/generate-api-r4.mjs`](script/generate-api-r4.mjs) generates the R3/R4 document from

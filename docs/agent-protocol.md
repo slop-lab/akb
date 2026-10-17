@@ -3,8 +3,9 @@
 ## Status
 
 This document defines planned contracts for agent retrieval, runtime control, proposals, and
-reviews. None of these agent surfaces is implemented by the current bounded Work Item HTTP slice.
-The current workspace list is not agent retrieval and intentionally has no snapshot or receipt.
+reviews. The separate [Part runtime adapter](agent-runtime.md) provides a bounded trusted-host
+CLI and ACP bridge to existing R4 APIs, not the Run identity, durable control, or progressive
+retrieval protocol below. Human query snapshots are not agent retrieval receipts.
 Field names and transport schemas remain subject to approved ADRs, but implementations must preserve
 the semantics below. The [canonical v1 design](../agent-first-workspace-v1-design.md) is authoritative
 when this summary is incomplete.
