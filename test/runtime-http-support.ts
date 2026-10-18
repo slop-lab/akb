@@ -113,6 +113,20 @@ export class RuntimeHttpClient {
     )
   }
 
+  humanResponse(path: string, body?: unknown, method = "POST") {
+    return request(
+      this.#humanOrigin,
+      `/api/runtime/v1/workspaces/runtime-workspace${path}`,
+      this.#humanToken,
+      body,
+      method,
+    )
+  }
+
+  withHumanToken(token: string): RuntimeHttpClient {
+    return new RuntimeHttpClient(this.#humanOrigin, this.#runtimeOrigin, token)
+  }
+
   runtimeJson(runId: string, path: string, token: string, body?: unknown, method = "POST") {
     return requestJson(
       this.#runtimeOrigin,

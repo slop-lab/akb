@@ -6,11 +6,17 @@ import {
   CreateInstallationInputSchema,
   CreateRuntimeEndpointInputSchema,
   ResumeRunInputSchema,
+  RuntimeReadPageQuerySchema,
   StartRunInputSchema,
 } from "../../contracts/runtime/index.ts"
 import type { AuthenticatedPrincipal } from "../../identity/types.ts"
 import { RuntimeControl } from "../../runtime/control.ts"
-import { RuntimeConflictError, RuntimeNotFoundError } from "../../runtime/errors.ts"
+import {
+  RuntimeCapabilityError,
+  RuntimeConflictError,
+  RuntimeNotFoundError,
+} from "../../runtime/errors.ts"
+import { RuntimeReads } from "../../runtime/reads.ts"
 import { RuntimeRegistry } from "../../runtime/registry.ts"
 import { RequestBodyError, readJson } from "../human-v1/body.ts"
 import { writeJson } from "../responses.ts"
@@ -28,6 +34,7 @@ export function createRuntimeWorkspaceRoutes(
   if (signingKey.byteLength < 32) throw new RangeError("runtime signing key requires 32 bytes")
   const registry = new RuntimeRegistry(sql)
   const control = new RuntimeControl(sql)
+  const reads = new RuntimeReads(sql)
   return [
     async (request, response, principal) => {
       const url = new URL(request.url ?? "/", "http://localhost")
@@ -68,7 +75,20 @@ export function createRuntimeWorkspaceRoutes(
         }
         const run = /^\/runs\/([^/]+)$/.exec(path)
         if (request.method === "GET" && run !== null) {
-          writeJson(response, 200, await control.inspect(principal, segment(run[1])))
+          writeJson(response, 200, await reads.inspect(principal, segment(run[1])))
+          return true
+        }
+        const readPage = /^\/runs\/([^/]+)\/(activity|receipts|artifacts)$/.exec(path)
+        if (request.method === "GET" && readPage !== null) {
+          const page = RuntimeReadPageQuerySchema.parse(Object.fromEntries(url.searchParams))
+          const runId = segment(readPage[1])
+          const kind = readPage[2]
+          if (kind === "activity")
+            writeJson(response, 200, await reads.activity(principal, runId, page))
+          if (kind === "receipts")
+            writeJson(response, 200, await reads.receipts(principal, runId, page))
+          if (kind === "artifacts")
+            writeJson(response, 200, await reads.artifacts(principal, runId, page))
           return true
         }
         const cancel = /^\/runs\/([^/]+)\/cancel$/.exec(path)
@@ -124,6 +144,10 @@ function handleRuntimeError(response: ServerResponse, error: unknown): void {
   }
   if (error instanceof RuntimeConflictError) {
     writeRuntimeError(response, 409, error.code)
+    return
+  }
+  if (error instanceof RuntimeCapabilityError) {
+    writeRuntimeError(response, 409, "capability_unavailable")
     return
   }
   throw error

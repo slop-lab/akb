@@ -147,6 +147,7 @@ test("authenticated HTTP runtime completes control, retrieval, and artifact flow
     projection: "ref",
     budget: { maxItems: 10, maxTokens: 10000 },
   })
+  await fixture.sql`update entity_acl_policies set mode='inherit' where entity_id='item-a'`
   const firstIds = responseItemIds(first)
   const secondIds = responseItemIds(second)
   const activity = {

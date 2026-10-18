@@ -51,6 +51,7 @@ export async function createRuntimeRegressionHarness() {
     await listen(runtimeServer),
     credential.token,
   )
+  await seedEntity(fixture.sql, "subject", "Runtime subject")
   await client.human("/definitions", {
     definitionId: "definition",
     revisionId: "definition-v1",
@@ -106,6 +107,7 @@ export async function createRuntimeRegressionHarness() {
   return {
     sql: fixture.sql,
     client,
+    credential,
     startRun,
     close: async () => {
       await close(humanServer)
