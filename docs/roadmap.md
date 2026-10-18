@@ -193,6 +193,11 @@ scenario have not been promoted by these bounded local results.
 
 ## R5: Planning, Documents, and Collaboration
 
+**Local implementation checkpoint:** R5-R8 runtime paths and their executable evidence are
+inventoried in [the delivery record](r5-r8-delivery.md). This includes planning, Blocks Pages,
+Run-scoped control/retrieval, knowledge review, automation/integrations, and profile-016 operations.
+Formal phase gates remain In progress; non-blocking external proof gaps are tracked separately.
+
 **Depends on:** R4.
 
 **Deliverables**

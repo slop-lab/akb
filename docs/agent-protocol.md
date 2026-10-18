@@ -6,6 +6,9 @@ This document defines planned contracts for agent retrieval, runtime control, pr
 reviews. The separate [Part runtime adapter](agent-runtime.md) provides a bounded trusted-host
 CLI and ACP bridge to existing R4 APIs, not the Run identity, durable control, or progressive
 retrieval protocol below. Human query snapshots are not agent retrieval receipts.
+The later [R5-R8 implementation](r5-r8-delivery.md) adds a separate PostgreSQL-backed Run credential,
+lease, retrieval, and receipt surface. The requirements below remain the complete target contract;
+local implementation evidence does not by itself pass the formal R6 or R8 exit gate.
 Field names and transport schemas remain subject to approved ADRs, but implementations must preserve
 the semantics below. The [canonical v1 design](../agent-first-workspace-v1-design.md) is authoritative
 when this summary is incomplete.

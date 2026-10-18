@@ -22,6 +22,11 @@ passed. No canonical section is `Implemented`. Independent named PostgreSQL, bac
 R4, and browser gates passed at source commit `260812d`, and all five review lanes returned PASS;
 these local results do not promote the dependency-ordered formal gates or deferred CI.
 
+The later [R5-R8 local delivery](r5-r8-delivery.md) now adds executable planning, content,
+Run-scoped runtime/retrieval, knowledge review, automation/integrations, and extended recovery.
+These layers are **In progress** with concrete runtime evidence, not merely planned. The original
+R1-R4 evidence above remains historical; no formal phase or full v1 release gate is promoted.
+
 The [R1/R2 verification and CI deferral record](r1-r2-verification.md) distinguishes
 clean-checkout and pinned-container results from the still-unexecuted Actions gate.
 The user authorized skipping the unavailable CI infrastructure check for continued
@@ -41,21 +46,21 @@ canonical section.
 | 3 | Core Principles and Invariants | In progress | R1 contracts; enforced incrementally through R8 | [Work Item model](../src/work-items/model.ts); [store tests](../test/work-item-store.test.ts) |
 | 4 | Conceptual Model | In progress | R1 contracts and R3 persisted foundation | [Work Item model](../src/work-items/model.ts); [entity registry](../migrations/005_entity_registry_acl.sql); [foundation inventory](r3-r4-foundation.md) |
 | 5 | Project Management Requirements | In progress | R4, extended in R5 and R8 | [command registry](../src/http/command-v1/routes.ts); [PM migration](../migrations/007_r4_pm_core.sql); [R4 command tests](../test/postgres-r4-command-lifecycle.test.ts) |
-| 6 | Document and Knowledge System | Planned | R5 documents and R7 knowledge | [Design §6](../agent-first-workspace-v1-design.md#6-document-and-knowledge-system); [R5](roadmap.md#r5-planning-documents-and-collaboration); [R7](roadmap.md#r7-knowledge-promotion-proposals-and-review) |
-| 7 | Human-Agent Collaboration | Planned | R6 runtime; R7 review completion | [Design §7](../agent-first-workspace-v1-design.md#7-human-agent-collaboration); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
-| 8 | Progressive Retrieval | Planned | R6 | [Design §8](../agent-first-workspace-v1-design.md#8-progressive-retrieval); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
+| 6 | Document and Knowledge System | In progress | R5 documents and R7 knowledge | [Content](../src/content/); [knowledge](../src/knowledge/); [local evidence](r5-r8-delivery.md) |
+| 7 | Human-Agent Collaboration | In progress | R6 runtime; R7 review completion | [Runtime](../src/runtime/); [review tests](../test/postgres-knowledge-policy.test.ts); [local evidence](r5-r8-delivery.md) |
+| 8 | Progressive Retrieval | In progress | R6 | [Retrieval](../src/retrieval/); [budget regressions](../test/postgres-retrieval-budget.test.ts); [local evidence](r5-r8-delivery.md) |
 | 9 | Human UX | In progress | R4-R8 | [web source](../apps/web/src); [browser scenarios](../test/browser); 11 Chrome scenarios passed locally while the formal phase gate remains open |
 | 10 | API | In progress | R1 contracts, R2 narrow API, completed through R7 | [legacy OpenAPI](openapi.json); [R4 OpenAPI](openapi-r4.json); [route inventory test](../test/r4-route-inventory.test.ts) |
 | 11 | Data Model | In progress | R3 | [entity registry](../migrations/005_entity_registry_acl.sql); [generic stream](../migrations/006_entity_event_outbox.sql); [PM model](../migrations/007_r4_pm_core.sql); [query/import model](../migrations/008_human_query_import_retention.sql); [legacy workflow history](../migrations/009_legacy_workflow_revision_history.sql); [legacy query sidecar](../migrations/010_legacy_work_query_projection.sql) |
 | 12 | Search and Indexing | In progress | R4 lexical baseline; R6 full retrieval pipeline | [paged search schema](../src/contracts/r4/search.ts); [search router](../src/http/human-v1/search-router.ts); [security tests](../test/postgres-r4-search-security.test.ts); embeddings and R6 retrieval remain planned |
-| 13 | Runtime Protocol | Planned | R6 | [Design §13](../agent-first-workspace-v1-design.md#13-runtime-protocol); [R6](roadmap.md#r6-progressive-retrieval-and-runtime-control) |
-| 14 | Automation and Extensibility | Planned | R8 | [Design §14](../agent-first-workspace-v1-design.md#14-automation-and-extensibility); [R8](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
+| 13 | Runtime Protocol | In progress | R6 | [Runtime routes](../src/http/runtime/); [HTTP proof](../test/postgres-runtime-http.test.ts); [local evidence](r5-r8-delivery.md) |
+| 14 | Automation and Extensibility | In progress | R8 | [Automation](../src/automation/); [wire/worker proof](../test/testsautomation-r8-http.test.ts); [local evidence](r5-r8-delivery.md) |
 | 15 | Real-Time Behavior, Concurrency, and Consistency | In progress | R2 revision conflict baseline; R3-R6 completion | [stale-write tests](../test/work-item-store.test.ts); [concurrent HTTP PATCH](../test/work-item-concurrency-http.test.ts); durable concurrency remains planned |
 | 16 | Security | In progress | R3 foundation; verified through R8 | [identity tests](../test/postgres-identity.test.ts); [Space ACL tests](../test/postgres-space-acl.test.ts); bounded Work Item Space inheritance is implemented while the broader private-object and retrieval ACL remains planned |
 | 17 | Architecture | In progress | R1 workspace foundation; R3-R8 components | [R4 composition](../src/postgres/r4-application.ts); [foundation inventory](r3-r4-foundation.md); [ADR registry](adr/README.md) |
 | 18 | Operations and Performance | In progress | R3 operational baseline; R8 release proof | [backup runbook](backup-recovery.md); [profile source](../src/operations/backup/profiles.ts); schema-004/008/009/010 profiles exist while PITR, encryption, scheduling, and release operations remain planned |
 | 19 | Test Strategy | In progress | R1 harness; expanded as a gate in every phase | [domain tests](../test/work-item-store.test.ts); [HTTP tests](../test/work-item-http.test.ts) |
-| 20 | Implementation Sequence | In progress | R0 roadmap; R1-R4 underway and all behavioral phases remain unpassed | [Dependency sequence](roadmap.md#dependency-sequence); [current tests](../test/) |
+| 20 | Implementation Sequence | In progress | R0 roadmap; implementation extends through R8 and formal behavioral phases remain unpassed | [Dependency sequence](roadmap.md#dependency-sequence); [R5-R8 delivery](r5-r8-delivery.md) |
 | 21 | Estimated Scale of Work | Documented | Reassess at every phase boundary; not a behavior gate | [Design §21](../agent-first-workspace-v1-design.md#21-estimated-scale-of-work) |
 | 22 | v1 Definition of Done | Planned | R8 | [Design §22](../agent-first-workspace-v1-design.md#22-v1-definition-of-done); [R8 gate](roadmap.md#r8-v1-completeness-operations-and-release-proof) |
 | 23 | Priority Backlog | Planned | Scheduled across R1-R8 | [Design §23](../agent-first-workspace-v1-design.md#23-priority-backlog); [Dependency sequence](roadmap.md#dependency-sequence) |
@@ -70,8 +75,8 @@ canonical section.
 | Classification | Canonical sections | Behavioral meaning |
 | --- | --- | --- |
 | Documented | 21, 28 | Reference material exists; neither section is itself a product behavior. |
-| Planned | 0-2, 6-8, 13-14, 22-23, 25, 27 | Roadmap ownership and gates exist; implementation evidence has not started for these sections. |
-| In progress | 3-5, 9-12, 15-20, 24, 26 | R1-R4 runtime evidence exists; each canonical section retains open gate or later-phase scope. |
+| Planned | 0-2, 22-23, 25, 27 | Complete product/release acceptance remains planned; local feature delivery does not pass those broad gates. |
+| In progress | 3-20, 24, 26 | Runtime evidence extends through R8; each canonical section retains open formal acceptance scope. |
 | Implemented | None | No behavioral gate has passed. |
 
 ## First API Slice Status Boundary

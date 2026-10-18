@@ -386,10 +386,21 @@ Completed later-phase routes reuse the existing `PageFrame`, `Toolbar`, `FormSta
 server progress, milestones, modules, timeline, updates, and notification inbox. Pages use a
 master/detail composition whose editor is remounted by `page id + revision`, so accepted server
 content is always the editor baseline while a revision conflict retains the unsent draft.
-Runs expose delegation, inspect, cancel, and resume only through authenticated human controls.
-Knowledge exposes canonical search plus proposal/review as an explicit two-stage flow. Navigation
-may name these routes only while their real API contracts are mounted; absent automation,
-receipt, artifact, intake, or insight reads must not be represented by counts or placeholders.
+Runs expose delegation, inspect, cancel, and resume only through authenticated human controls;
+inspection renders the run's paginated durable activity, retrieval receipts, and artifacts from
+their human-read contracts. Knowledge exposes canonical search plus proposal/review as an explicit
+two-stage flow using the built-in review policy exported by the server contract. Automation groups
+analytics with real intake creation/acceptance, recurrence and event-rule creation, GitHub
+installation/mapping, and extension submission/approval. Navigation may name these routes only
+while their real API contracts are mounted; absent automation, receipt, artifact, intake, or
+insight reads must not be represented by counts or placeholders.
+
+Planning mutation forms preserve the server revision boundary: cycle rollover names source and
+target cycles plus each moved Work Item revision, while assignment names the Work Item revision
+and complete cycle/milestone/module/estimate projection. Page revision conflicts retain the local
+Blocks draft and offer an explicit latest-server reload rather than silently overwriting either
+side. Automation direct actions use the same command envelope and exported response schemas as
+entity-backed mutations; the browser does not infer a successful registry outcome.
 
 ## 6. Motion & Interaction
 

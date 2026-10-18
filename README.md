@@ -52,10 +52,12 @@ The named local gates passed at that reviewed source commit. CI and the complete
 dependency-ordered formal exit scenarios remain open; this README does not mark any
 R1-R4 phase as passing.
 
-Later work still includes R5 planning/documents/collaboration, R6 progressive agent retrieval and
-runtime control, R7 knowledge/proposals/review, and R8 release completeness. Network webhooks,
-OIDC, rich documents, PITR, encrypted backup storage, scheduling, full accessibility/release proof,
-and production operations are not delivered by this checkpoint.
+The subsequent [R5-R8 local delivery](docs/r5-r8-delivery.md) adds planning, Blocks documents,
+durable Run authority and retrieval, knowledge proposals/review, intake, recurrence, integrations,
+automation, analytics, and encrypted profile-016 recovery. It extends the local implementation,
+not the formal phase-completion claims above. Hosted CI, external-account acceptance, off-host
+recovery/PITR proof, production load targets, independent release audits, and team dogfood remain
+open. See the delivery inventory for exact supported paths and evidence boundaries.
 
 ## API Contracts
 
