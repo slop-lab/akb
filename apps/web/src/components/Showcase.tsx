@@ -1,9 +1,26 @@
 import { useState } from "react"
+import type { ContentDocument } from "../../../../src/contracts/content/model.ts"
+import { BlocksEditor, BlocksViewer } from "../vendor/blocks/index.ts"
 import { Badge, Button, Dialog, EmptyState, ErrorPanel, Field, SelectField } from "./primitives.tsx"
+
+const BLOCKS_DOCUMENT: ContentDocument = {
+  version: 1,
+  blocks: [
+    { id: "showcase-heading", type: "heading", text: "Working brief", level: 2, children: [] },
+    {
+      id: "showcase-body",
+      type: "paragraph",
+      text: "Shape this document in edit mode, then inspect the same block tree in read mode.",
+      children: [],
+    },
+  ],
+}
 
 export function Showcase() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [choice, setChoice] = useState("active")
+  const [blocksMode, setBlocksMode] = useState<"edit" | "read">("edit")
+  const [blocksDocument, setBlocksDocument] = useState(BLOCKS_DOCUMENT)
   return (
     <main className="showcase">
       <header>
@@ -43,6 +60,45 @@ export function Showcase() {
             ]}
           />
         </div>
+      </section>
+      <section className="showcase__section">
+        <div className="blocks-heading">
+          <div>
+            <h2>Block editor and viewer</h2>
+            <p>Real upstream Blocks model, viewer, and ProseMirror profile.</p>
+          </div>
+          <fieldset className="segmented">
+            <legend className="visually-hidden">Document mode</legend>
+            <button
+              type="button"
+              aria-pressed={blocksMode === "edit"}
+              onClick={() => setBlocksMode("edit")}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              aria-pressed={blocksMode === "read"}
+              onClick={() => setBlocksMode("read")}
+            >
+              Read
+            </button>
+          </fieldset>
+        </div>
+        <div className="blocks-surface">
+          {blocksMode === "edit" ? (
+            <BlocksEditor
+              value={blocksDocument}
+              onChange={setBlocksDocument}
+              label="Showcase block document editor"
+            />
+          ) : (
+            <BlocksViewer value={blocksDocument} label="Showcase block document preview" />
+          )}
+        </div>
+        <p className="blocks-caption" aria-live="polite">
+          {blocksMode === "edit" ? "Editing" : "Reading"} · {blocksDocument.blocks.length} blocks
+        </p>
       </section>
       <section className="showcase__section">
         <h2>Status</h2>

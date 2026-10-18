@@ -1,6 +1,6 @@
 # Agent-First Workspace Design System
 
-This file is the visual and interaction contract for the R4 React/Vite web application. It is intentionally limited to login, Projects, Space administration, Work list/board/peek, Work metadata and relations, comments, Saved Views, lexical search, and import/export. The application renders Human Query and command DTOs as returned by the server; it does not reconstruct authorization, filtering, search, counts, ordering, or domain invariants in the browser.
+This file is the visual and interaction contract for the React/Vite web application. The delivered R4 surface remains limited to login, Projects, Space administration, Work list/board/peek, Work metadata and relations, comments, Saved Views, lexical search, and import/export. Later R5-R8 features may enter only as executable, contract-backed surfaces owned by their phase; placeholders, disabled navigation, and speculative mock data remain prohibited. The application renders Human Query and command DTOs as returned by the server; it does not reconstruct authorization, filtering, search, counts, ordering, or domain invariants in the browser.
 
 ## 0. Research Log
 
@@ -54,7 +54,7 @@ This is an app shell, not a marketing page. Content is ordered by the operator's
 
 ### Scope guardrail
 
-R4 includes only the screens and primitives specified in this document. Do not add timeline, Cycle, Milestone, Module, documents/pages, rich text collaboration, Runs, agent panels, planning, proposal/review, notifications/inbox, analytics, or other R5+ placeholders to navigation, command palette, empty states, or mock data.
+R4 includes only the screens and primitives specified in this document. R5-R8 work may add a real feature only when its owning worker supplies an executable contract and the feature is isolated from R4 domain assumptions. Do not add timeline, Cycle, Milestone, Module, documents/pages, rich text collaboration, Runs, agent panels, planning, proposal/review, notifications/inbox, analytics, or other later-phase placeholders to navigation, command palette, empty states, or mock data. The development showcase may expose completed primitives before a product route exists, but it must label them as development surfaces and exercise real behavior rather than imply product completion.
 
 ## 2. Color
 
@@ -181,6 +181,7 @@ All spacing intent uses a 4 px base. Browser mechanics such as `auto`, intrinsic
 | `--board-column-width` | `288px` | Standard board column track |
 | `--login-panel-max` | `400px` | Login form reading width |
 | `--reading-measure` | `72ch` | Description/comment maximum measure |
+| `--editor-min-height` | `240px` | Minimum editable/read-only document work plane |
 
 Named responsive thresholds are `mobile: 375px QA minimum`, `tablet: 768px`, and `desktop: 1280px`. Media queries use these documented thresholds directly because CSS custom properties cannot define media-query conditions.
 
@@ -241,6 +242,16 @@ Every interactive primitive implements applicable states: default, hover, active
 - **Accessibility:** label is never placeholder-only; combobox follows ARIA pattern with announced result count; Escape closes without erasing committed values. CJK IME composition must not submit forms or trigger shortcuts.
 - **Security:** bearer-token control uses `type=password`, supports paste, never provides reveal-by-default, never echoes token in validation, and clears immediately after successful authentication or any auth reset.
 - **Motion/layout:** micro focus transition; `FormStack` owns layout.
+
+### Rich block editor and viewer primitive
+
+- **Purpose:** a later-phase content surface that accepts and emits the project's canonical block tree through a project-owned adapter. The upstream Blocks model, ProseMirror profile, viewer, bindings, and interaction packages remain implementation details; product and domain code never import them directly.
+- **Structure:** a compact mode control (`Edit` / `Read`) followed by one bordered work plane. Edit mode mounts the real ProseMirror editor; Read mode renders the same canonical tree through the real Blocks viewer. A caption identifies the active mode and block count without presenting save, collaboration, or persistence claims.
+- **Canonical content:** the initial showcase includes a heading and body paragraph with stable project-owned IDs. Every accepted editor transaction emits a new canonical tree; switching modes must display the edited result rather than resetting fixture content.
+- **Visual treatment:** use surface 1, border default, radius 3, standard panel padding, body typography, and the universal focus ring. Headings and paragraphs use the existing type scale and reading measure. Selection uses the existing selected-surface and selection-inset tokens; no upstream demo theme or raw visual value may leak into the host.
+- **States:** editable, focused, changed, and read-only viewer. Unsupported upstream block types remain data-preserving locked content at the adapter boundary; product-specific error, persistence, collaboration, conflict, and loading states are deferred until their real contracts exist.
+- **Accessibility:** the editor is a named contenteditable region guarded from global shortcuts and IME-safe by the existing shell contract. The mode control uses native buttons with `aria-pressed`; status text is not the only indication of mode. Viewer output preserves semantic heading and paragraph elements.
+- **Lifecycle:** mounting creates one `EditorState` and one `EditorView`; unmounting destroys the view. React Strict Mode remounts must not duplicate editors, callbacks, or DOM. Canonical changes are emitted only for document-changing transactions.
 
 ### Login form
 
@@ -367,6 +378,18 @@ Every interactive primitive implements applicable states: default, hover, active
 | Search | H1, search, kind filter | Grouped server results with pagination | Selected result opens route or peek where valid |
 | Import | H1 and constraints | File selection, validation preview, exact commit summary | Commit confirmation/conflict |
 | Export | H1 and scope | Export configuration and server limit disclosure | Preparing/error status |
+
+### R5-R8 feature screen anatomy
+
+Completed later-phase routes reuse the existing `PageFrame`, `Toolbar`, `FormStack`, `DataList`,
+`MetadataGrid`, conflict panel, and peek patterns. Planning combines a Project selector with
+server progress, milestones, modules, timeline, updates, and notification inbox. Pages use a
+master/detail composition whose editor is remounted by `page id + revision`, so accepted server
+content is always the editor baseline while a revision conflict retains the unsent draft.
+Runs expose delegation, inspect, cancel, and resume only through authenticated human controls.
+Knowledge exposes canonical search plus proposal/review as an explicit two-stage flow. Navigation
+may name these routes only while their real API contracts are mounted; absent automation,
+receipt, artifact, intake, or insight reads must not be represented by counts or placeholders.
 
 ## 6. Motion & Interaction
 

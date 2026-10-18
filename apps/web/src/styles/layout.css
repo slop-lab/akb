@@ -37,6 +37,60 @@
   display: grid;
   gap: var(--space-4);
 }
+.blocks-heading {
+  align-items: start;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+}
+.blocks-heading > div:first-child {
+  display: grid;
+  gap: var(--space-1);
+}
+.blocks-heading p,
+.blocks-caption {
+  color: var(--color-ink-2);
+}
+.blocks-caption {
+  font-size: 12px;
+  line-height: 16px;
+}
+.blocks-surface {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-3);
+  min-block-size: var(--editor-min-height);
+  padding: var(--space-4);
+}
+.blocks-editor__content,
+.blocks-viewer .static-viewer {
+  display: grid;
+  gap: var(--space-3);
+  min-block-size: calc(var(--editor-min-height) - var(--space-8));
+  outline: none;
+}
+.blocks-editor__content {
+  white-space: pre-wrap;
+}
+.blocks-editor:focus-within {
+  border-radius: var(--radius-2);
+  box-shadow: var(--focus-ring);
+}
+.blocks-editor__content > *,
+.blocks-viewer .static-viewer > * {
+  max-inline-size: var(--reading-measure);
+}
+.blocks-editor__content p,
+.blocks-viewer p {
+  line-height: 22px;
+}
+.blocks-locked {
+  background: var(--color-surface-2);
+  box-shadow: var(--selection-inset);
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+}
 .dialog-actions {
   display: flex;
   gap: var(--space-2);
@@ -345,8 +399,10 @@
 }
 .segmented {
   background: var(--color-surface-2);
+  border: 0;
   border-radius: var(--radius-2);
   display: flex;
+  margin: var(--space-0);
   padding: var(--space-1);
 }
 .segmented button {
@@ -573,4 +629,42 @@
   display: grid;
   gap: var(--space-2);
   padding: var(--space-4);
+}
+
+.feature-columns,
+.master-detail {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-inline-size: 0;
+}
+.master-detail {
+  grid-template-columns: minmax(200px, 1fr) minmax(0, 3fr);
+}
+.record-row {
+  align-items: center;
+  border-block-end: 1px solid var(--color-border-subtle);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  min-block-size: var(--row-default);
+  padding: var(--space-2) var(--space-3);
+}
+.record-row:last-child {
+  border-block-end: 0;
+}
+.record-row > strong {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.record-row > .field {
+  flex: 1 1 auto;
+}
+.document-workspace {
+  display: grid;
+  gap: var(--space-5);
+  min-inline-size: 0;
+}
+.document-workspace .panel__header > .field {
+  flex: 1 1 auto;
 }

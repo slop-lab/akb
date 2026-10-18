@@ -58,6 +58,7 @@
   --board-column-width: 288px;
   --login-panel-max: 400px;
   --reading-measure: 72ch;
+  --editor-min-height: 240px;
   --focus-ring: 0 0 0 2px var(--color-canvas), 0 0 0 4px var(--color-accent-500);
   --selection-inset: inset 3px 0 0 var(--color-accent-600);
   --drop-ring: inset 0 0 0 2px var(--color-accent-500);
