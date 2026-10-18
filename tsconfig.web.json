@@ -20,7 +20,22 @@
     "noPropertyAccessFromIndexSignature": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "types": ["vite/client"]
+    "types": ["vite/client", "vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@block-editor/model": [".deps/blocks/packages/model/dist/index.d.ts"],
+      "@block-editor/model/viewer": [".deps/blocks/packages/model/dist/viewer.d.ts"],
+      "@block-editor/prosemirror": [".deps/blocks/packages/prosemirror/dist/index.d.ts"],
+      "@block-editor/prosemirror/preset": [".deps/blocks/packages/prosemirror/dist/preset.d.ts"],
+      "prosemirror-model": [".deps/blocks/node_modules/prosemirror-model/dist/index.d.ts"],
+      "prosemirror-state": [".deps/blocks/node_modules/prosemirror-state/dist/index.d.ts"],
+      "prosemirror-view": [".deps/blocks/node_modules/prosemirror-view/dist/index.d.ts"]
+    }
   },
-  "include": ["apps/web/src", "apps/web/vite.config.ts", "src/contracts/r4"]
+  "include": [
+    "apps/web/src",
+    "apps/web/vite.config.ts",
+    "src/contracts/r4",
+    "src/contracts/content"
+  ]
 }
