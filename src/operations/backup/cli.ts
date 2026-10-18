@@ -7,14 +7,17 @@ Commands:
   create  --artifact-dir NEW_PATH
   verify  --artifact-dir ARTIFACT_PATH
   restore --artifact-dir ARTIFACT_PATH --confirm-empty-database NAME --report NEW_PATH
+          [--unsafe-allow-unauthenticated-activation I_ACCEPT_UNAUTHENTICATED_ARTIFACT]
+  retention --backup-root PATH --maximum-age-days DAYS --minimum-retained COUNT --mode dry-run|apply
 
 Environment:
   create: exactly one of SOURCE_DATABASE_URL or DATABASE_URL
   restore: RESTORE_DATABASE_URL
+  encryption: exactly one of BACKUP_ENCRYPTION_KEY or BACKUP_ENCRYPTION_KEY_FILE
   tools: PG_DUMP_PATH and PG_RESTORE_PATH (default: pg_dump and pg_restore)`
 
 const PathSchema = z.string().min(1)
-const CommandSchema = z.enum(["create", "verify", "restore"])
+const CommandSchema = z.enum(["create", "verify", "restore", "retention"])
 
 export type BackupCommand =
   | { readonly kind: "help"; readonly text: string }
@@ -25,6 +28,14 @@ export type BackupCommand =
       readonly artifactDirectory: string
       readonly confirmedDatabase: string
       readonly reportPath: string
+      readonly allowUnauthenticatedActivation: boolean
+    }
+  | {
+      readonly kind: "retention"
+      readonly backupRoot: string
+      readonly maximumAgeDays: number
+      readonly minimumRetained: number
+      readonly mode: "dry-run" | "apply"
     }
 
 export type BackupEnvironment = NodeJS.ProcessEnv & {
@@ -33,6 +44,8 @@ export type BackupEnvironment = NodeJS.ProcessEnv & {
   readonly RESTORE_DATABASE_URL?: string
   readonly PG_DUMP_PATH?: string
   readonly PG_RESTORE_PATH?: string
+  readonly BACKUP_ENCRYPTION_KEY?: string
+  readonly BACKUP_ENCRYPTION_KEY_FILE?: string
 }
 
 export function parseBackupCommand(
@@ -61,13 +74,38 @@ export function parseBackupCommand(
         ),
       }
     case "restore": {
-      const parsed = exactOptions(options, ["artifact-dir", "confirm-empty-database", "report"])
+      const parsed = exactOptions(
+        options,
+        ["artifact-dir", "confirm-empty-database", "report"],
+        ["unsafe-allow-unauthenticated-activation"],
+      )
       const { report } = parsed
+      const acknowledgement = parsed["unsafe-allow-unauthenticated-activation"]
+      if (acknowledgement !== undefined) {
+        z.literal("I_ACCEPT_UNAUTHENTICATED_ARTIFACT").parse(acknowledgement)
+      }
       return {
         kind: "restore",
         artifactDirectory: PathSchema.parse(parsed["artifact-dir"]),
         confirmedDatabase: z.string().min(1).max(63).parse(parsed["confirm-empty-database"]),
         reportPath: PathSchema.parse(report),
+        allowUnauthenticatedActivation: acknowledgement !== undefined,
+      }
+    }
+    case "retention": {
+      const parsed = exactOptions(options, [
+        "backup-root",
+        "maximum-age-days",
+        "minimum-retained",
+        "mode",
+      ])
+      return {
+        kind: "retention",
+        backupRoot: PathSchema.parse(parsed["backup-root"]),
+        maximumAgeDays: z.coerce.number().int().positive().parse(parsed["maximum-age-days"]),
+        minimumRetained: z.coerce.number().int().positive().parse(parsed["minimum-retained"]),
+        // biome-ignore lint/complexity/useLiteralKeys: noPropertyAccessFromIndexSignature requires bracket access
+        mode: z.enum(["dry-run", "apply"]).parse(parsed["mode"]),
       }
     }
   }
@@ -115,9 +153,11 @@ function parseOptions(args: readonly string[]): Readonly<Record<string, string>>
 function exactOptions(
   options: Readonly<Record<string, string>>,
   expected: readonly string[],
+  optional: readonly string[] = [],
 ): Readonly<Record<string, string>> {
   for (const name of Object.keys(options)) {
-    if (!expected.includes(name)) throw backupError("invalid_options", `unknown option --${name}`)
+    if (!expected.includes(name) && !optional.includes(name))
+      throw backupError("invalid_options", `unknown option --${name}`)
   }
   for (const name of expected) {
     if (options[name] === undefined)

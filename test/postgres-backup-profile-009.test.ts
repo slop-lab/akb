@@ -19,7 +19,7 @@ const adminUrl = requiredEnvironment("DATABASE_URL")
 const pgDumpPath = requiredEnvironment("PG_DUMP_PATH")
 const pgRestorePath = requiredEnvironment("PG_RESTORE_PATH")
 
-test("a real profile-009 artifact restores through the registered schema-010 upgrade", async (context) => {
+test("a real profile-009 artifact restores through the registered schema-016 upgrade", async (context) => {
   // Given
   const root = await mkdtemp(join(tmpdir(), "afw-postgres-backup-009-"))
   const admin = postgres(adminUrl, { max: 1 })
@@ -53,11 +53,13 @@ test("a real profile-009 artifact restores through the registered schema-010 upg
     reportPath: join(root, "report.json"),
     databaseUrl: targetDatabase.url,
     pgRestorePath,
+    artifactAuthenticated: false,
+    allowUnauthenticatedActivation: true,
   })
 
   // Then
   assert.equal(restored.sourceProfile, "r4-schema-009-public-v1")
-  assert.equal(restored.finalProfile, "r4-schema-010-public-v1")
+  assert.equal(restored.finalProfile, "r8-schema-016-public-v1")
   assert.deepEqual(
     [
       ...(await target`select entity_id,revision,schema_version,canonical_snapshot,
@@ -72,7 +74,7 @@ test("a real profile-009 artifact restores through the registered schema-010 upg
     (select count(*)::integer from entity_outbox_jobs_v1 where state='leased') generic_leases,
     (select count(*)::integer from human_query_snapshots) snapshots`
   assert.deepEqual(state, {
-    migrations: 10,
+    migrations: 16,
     active: 0,
     legacy_leases: 0,
     generic_leases: 0,

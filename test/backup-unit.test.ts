@@ -24,6 +24,7 @@ import {
   PROFILE_008,
   PROFILE_009,
   PROFILE_010,
+  PROFILE_016,
   profileFromLedger,
   SCHEMA_008_FINGERPRINT,
 } from "../src/operations/backup/profiles.ts"
@@ -332,6 +333,7 @@ test("format 2 selects exact immutable schema-008 through schema-010 profiles", 
   assert.equal(profileFromLedger(PROFILE_008.migrations), PROFILE_008)
   assert.equal(profileFromLedger(PROFILE_009.migrations), PROFILE_009)
   assert.equal(profileFromLedger(PROFILE_010.migrations), PROFILE_010)
+  assert.equal(profileFromLedger(PROFILE_016.migrations), PROFILE_016)
   assert.throws(
     () =>
       profileFromLedger([

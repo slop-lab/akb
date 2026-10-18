@@ -7,6 +7,7 @@ import postgres from "postgres"
 import { z } from "zod"
 import { authenticateToken } from "../src/identity/authenticate.ts"
 import { createBackup } from "../src/operations/backup/create.ts"
+import { PROFILE_016 } from "../src/operations/backup/profiles.ts"
 import { restoreBackup } from "../src/operations/backup/restore.ts"
 import { verifyBackupArtifact } from "../src/operations/backup/verify.ts"
 import {
@@ -22,7 +23,7 @@ const adminUrl = requiredEnvironment("DATABASE_URL")
 const pgDumpPath = requiredEnvironment("PG_DUMP_PATH")
 const pgRestorePath = requiredEnvironment("PG_RESTORE_PATH")
 
-test("a real format-1 artifact restores through the registered schema-004 to schema-010 upgrade", async (context) => {
+test("a real format-1 artifact restores through the registered schema-004 to schema-016 upgrade", async (context) => {
   // Given
   const root = await mkdtemp(join(tmpdir(), "afw-postgres-backup-legacy-"))
   const admin = postgres(adminUrl, { max: 1 })
@@ -57,9 +58,9 @@ test("a real format-1 artifact restores through the registered schema-004 to sch
 
   // Then
   assert.equal(manifest.formatVersion, 1)
-  assert.equal(restored.activationAllowed, true)
+  assert.equal(restored.activationAllowed, false)
   assert.equal(restored.sourceProfile, "r3-schema-004-public")
-  assert.equal(restored.finalProfile, "r4-schema-010-public-v1")
+  assert.equal(restored.finalProfile, "r8-schema-016-public-v1")
   assert.equal(await authenticateToken(target, fixture.activeToken), undefined)
   const state = await target<
     {
@@ -74,7 +75,7 @@ test("a real format-1 artifact restores through the registered schema-004 to sch
     (select count(*)::integer from outbox_jobs where state = 'leased') as legacy_leases,
     (select count(*)::integer from entity_outbox_jobs_v1 where state = 'leased') as generic_leases`
   assert.deepEqual(state[0], {
-    migrations: 10,
+    migrations: 16,
     active_credentials: 0,
     legacy_leases: 0,
     generic_leases: 0,
@@ -82,13 +83,14 @@ test("a real format-1 artifact restores through the registered schema-004 to sch
   const report = z
     .strictObject({
       formatVersion: z.literal(2),
-      activationAllowed: z.literal(true),
+      activationAllowed: z.literal(false),
+      artifactAuthenticated: z.literal(false),
       recoveryId: z.string().uuid(),
       recoveryAt: z.string().datetime(),
-      quarantinePolicyVersion: z.literal(2),
+      quarantinePolicyVersion: z.literal(3),
       sourceOverallDigest: z.string().length(64),
       sourceProfile: z.literal("r3-schema-004-public"),
-      finalProfile: z.literal("r4-schema-010-public-v1"),
+      finalProfile: z.literal("r8-schema-016-public-v1"),
       sourceSchemaFingerprint: z.string().length(64),
       finalSchemaFingerprint: z.string().length(64),
       sourceBaselineDigest: z.string().length(64),
@@ -107,10 +109,10 @@ test("a real format-1 artifact restores through the registered schema-004 to sch
     })
     .parse(JSON.parse(await readFile(join(root, "report.json"), "utf8")))
   assert.equal(report.sourceBaselineTables.length, 16)
-  assert.equal(report.baselineTables.length, 48)
+  assert.equal(report.baselineTables.length, PROFILE_016.tables.length)
 })
 
-test("a real profile-008 artifact restores through the registered schema-008 to schema-010 upgrade", async (context) => {
+test("a real profile-008 artifact restores through the registered schema-008 to schema-016 upgrade", async (context) => {
   // Given
   const root = await mkdtemp(join(tmpdir(), "afw-postgres-backup-008-"))
   const admin = postgres(adminUrl, { max: 1 })
@@ -143,6 +145,8 @@ test("a real profile-008 artifact restores through the registered schema-008 to 
     reportPath: join(root, "report.json"),
     databaseUrl: targetDatabase.url,
     pgRestorePath,
+    artifactAuthenticated: false,
+    allowUnauthenticatedActivation: true,
   })
 
   // Then
@@ -150,7 +154,7 @@ test("a real profile-008 artifact restores through the registered schema-008 to 
   if (manifest.formatVersion !== 2) throw new TypeError("profile-008 manifest expected")
   assert.equal(manifest.profile, "r4-schema-008-public-v1")
   assert.equal(restored.sourceProfile, "r4-schema-008-public-v1")
-  assert.equal(restored.finalProfile, "r4-schema-010-public-v1")
+  assert.equal(restored.finalProfile, "r8-schema-016-public-v1")
   const [state] = await target`select
     (select count(*)::integer from schema_migrations) migrations,
     (select count(*)::integer from principal_credentials where revoked_at is null) active,
@@ -160,7 +164,7 @@ test("a real profile-008 artifact restores through the registered schema-008 to 
     (select count(*)::integer from import_record_ids r join import_batches b using(import_id)
       where b.state='committed') committed_mappings`
   assert.deepEqual(state, {
-    migrations: 10,
+    migrations: 16,
     active: 0,
     legacy_leases: 0,
     generic_leases: 0,

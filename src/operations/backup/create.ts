@@ -24,6 +24,7 @@ export async function createBackup(
     | "r4-schema-008-public-v1"
     | "r4-schema-009-public-v1"
     | "r4-schema-010-public-v1"
+    | "r8-schema-016-public-v1"
 }> {
   const paths = await createArtifactDirectory(artifactDirectory)
   const connection = toolConnection(databaseUrl)

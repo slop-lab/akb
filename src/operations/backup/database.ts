@@ -117,6 +117,38 @@ export async function digestTables(
       filter =
         " where exists (select 1 from public.import_batches b where b.import_id = t.import_id and b.state = 'committed')"
     }
+    if (projection === "protected" && table.name === "runtime_runs")
+      expression =
+        "to_jsonb(t) - 'token_hash' - 'token_expires_at' - 'generation' - 'state' - 'updated_at'"
+    if (projection === "protected" && table.name === "runtime_leases")
+      expression = "to_jsonb(t) - 'status' - 'expires_at' - 'heartbeat_deadline'"
+    if (projection === "protected" && table.name === "agent_installations")
+      expression = "to_jsonb(t) - 'enabled'"
+    if (projection === "protected" && table.name === "extension_installations")
+      expression = "to_jsonb(t) - 'enabled'"
+    if (projection === "protected" && table.name === "runtime_endpoints")
+      expression = "to_jsonb(t) - 'enabled'"
+    if (projection === "protected" && table.name === "github_installations")
+      expression = "to_jsonb(t) - 'webhook_secret'"
+    if (projection === "protected" && table.name === "recurrence_rules")
+      expression = "to_jsonb(t) - 'enabled'"
+    if (projection === "protected" && table.name === "automation_rules")
+      expression = "to_jsonb(t) - 'enabled'"
+    if (projection === "protected" && table.name === "automation_runs")
+      expression = "to_jsonb(t) - 'state' - 'completed_at'"
+    if (projection === "protected" && table.name === "automation_action_jobs")
+      expression = "to_jsonb(t) - 'state'"
+    if (projection === "protected" && table.name === "outgoing_https_requests")
+      expression = "to_jsonb(t) - 'state' - 'lease_owner' - 'lease_generation' - 'lease_expires_at'"
+    if (projection === "protected" && table.name === "github_webhook_deliveries")
+      expression = "to_jsonb(t) - 'state'"
+    if (
+      projection === "protected" &&
+      ["runtime_context_snapshots", "runtime_context_entries", "content_presence"].includes(
+        table.name,
+      )
+    )
+      filter = " where false"
     const order = table.order
       .map(({ column, kind }) =>
         kind === "text"

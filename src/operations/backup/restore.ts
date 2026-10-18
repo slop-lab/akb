@@ -7,7 +7,7 @@ import { backupError } from "./errors.ts"
 import { inspectArtifact, openNewReportFile } from "./files.ts"
 import { computeMigrationDigest, computeSemanticDigest } from "./manifest.ts"
 import { requireToolMajor, runTool, toolConnection } from "./process.ts"
-import { computeRecoveryOutcomeDigestV2 } from "./recovery.ts"
+import { computeRecoveryOutcomeDigestV3 } from "./recovery.ts"
 import { recoverRestoredDatabase } from "./restore-recovery.ts"
 import { listBackupArchive, verifyBackupArtifact } from "./verify.ts"
 
@@ -17,19 +17,24 @@ export async function restoreBackup(input: {
   readonly reportPath: string
   readonly databaseUrl: string
   readonly pgRestorePath: string
+  readonly artifactAuthenticated?: boolean
+  readonly allowUnauthenticatedActivation?: boolean
 }): Promise<{
-  readonly activationAllowed: true
+  readonly activationAllowed: boolean
   readonly recoveryId: string
   readonly sourceProfile:
     | "r3-schema-004-public"
     | "r4-schema-008-public-v1"
     | "r4-schema-009-public-v1"
     | "r4-schema-010-public-v1"
-  readonly finalProfile: "r4-schema-010-public-v1"
+    | "r8-schema-016-public-v1"
+  readonly finalProfile: "r8-schema-016-public-v1"
 }> {
   const connection = toolConnection(input.databaseUrl)
   const recoveryId = randomUUID()
   const recoveryAt = new Date().toISOString()
+  const artifactAuthenticated = input.artifactAuthenticated === true
+  const activationAllowed = artifactAuthenticated || input.allowUnauthenticatedActivation === true
   const restoreListDirectory = await mkdtemp(join(tmpdir(), "afw-restore-list-"))
   const restoreListPath = join(restoreListDirectory, "toc.list")
   try {
@@ -96,22 +101,23 @@ export async function restoreBackup(input: {
         }
         const report = {
           formatVersion: 2,
-          activationAllowed: true,
+          activationAllowed,
+          artifactAuthenticated,
           recoveryId,
           recoveryAt,
-          quarantinePolicyVersion: 2,
+          quarantinePolicyVersion: 3,
           ...outcome,
-          outcomeDigest: computeRecoveryOutcomeDigestV2(outcome),
+          outcomeDigest: computeRecoveryOutcomeDigestV3(outcome),
           sourceBaselineTables: recovery.sourceBaseline,
           baselineTables: recovery.finalBaseline,
           postRecoveryTables: recovery.postRecovery,
         }
         await writePrivateReport(reportFile, report)
         return {
-          activationAllowed: true,
+          activationAllowed,
           recoveryId,
           sourceProfile: recovery.sourceProfile.id,
-          finalProfile: "r4-schema-010-public-v1",
+          finalProfile: "r8-schema-016-public-v1",
         }
       } catch (error) {
         await writePrivateReport(reportFile, {

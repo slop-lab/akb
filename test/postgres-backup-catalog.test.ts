@@ -16,13 +16,13 @@ import {
   SCHEMA_010_FINGERPRINT,
 } from "../src/operations/backup/profiles.ts"
 import { EXPECTED_SCHEMA_FINGERPRINT } from "../src/operations/backup/schema-policy.ts"
-import { migrateDatabase } from "../src/postgres/migrate.ts"
 import {
   createOwnedDatabase,
   databaseUrl,
   migrateBackupSchema004,
   migrateBackupSchema008,
   migrateBackupSchema009,
+  migrateBackupSchema010,
   requiredEnvironment,
 } from "./postgres-backup-fixture.ts"
 
@@ -177,7 +177,7 @@ test("fresh schema-010 has a distinct pinned structural fingerprint", async (con
   // Given
   const database = await createOwnedCatalogDatabase()
   context.after(database.close)
-  await migrateDatabase(database.sql)
+  await migrateBackupSchema010(database.sql)
 
   // When
   const fingerprint = await database.sql.begin((transaction) => schemaFingerprint(transaction))

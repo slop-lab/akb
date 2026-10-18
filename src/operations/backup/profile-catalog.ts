@@ -6,6 +6,7 @@ import {
   PROFILE_008,
   PROFILE_009,
   PROFILE_010,
+  PROFILE_016,
   profileFromLedger,
 } from "./profiles.ts"
 
@@ -14,10 +15,10 @@ export async function readTrustedLocalProfiles(): Promise<readonly BackupProfile
     name: version,
     checksum,
   }))
-  if (JSON.stringify(local) !== JSON.stringify(PROFILE_010.migrations)) {
+  if (JSON.stringify(local) !== JSON.stringify(PROFILE_016.migrations)) {
     throw backupError(
       "migration_catalog_mismatch",
-      "local migrations do not match trusted profile 010",
+      "local migrations do not match trusted profile 016",
     )
   }
   if (JSON.stringify(local.slice(0, 4)) !== JSON.stringify(PROFILE_004.migrations)) {
@@ -38,7 +39,13 @@ export async function readTrustedLocalProfiles(): Promise<readonly BackupProfile
       "local migrations do not match trusted profile 009",
     )
   }
-  return [PROFILE_004, PROFILE_008, PROFILE_009, PROFILE_010]
+  if (JSON.stringify(local.slice(0, 10)) !== JSON.stringify(PROFILE_010.migrations)) {
+    throw backupError(
+      "migration_catalog_mismatch",
+      "local migrations do not match trusted profile 010",
+    )
+  }
+  return [PROFILE_004, PROFILE_008, PROFILE_009, PROFILE_010, PROFILE_016]
 }
 
 export async function trustedProfileFromDatabaseLedger(

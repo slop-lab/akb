@@ -9,9 +9,18 @@ const QuarantineAssertionsSchema = z.strictObject({
 const QuarantineAssertionsV2Schema = QuarantineAssertionsSchema.extend({
   genericLeasedJobs: z.literal(0),
 })
+const QuarantineAssertionsV3Schema = QuarantineAssertionsV2Schema.extend({
+  activeRunCredentials: z.literal(0),
+  activeRuntimeLeases: z.literal(0),
+  enabledRuntimeCapabilities: z.literal(0),
+  runtimeContextSnapshots: z.literal(0),
+  enabledIntegrations: z.literal(0),
+  dispatchableDeliveryJobs: z.literal(0),
+})
 
 export type QuarantineAssertions = z.infer<typeof QuarantineAssertionsSchema>
 export type QuarantineAssertionsV2 = z.infer<typeof QuarantineAssertionsV2Schema>
+export type QuarantineAssertionsV3 = z.infer<typeof QuarantineAssertionsV3Schema>
 
 export function quarantineAssertions(value: {
   readonly activeCredentials: number
@@ -25,12 +34,31 @@ export function quarantineAssertions(value: {
 export function quarantineAssertions(value: {
   readonly activeCredentials: number
   readonly leasedJobs: number
+  readonly genericLeasedJobs: number
+  readonly activeRunCredentials: number
+  readonly activeRuntimeLeases: number
+  readonly enabledRuntimeCapabilities: number
+  readonly runtimeContextSnapshots: number
+  readonly enabledIntegrations: number
+  readonly dispatchableDeliveryJobs: number
+}): QuarantineAssertionsV3
+export function quarantineAssertions(value: {
+  readonly activeCredentials: number
+  readonly leasedJobs: number
   readonly genericLeasedJobs?: number
-}): QuarantineAssertions | QuarantineAssertionsV2 {
+  readonly activeRunCredentials?: number
+  readonly activeRuntimeLeases?: number
+  readonly enabledRuntimeCapabilities?: number
+  readonly runtimeContextSnapshots?: number
+  readonly enabledIntegrations?: number
+  readonly dispatchableDeliveryJobs?: number
+}): QuarantineAssertions | QuarantineAssertionsV2 | QuarantineAssertionsV3 {
   const parsed = (
-    value.genericLeasedJobs === undefined
-      ? QuarantineAssertionsSchema
-      : QuarantineAssertionsV2Schema
+    value.activeRunCredentials !== undefined
+      ? QuarantineAssertionsV3Schema
+      : value.genericLeasedJobs === undefined
+        ? QuarantineAssertionsSchema
+        : QuarantineAssertionsV2Schema
   ).safeParse(value)
   if (!parsed.success) {
     throw backupError(
@@ -43,6 +71,10 @@ export function quarantineAssertions(value: {
 
 export function computeRecoveryOutcomeDigestV2(input: object): string {
   return sha256(JSON.stringify({ quarantinePolicyVersion: 2, ...input }))
+}
+
+export function computeRecoveryOutcomeDigestV3(input: object): string {
+  return sha256(JSON.stringify({ quarantinePolicyVersion: 3, ...input }))
 }
 
 export function computeRecoveryOutcomeDigest(input: {

@@ -21,6 +21,15 @@ export type RecoveryCountsV2 = {
   readonly clearedQuerySnapshotItems: number
   readonly clearedValidatedImports: number
   readonly clearedValidatedImportRecordIds: number
+  readonly revokedRunCredentials: number
+  readonly expiredRuntimeLeases: number
+  readonly disabledRuntimeCapabilities: number
+  readonly clearedRuntimeContextSnapshots: number
+  readonly clearedContentPresence: number
+  readonly rotatedIntegrationCredentials: number
+  readonly disabledRecurrences: number
+  readonly disabledAutomations: number
+  readonly quarantinedDeliveryJobs: number
 }
 
 export type QuarantineResult = {
@@ -78,6 +87,7 @@ export async function quarantineAuthority(
       genericLeasedToDeadLetter: genericJobs.dead,
       genericGenerationIncrements: genericJobs.pending + genericJobs.dead,
       ...transient,
+      ...emptyR8Counts(),
     },
     assertions: quarantineAssertions({
       activeCredentials: parsedRemaining.active_credentials,
@@ -136,5 +146,19 @@ function emptyTransientCounts() {
     clearedQuerySnapshotItems: 0,
     clearedValidatedImports: 0,
     clearedValidatedImportRecordIds: 0,
+  } as const
+}
+
+function emptyR8Counts() {
+  return {
+    revokedRunCredentials: 0,
+    expiredRuntimeLeases: 0,
+    disabledRuntimeCapabilities: 0,
+    clearedRuntimeContextSnapshots: 0,
+    clearedContentPresence: 0,
+    rotatedIntegrationCredentials: 0,
+    disabledRecurrences: 0,
+    disabledAutomations: 0,
+    quarantinedDeliveryJobs: 0,
   } as const
 }

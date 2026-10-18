@@ -44,6 +44,12 @@ test("concurrent first migrations serialize before creating migration metadata",
       ["008_human_query_import_retention.sql", 64],
       ["009_legacy_workflow_revision_history.sql", 64],
       ["010_legacy_work_query_projection.sql", 64],
+      ["011_feature_foundation.sql", 64],
+      ["012_planning.sql", 64],
+      ["013_content.sql", 64],
+      ["014_runtime.sql", 64],
+      ["015_knowledge.sql", 64],
+      ["016_automation.sql", 64],
     ],
   )
 })
@@ -73,6 +79,12 @@ test("a separate client can repeat completed migrations", async () => {
       "008_human_query_import_retention.sql",
       "009_legacy_workflow_revision_history.sql",
       "010_legacy_work_query_projection.sql",
+      "011_feature_foundation.sql",
+      "012_planning.sql",
+      "013_content.sql",
+      "014_runtime.sql",
+      "015_knowledge.sql",
+      "016_automation.sql",
     ],
   )
 })
@@ -196,6 +208,12 @@ async function copyMigrations(): Promise<string> {
     "008_human_query_import_retention.sql",
     "009_legacy_workflow_revision_history.sql",
     "010_legacy_work_query_projection.sql",
+    "011_feature_foundation.sql",
+    "012_planning.sql",
+    "013_content.sql",
+    "014_runtime.sql",
+    "015_knowledge.sql",
+    "016_automation.sql",
   ] as const) {
     await writeFile(join(directory, name), await readFile(join(process.cwd(), "migrations", name)))
   }
