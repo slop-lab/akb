@@ -11,4 +11,15 @@ export type ScreenProps = {
   readonly announce: (message: string) => void
 }
 
-export type Route = "projects" | "spaces" | "work" | "saved" | "search" | "transfer"
+export type Route =
+  | "projects"
+  | "spaces"
+  | "work"
+  | "saved"
+  | "search"
+  | "planning"
+  | "content"
+  | "runtime"
+  | "knowledge"
+  | "automation"
+  | "transfer"

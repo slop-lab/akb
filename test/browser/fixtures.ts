@@ -30,6 +30,7 @@ export type AppFixture = {
   readonly signIn: (role?: Role) => Promise<SignedInIdentity>
   readonly expectEmptyBrowserStorage: () => Promise<void>
   readonly ownerCommand: (request: CommandRequest) => Promise<APIResponse>
+  readonly ownerFeatureCommand: (request: FeatureCommandRequest) => Promise<APIResponse>
   readonly ownerExport: (payload: Readonly<Record<string, unknown>>) => Promise<APIResponse>
   readonly ownerRead: (path: string) => Promise<APIResponse>
 }
@@ -46,6 +47,8 @@ type CommandRequest = {
   readonly baseRevision: number | null
   readonly payload: Readonly<Record<string, unknown>>
 }
+
+type FeatureCommandRequest = CommandRequest & { readonly feature: string }
 
 type BrowserFixtures = {
   readonly app: AppFixture
@@ -127,6 +130,22 @@ export const test = base.extend<BrowserFixtures>({
       )
     }
 
+    async function ownerFeatureCommand(request: FeatureCommandRequest): Promise<APIResponse> {
+      const commandId = crypto.randomUUID()
+      return context.request[request.method](
+        `/api/${encodeURIComponent(request.feature)}/v1/workspaces/${encodeURIComponent(environment.R4_WORKSPACE_ID)}${request.path}`,
+        {
+          headers: { authorization: `Bearer ${environment.R4_OWNER_TOKEN}` },
+          data: {
+            commandId,
+            idempotencyKey: `browser-${commandId}`,
+            baseRevision: request.baseRevision,
+            payload: request.payload,
+          },
+        },
+      )
+    }
+
     function ownerRead(path: string): Promise<APIResponse> {
       return context.request.get(
         `/api/human/v1/workspaces/${encodeURIComponent(environment.R4_WORKSPACE_ID)}${path}`,
@@ -150,6 +169,7 @@ export const test = base.extend<BrowserFixtures>({
       signIn,
       expectEmptyBrowserStorage,
       ownerCommand,
+      ownerFeatureCommand,
       ownerExport,
       ownerRead,
     })

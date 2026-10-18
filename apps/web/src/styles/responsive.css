@@ -1,4 +1,10 @@
 @media (max-width: 767px) {
+  .button,
+  .field input,
+  .field select,
+  textarea {
+    min-block-size: 44px;
+  }
   .button {
     min-block-size: var(--control-lg);
   }
@@ -51,6 +57,14 @@
     transform: translateX(-105%);
     transition: transform var(--motion-panel) var(--ease-panel);
     z-index: 40;
+  }
+  .sidebar-backdrop {
+    background: var(--color-overlay);
+    border: 0;
+    display: block;
+    inset: 0;
+    position: fixed;
+    z-index: 30;
   }
   .sidebar--open {
     transform: translateX(0);
@@ -113,6 +127,21 @@
   .master-detail {
     grid-template-columns: 1fr;
   }
+  .master-detail .search-result {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .master-detail .search-result > strong {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .master-detail .search-result > .badge {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .master-detail .search-result > .mono {
+    grid-column: 2;
+    grid-row: 2;
+  }
   .form-columns {
     grid-template-columns: 1fr;
   }
@@ -123,7 +152,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .shell {
-    grid-template-columns: calc(var(--nav-rail-width) + var(--space-10)) minmax(0, 1fr);
+    grid-template-columns: var(--nav-rail-width) minmax(0, 1fr);
   }
   .nav-item span:not(.space-key),
   .sidebar__label,
@@ -135,8 +164,10 @@
     padding-inline: var(--space-1);
   }
   .space-key--full {
+    display: none;
+  }
+  .space-key--rail {
     display: inline-flex;
-    inline-size: 100%;
   }
   .sidebar {
     overflow-x: hidden;

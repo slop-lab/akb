@@ -33,8 +33,9 @@ type FieldProps = InputHTMLAttributes<HTMLInputElement> & {
 }
 
 export function Field({ label, help, error, id, ...props }: FieldProps) {
-  const controlId = id ?? props.name
-  const descriptionId = controlId === undefined ? undefined : `${controlId}-description`
+  const generatedId = useId()
+  const controlId = id ?? generatedId
+  const descriptionId = `${controlId}-description`
   return (
     <label className="field" htmlFor={controlId}>
       <span className="field__label">{label}</span>
@@ -72,11 +73,12 @@ export function SelectField({
   onChange,
   disabled,
 }: SelectFieldProps) {
+  const controlId = useId()
   return (
-    <label className="field" htmlFor={name}>
+    <label className="field" htmlFor={controlId}>
       <span className="field__label">{label}</span>
       <select
-        id={name}
+        id={controlId}
         name={name}
         {...(value === undefined ? {} : { value })}
         {...(defaultValue === undefined ? {} : { defaultValue })}
