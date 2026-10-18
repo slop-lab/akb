@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { WorkPermissionSchema } from "../../identity/types.ts"
+import { R4WorkPermissionSchema } from "../../identity/types.ts"
 import { PRIORITIES, STATE_CATEGORIES } from "./dtos.ts"
 import { HumanWorkQuerySchema } from "./query.ts"
 
@@ -30,7 +30,7 @@ export const SpaceUpdatePayloadSchema = z.strictObject({
 })
 export const SpaceAccessPayloadSchema = z.strictObject({
   principalId: IdSchema,
-  permissions: z.array(WorkPermissionSchema).max(15).readonly(),
+  permissions: z.array(R4WorkPermissionSchema).max(15).readonly(),
 })
 export const WorkflowUpdatePayloadSchema = z.strictObject({ name: NameSchema })
 export const WorkflowStateCreatePayloadSchema = z.strictObject({
@@ -156,7 +156,7 @@ export const EntityAccessPayloadSchema = z
       .array(
         z.strictObject({
           principalId: IdSchema,
-          permissions: z.array(WorkPermissionSchema).min(1).max(15).readonly(),
+          permissions: z.array(R4WorkPermissionSchema).min(1).max(15).readonly(),
         }),
       )
       .max(100)

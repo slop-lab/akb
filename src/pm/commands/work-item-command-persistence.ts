@@ -129,7 +129,7 @@ export async function appendLegacyRevision(
 
 export async function appendLegacyEvent(
   transaction: TransactionSql,
-  call: CommandCall,
+  call: Pick<CommandCall, "workspaceId" | "principal">,
   entityId: string,
   revision: number,
   eventId: string,

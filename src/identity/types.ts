@@ -25,9 +25,25 @@ export const WORK_PERMISSIONS = [
   "history.read",
   "acl.manage",
 ] as const
+export const FEATURE_PERMISSIONS = [
+  "content.read",
+  "content.manage",
+  "run.delegate",
+  "run.inspect",
+  "knowledge.read",
+  "knowledge.propose",
+  "knowledge.accept",
+  "review.read",
+  "review.decide",
+  "automation.read",
+  "automation.manage",
+  "admin.integrations",
+] as const
+export const ALL_WORK_PERMISSIONS = [...WORK_PERMISSIONS, ...FEATURE_PERMISSIONS] as const
 export const PrincipalKindSchema = z.enum(PRINCIPAL_KINDS)
 export const MembershipRoleSchema = z.enum(MEMBERSHIP_ROLES)
-export const WorkPermissionSchema = z.enum(WORK_PERMISSIONS)
+export const R4WorkPermissionSchema = z.enum(WORK_PERMISSIONS)
+export const WorkPermissionSchema = z.enum(ALL_WORK_PERMISSIONS)
 
 export type IdentityWorkspaceId = z.infer<typeof IdentityWorkspaceIdSchema>
 export type PrincipalId = z.infer<typeof PrincipalIdSchema>
