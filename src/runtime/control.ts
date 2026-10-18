@@ -2,12 +2,16 @@ import { createHash, randomUUID } from "node:crypto"
 import type { Sql, TransactionSql } from "postgres"
 import { z } from "zod"
 import type { RunStartResponse, StartRunInput } from "../contracts/runtime/index.ts"
-import { lockAuthenticatedPrincipal } from "../identity/authenticate.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
 import { issueRunToken, runTokenDigest } from "./credentials.ts"
 import { RuntimeCapabilityError, RuntimeConflictError, RuntimeNotFoundError } from "./errors.ts"
 import { toJsonValue } from "./json.ts"
 import { runStartResponse, runtimeFingerprint } from "./run-start.ts"
+import {
+  requireDelegatableRun,
+  requireHumanRunPermission,
+  requireStartSubjectAccess,
+} from "./subject-authority.ts"
 
 const InstallationRowSchema = z.strictObject({
   principal_id: z.string(),
@@ -16,6 +20,9 @@ const InstallationRowSchema = z.strictObject({
   capabilities: z.array(z.string()),
   scopes: z.array(z.string()),
   permissions: z.array(z.string()),
+  supported_capabilities: z.array(z.string()),
+  required_capabilities: z.array(z.string()),
+  current_permissions: z.array(z.string()),
   heartbeat_seconds: z.coerce.number().int(),
 })
 const RunRowSchema = z.strictObject({
@@ -38,26 +45,14 @@ export class RuntimeControl {
 
   async start(principal: AuthenticatedPrincipal, input: StartRunInput): Promise<RunStartResponse> {
     return this.#sql.begin(async (transaction) => {
-      await requireHumanRunAuthority(transaction, principal, "run.delegate")
+      await requireHumanRunPermission(transaction, principal, "run.delegate")
       return startInTransaction(transaction, principal, input)
-    })
-  }
-
-  async inspect(principal: AuthenticatedPrincipal, runId: string): Promise<unknown> {
-    return this.#sql.begin(async (transaction) => {
-      await requireHumanRunAuthority(transaction, principal, "run.inspect")
-      const rows =
-        await transaction`select id,workspace_id,installation_id,subject_ref,directive_ref,
-        state,generation,depth,created_at,updated_at from runtime_runs
-        where workspace_id=${principal.workspaceId} and id=${runId}`
-      if (rows[0] === undefined) throw new RuntimeNotFoundError()
-      return rows[0]
     })
   }
 
   async cancel(principal: AuthenticatedPrincipal, runId: string): Promise<void> {
     await this.#sql.begin(async (transaction) => {
-      await requireHumanRunAuthority(transaction, principal, "run.delegate")
+      await requireDelegatableRun(transaction, principal, runId)
       const rows = await transaction`with recursive descendants as (
           select id from runtime_runs where workspace_id=${principal.workspaceId} and id=${runId}
           union all select child.id from runtime_runs child join descendants parent
@@ -79,7 +74,7 @@ export class RuntimeControl {
     input: { readonly idempotencyKey: string; readonly input?: Readonly<Record<string, unknown>> },
   ): Promise<RunStartResponse> {
     return this.#sql.begin(async (transaction) => {
-      await requireHumanRunAuthority(transaction, principal, "run.delegate")
+      await requireDelegatableRun(transaction, principal, runId)
       await transaction`select pg_advisory_xact_lock(hashtextextended(${`${runId}:${input.idempotencyKey}`},0))`
       const replay = await transaction`select result from runtime_idempotency where run_id=${runId}
         and idempotency_key=${input.idempotencyKey} order by generation desc limit 1`
@@ -139,13 +134,31 @@ async function startInTransaction(
   if (existing[0] !== undefined) throw new RuntimeConflictError("idempotency_conflict")
   const rows =
     await transaction`select i.principal_id,i.definition_revision_id,i.runtime_endpoint_id,
-      i.capabilities,i.scopes,i.permissions,e.heartbeat_seconds from agent_installations i
+      i.capabilities,i.scopes,i.permissions,e.heartbeat_seconds,e.supported_capabilities,
+      d.required_capabilities,coalesce((select jsonb_agg(mp.permission order by mp.permission)
+        from membership_permissions mp where mp.workspace_id=i.workspace_id
+          and mp.principal_id=i.principal_id),'[]'::jsonb) current_permissions
+    from agent_installations i
     join runtime_endpoints e on e.workspace_id=i.workspace_id and e.id=i.runtime_endpoint_id
+    join agent_definition_revisions d on d.workspace_id=i.workspace_id and d.id=i.definition_revision_id
     where i.workspace_id=${principal.workspaceId} and i.id=${input.installationId}
       and i.enabled and i.delegatable and e.enabled for update of i,e`
   if (rows[0] === undefined) throw new RuntimeNotFoundError()
   const installation = InstallationRowSchema.parse(rows[0])
-  const allowed = new Set(installation.capabilities)
+  await requireStartSubjectAccess(
+    transaction,
+    principal,
+    input.subjectRef,
+    installation.principal_id,
+  )
+  const endpointCapabilities = new Set(installation.supported_capabilities)
+  const capabilities = installation.capabilities.filter((capability) =>
+    endpointCapabilities.has(capability),
+  )
+  const allowed = new Set(capabilities)
+  if (installation.required_capabilities.some((capability) => !allowed.has(capability))) {
+    throw new RuntimeCapabilityError()
+  }
   if (input.requestedCapabilities.some((capability) => !allowed.has(capability))) {
     throw new RuntimeCapabilityError()
   }
@@ -153,16 +166,17 @@ async function startInTransaction(
   const runId = `run:${randomUUID()}`
   const sessionId = `session:${randomUUID()}`
   const token = issueRunToken()
-  const capabilities =
-    input.requestedCapabilities.length === 0
-      ? installation.capabilities
-      : input.requestedCapabilities
+  const selectedCapabilities =
+    input.requestedCapabilities.length === 0 ? capabilities : input.requestedCapabilities
+  const currentPermissions = new Set(installation.current_permissions)
   const policy = {
     definitionRevisionId: installation.definition_revision_id,
     runtimeEndpointId: installation.runtime_endpoint_id,
-    capabilities,
+    capabilities: selectedCapabilities,
     scopes: installation.scopes,
-    permissions: installation.permissions,
+    permissions: installation.permissions.filter((permission) =>
+      currentPermissions.has(permission),
+    ),
     idempotencyKey: input.idempotencyKey,
   }
   await transaction`insert into runtime_sessions
@@ -203,18 +217,6 @@ async function childDepth(
   const depth = rows[0]?.depth
   if (depth === undefined || depth >= 4) throw new RuntimeConflictError("child_run_bound_exceeded")
   return depth + 1
-}
-
-async function requireHumanRunAuthority(
-  transaction: TransactionSql,
-  principal: AuthenticatedPrincipal,
-  permission: "run.delegate" | "run.inspect",
-): Promise<void> {
-  if (!(await lockAuthenticatedPrincipal(transaction, principal))) throw new RuntimeNotFoundError()
-  const rows =
-    await transaction`select 1 from membership_permissions where workspace_id=${principal.workspaceId}
-    and principal_id=${principal.principalId} and permission=${permission}`
-  if (rows.length !== 1) throw new RuntimeNotFoundError()
 }
 
 async function issueLease(
