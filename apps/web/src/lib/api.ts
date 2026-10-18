@@ -114,6 +114,22 @@ export class R4Api {
   bootstrap() {
     return this.#json(this.#http.get(this.#human("/bootstrap")), BootstrapSchema)
   }
+  feature<T>(
+    path: string,
+    schema: ZodType<T>,
+    options: {
+      readonly method?: "GET" | "POST" | "PATCH" | "PUT"
+      readonly body?: unknown
+    } = {},
+  ): Promise<T> {
+    return this.#json(
+      this.#http(path, {
+        method: options.method ?? "GET",
+        ...(options.body === undefined ? {} : { json: options.body }),
+      }),
+      schema,
+    )
+  }
   spaces() {
     return this.#json(this.#http.get(this.#human("/spaces")), SpacesResponseSchema)
   }
