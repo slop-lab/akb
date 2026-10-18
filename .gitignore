@@ -11,3 +11,5 @@ coverage/
 .playwright-mcp/
 playwright-report/
 test-results/
+.deps/
+.pnpm-store/
