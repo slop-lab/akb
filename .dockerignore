@@ -1,0 +1,16 @@
+.git
+.gitignore
+.dim
+.codegraph
+.env
+.env.*
+!.env.example
+build
+node_modules
+playwright-report
+test-results
+coverage
+*.log
+*.dump
+backups
+secrets

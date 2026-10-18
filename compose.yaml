@@ -1,0 +1,178 @@
+name: agent-first-workspace
+
+x-app-environment: &app-environment
+  HOST: 0.0.0.0
+  PORT: 3001
+  PG_DUMP_PATH: /usr/lib/postgresql/17/bin/pg_dump
+  PG_RESTORE_PATH: /usr/lib/postgresql/17/bin/pg_restore
+
+services:
+  postgres:
+    image: postgres:17.6-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${AFW_POSTGRES_USER:-afw}
+      POSTGRES_DB: ${AFW_POSTGRES_DATABASE:-afw}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      AFW_WAL_ARCHIVE_MIN_FREE_KB: ${AFW_WAL_ARCHIVE_MIN_FREE_KB:-1048576}
+    secrets:
+      - source: postgres_password
+        target: postgres_password
+        mode: 0400
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - postgres_wal_archive:/var/lib/postgresql/wal-archive
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        mkdir -p /var/lib/postgresql/wal-archive
+        chown postgres:postgres /var/lib/postgresql/wal-archive
+        exec docker-entrypoint.sh postgres \
+          -c archive_mode=on \
+          -c archive_command='available_kb=$$(df -Pk /var/lib/postgresql/wal-archive | tail -1 | tr -s " " | cut -d " " -f 4); test "$$available_kb" -ge "$${AFW_WAL_ARCHIVE_MIN_FREE_KB}" || { echo "WAL archive reserve exhausted; refusing archive copy" >&2; exit 1; }; test ! -f /var/lib/postgresql/wal-archive/%f && cp %p /var/lib/postgresql/wal-archive/%f' \
+          -c archive_timeout=300 \
+          -c wal_level=replica
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  migrate:
+    build:
+      context: .
+    image: agent-first-workspace:${AFW_IMAGE_TAG:-local}
+    restart: "no"
+    environment: *app-environment
+    secrets:
+      - source: postgres_password
+        target: postgres_password
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        export DATABASE_URL="postgres://${AFW_POSTGRES_USER:-afw}:$$(cat /run/secrets/postgres_password)@postgres:5432/${AFW_POSTGRES_DATABASE:-afw}"
+        exec npm run migrate:postgres
+
+  app:
+    image: agent-first-workspace:${AFW_IMAGE_TAG:-local}
+    restart: unless-stopped
+    environment: *app-environment
+    secrets:
+      - source: postgres_password
+        target: postgres_password
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+      - source: cursor_signing_key
+        target: cursor_signing_key
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${AFW_PORT:-3001}:3001"
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        export DATABASE_URL="postgres://${AFW_POSTGRES_USER:-afw}:$$(cat /run/secrets/postgres_password)@postgres:5432/${AFW_POSTGRES_DATABASE:-afw}"
+        export R4_CURSOR_SIGNING_KEY="$$(cat /run/secrets/cursor_signing_key)"
+        exec npm run start:r4
+
+  automation-worker:
+    image: agent-first-workspace:${AFW_IMAGE_TAG:-local}
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:mode=0700,uid=1000,gid=1000
+    environment:
+      AUTOMATION_BATCH_LIMIT: ${AFW_AUTOMATION_BATCH_LIMIT:-100}
+      AUTOMATION_POLL_MS: ${AFW_AUTOMATION_POLL_MS:-5000}
+    secrets:
+      - source: postgres_password
+        target: postgres_password
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        export DATABASE_URL="postgres://${AFW_POSTGRES_USER:-afw}:$$(cat /run/secrets/postgres_password)@postgres:5432/${AFW_POSTGRES_DATABASE:-afw}"
+        exec node app/automation-worker.mjs
+
+  backup:
+    image: agent-first-workspace:${AFW_IMAGE_TAG:-local}
+    profiles: ["operations"]
+    restart: unless-stopped
+    environment:
+      <<: *app-environment
+      BACKUP_ENCRYPTION_KEY_FILE: /run/secrets/backup_encryption_key
+      BACKUP_INTERVAL_SECONDS: ${AFW_BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_MAXIMUM_AGE_DAYS: ${AFW_BACKUP_MAXIMUM_AGE_DAYS:-30}
+      BACKUP_MINIMUM_RETAINED: ${AFW_BACKUP_MINIMUM_RETAINED:-7}
+    secrets:
+      - source: postgres_password
+        target: postgres_password
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+      - source: backup_encryption_key
+        target: backup_encryption_key
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    volumes:
+      - encrypted_backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        export SOURCE_DATABASE_URL="postgres://${AFW_POSTGRES_USER:-afw}:$$(cat /run/secrets/postgres_password)@postgres:5432/${AFW_POSTGRES_DATABASE:-afw}"
+        while true; do
+          npm run backup -- create --artifact-dir "/backups/$$(date -u +%Y%m%dT%H%M%SZ)"
+          npm run backup -- retention --backup-root /backups \
+            --maximum-age-days "$${BACKUP_MAXIMUM_AGE_DAYS}" \
+            --minimum-retained "$${BACKUP_MINIMUM_RETAINED}" --mode apply
+          sleep "$${BACKUP_INTERVAL_SECONDS}"
+        done
+
+volumes:
+  postgres_data:
+  postgres_wal_archive:
+  encrypted_backups:
+
+secrets:
+  postgres_password:
+    file: ${AFW_POSTGRES_PASSWORD_FILE:-./secrets/postgres-password}
+  cursor_signing_key:
+    file: ${R4_CURSOR_SIGNING_KEY_FILE:-./secrets/cursor-signing-key}
+  backup_encryption_key:
+    file: ${AFW_BACKUP_KEY_FILE:-./secrets/backup-encryption-key}
