@@ -79,3 +79,78 @@ test("administrator CLI persists Space visibility and grant projections", async 
     [{ visibility: "private", permissions: ["work.read", "work.update"] }],
   )
 })
+
+test("administrator CLI configures feature permissions at Workspace Space and entity scopes", async () => {
+  // Given
+  await identity.bootstrapWorkspace({
+    workspaceId: "features",
+    workspaceName: "Features",
+    principalId: "operator",
+    principalName: "Operator",
+    expiresAt: "2030-01-01T00:00:00.000Z",
+  })
+  const rows = await database.sql<{ readonly schema: string }[]>`select current_schema() schema`
+  const url = new URL(z.string().parse(process.env["DATABASE_URL"]))
+  url.searchParams.set("options", `-csearch_path=${z.string().parse(rows[0]?.schema)}`)
+  const environment = { DATABASE_URL: url.toString() }
+  const target = ["--workspace-id", "features", "--principal-id", "operator"]
+  await runAdminCli(
+    [
+      "create-space",
+      "--workspace-id",
+      "features",
+      "--space-id",
+      "private",
+      "--space-name",
+      "Private",
+      "--visibility",
+      "private",
+    ],
+    environment,
+  )
+  const entities = await database.sql<{ readonly id: string }[]>`
+    select stable_space_entity_id('features','private') id`
+
+  // When
+  await runAdminCli(
+    ["set-permissions", ...target, "--permissions", "content.read,content.manage,run.delegate"],
+    environment,
+  )
+  await runAdminCli(
+    [
+      "set-space-permissions",
+      ...target,
+      "--space-id",
+      "private",
+      "--permissions",
+      "content.read,content.manage",
+    ],
+    environment,
+  )
+  await runAdminCli(
+    [
+      "set-entity-access",
+      ...target,
+      "--entity-id",
+      z.string().parse(entities[0]?.id),
+      "--mode",
+      "restricted",
+      "--permissions",
+      "content.read,content.manage",
+    ],
+    environment,
+  )
+
+  // Then
+  const access = await database.sql<{ readonly allowed: boolean }[]>`
+    select entity_access_allowed('features',stable_space_entity_id('features','private'),
+      'operator','content.manage') allowed`
+  assert.equal(access[0]?.allowed, true)
+  const grants = await database.sql<{ readonly permission: string }[]>`
+    select permission from membership_permissions where workspace_id='features'
+      and principal_id='operator' order by permission`
+  assert.deepEqual(
+    grants.map((row) => row.permission),
+    ["content.manage", "content.read", "run.delegate"],
+  )
+})

@@ -1,12 +1,12 @@
 import type { Sql } from "postgres"
 import { z } from "zod"
 import { R4Admin } from "./r4-admin.ts"
-import { WORK_PERMISSIONS } from "./types.ts"
+import { WorkPermissionSchema } from "./types.ts"
 
 const PermissionListSchema = z
   .string()
   .transform((value) => (value === "" ? [] : value.split(",")))
-  .pipe(z.array(z.enum(WORK_PERMISSIONS)))
+  .pipe(z.array(WorkPermissionSchema))
 
 export async function runR4AdminCommand(
   command: string,

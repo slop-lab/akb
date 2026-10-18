@@ -1,9 +1,14 @@
 import { z } from "zod"
 import { createPostgresClient, databaseUrlFromEnvironment } from "../postgres/client.ts"
 import { IdentityAdmin } from "./admin.ts"
-import { SpaceAdmin } from "./space-admin.ts"
 import { runR4AdminCommand } from "./r4-admin-cli.ts"
-import { MEMBERSHIP_ROLES, PRINCIPAL_KINDS, WORK_PERMISSIONS } from "./types.ts"
+import { SpaceAdmin } from "./space-admin.ts"
+import {
+  ALL_WORK_PERMISSIONS,
+  MEMBERSHIP_ROLES,
+  PRINCIPAL_KINDS,
+  WorkPermissionSchema,
+} from "./types.ts"
 
 const HELP = `Usage: npm run admin -- <command> [options]
 
@@ -21,14 +26,14 @@ Commands:
 
 Kinds: ${PRINCIPAL_KINDS.join(", ")}
 Roles: ${MEMBERSHIP_ROLES.join(", ")}
-Permissions: ${WORK_PERMISSIONS.join(", ")}`
+Permissions: ${ALL_WORK_PERMISSIONS.join(", ")}`
 
 const BaseOptionsSchema = z.record(z.string(), z.string())
 const PermissionListSchema = z
   .string()
   .default("")
   .transform((value) => (value === "" ? [] : value.split(",")))
-  .pipe(z.array(z.enum(WORK_PERMISSIONS)))
+  .pipe(z.array(WorkPermissionSchema))
 const FutureExpirySchema = z.iso.datetime().optional()
 
 export async function runAdminCli(

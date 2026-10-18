@@ -1,6 +1,6 @@
 import type { Sql } from "postgres"
 import { z } from "zod"
-import { WORK_PERMISSIONS } from "./types.ts"
+import { WORK_PERMISSIONS, WorkPermissionSchema } from "./types.ts"
 
 const GrantSchema = z.strictObject({ workspaceId: z.string(), principalId: z.string() })
 const AccessSchema = z.strictObject({
@@ -8,7 +8,7 @@ const AccessSchema = z.strictObject({
   entityId: z.string(),
   mode: z.enum(["inherit", "restricted"]),
   principalId: z.string(),
-  permissions: z.array(z.enum(WORK_PERMISSIONS)).readonly(),
+  permissions: z.array(WorkPermissionSchema).readonly(),
 })
 
 export class R4Admin {
