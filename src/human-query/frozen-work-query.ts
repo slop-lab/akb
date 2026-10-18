@@ -1,5 +1,6 @@
 import type { Sql, TransactionSql } from "postgres"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
+import { compileBulkAccessCtes } from "./bulk-access-sql.ts"
 import type { CursorBinding } from "./cursor.ts"
 import { readPermissionCase } from "./read-projections.ts"
 
@@ -73,7 +74,7 @@ export async function readFrozenWorkPage(
   size: number,
 ): Promise<readonly Record<string, unknown>[]> {
   return transaction`
-    with authorized_page as materialized (
+    with recursive page_candidates as materialized (
       select i.ordinal,i.entity_id,i.source_revision,i.group_key,s.id snapshot_id,s.workspace_id,
         s.expires_at,s.matched,r.schema_version source_schema_version,
         r.canonical_snapshot snapshot,i.legacy_work_pm_projection,
@@ -95,17 +96,16 @@ export async function readFrozenWorkPage(
         and i.ordinal>${binding.ordinal} and s.principal_id=${principal.principalId}
         and s.credential_id=${principal.credentialId}
         and (${binding.group}::text is null or i.group_key=${binding.group})
-        and entity_access_allowed(s.workspace_id,i.entity_id,${principal.principalId},'work.read')
-        and entity_access_allowed(s.workspace_id,
-          stable_space_entity_id(s.workspace_id,case when r.schema_version='work-item.legacy.v1'
-            then r.canonical_snapshot->>'spaceId' when r.schema_version='work-item.r4.v1'
-            then r.canonical_snapshot->>'space_id' end),
-          ${principal.principalId},'space.read')
-        and entity_access_allowed(s.workspace_id,case when r.schema_version='work-item.legacy.v1'
-          then i.legacy_work_pm_projection->>'workflow_state_id' when r.schema_version='work-item.r4.v1'
-          then r.canonical_snapshot->>'workflow_state_id' end,
-          ${principal.principalId},'space.read')
       order by i.ordinal limit ${size}
+    ), access_roots(root_id,entity_id,permission) as (
+      select entity_id,entity_id,'work.read' from page_candidates
+      union all select entity_id,stable_space_entity_id(workspace_id,space_id),'space.read'
+        from page_candidates
+      union all select entity_id,workflow_state_id,'space.read' from page_candidates
+    ), ${compileBulkAccessCtes(transaction, binding.workspaceId, principal.principalId)},
+    authorized_page as materialized (
+      select candidate.* from page_candidates candidate
+      join authorized_access_roots access on access.root_id=candidate.entity_id
     ) select p.snapshot_id::text,
       to_char(p.expires_at,'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') expires_at,
       p.matched::integer,p.ordinal,p.source_revision::integer,p.source_schema_version,p.snapshot,

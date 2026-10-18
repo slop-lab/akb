@@ -7,6 +7,7 @@ import {
   type SearchRequestPaged,
   SearchResultSchema,
 } from "../contracts/r4/search.ts"
+import { compileBulkAccessCtes } from "../human-query/bulk-access-sql.ts"
 import type { CursorBinding } from "../human-query/cursor.ts"
 import { QueryBudgetExceededError } from "../human-query/service.ts"
 import { allocateQuerySnapshot } from "../human-query/snapshot-allocation.ts"
@@ -131,22 +132,27 @@ async function materialize(
     expiresAt: "2000-01-01T00:00:00.000Z",
   })
   const rows = await transaction`
-    with entity_access_allowed as materialized (
-      select d.entity_id,d.kind,d.source_revision,d.document
+    with recursive access_candidates as materialized (
+      select d.entity_id,d.kind,d.source_revision,d.document,t.id thread_id,
+        t.subject_entity_id,subject.kind subject_kind
       from search_documents d join entities e on e.id=d.entity_id
       left join comments c on d.kind='comment' and c.id=d.entity_id
       left join threads t on c.thread_id=t.id
       left join entities subject on subject.id=t.subject_entity_id
       where d.workspace_id=${principal.workspaceId} and d.kind in ${transaction(request.kinds)}
         and e.lifecycle='active'
-        and entity_access_allowed(d.workspace_id,d.entity_id,${principal.principalId},
-          case when d.kind='project' then 'project.read' else 'work.read' end)
-        and (d.kind<>'comment' or entity_access_allowed(d.workspace_id,t.id,
-          ${principal.principalId},'work.read'))
-        and (d.kind<>'comment' or entity_access_allowed(d.workspace_id,t.subject_entity_id,
-          ${principal.principalId},case when subject.kind='project' then 'project.read'
-            when subject.kind='work_item' then 'work.read'
-            else '__unsupported_read_permission__' end))
+    ), access_roots(root_id,entity_id,permission) as (
+      select entity_id,entity_id,case when kind='project' then 'project.read' else 'work.read' end
+      from access_candidates
+      union all select entity_id,thread_id,'work.read' from access_candidates where kind='comment'
+      union all select entity_id,subject_entity_id,case when subject_kind='project' then 'project.read'
+        when subject_kind='work_item' then 'work.read' else '__unsupported_read_permission__' end
+      from access_candidates where kind='comment'
+    ), ${compileBulkAccessCtes(transaction, principal.workspaceId, principal.principalId)},
+    entity_access_allowed as materialized (
+      select candidate.entity_id,candidate.kind,candidate.source_revision,candidate.document
+      from access_candidates candidate
+      join authorized_access_roots access on access.root_id=candidate.entity_id
     ), matched as materialized (
       select entity_id,kind,source_revision,
         ts_rank_cd(document,websearch_to_tsquery('simple',${request.text})) rank

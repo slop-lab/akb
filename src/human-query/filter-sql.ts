@@ -13,8 +13,7 @@ export function compileWorkFilter(
   node: FilterNode | null,
   principalId: string,
 ): Fragment {
-  const filter = compileFilterNode(sql, node, principalId)
-  return sql`${workMetadataAllowed(sql, principalId)} and (${filter})`
+  return compileFilterNode(sql, node, principalId)
 }
 
 function compileFilterNode(
@@ -150,12 +149,6 @@ function readableReference(
       ${principalId},'space.read') then pm.workflow_state_id end`
   }
   return undefined
-}
-
-function workMetadataAllowed(sql: TransactionSql, principalId: string): Fragment {
-  return sql`entity_access_allowed(e.workspace_id,
-    stable_space_entity_id(e.workspace_id,pm.space_id),${principalId},'space.read')
-    and entity_access_allowed(e.workspace_id,pm.workflow_state_id,${principalId},'space.read')`
 }
 
 export function compileWorkOrder(sql: TransactionSql, sorts: readonly Sort[]): Fragment {

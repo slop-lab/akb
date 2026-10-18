@@ -79,9 +79,10 @@ export class PlanningQueries {
     const spaceRows = await this.#sql<{ readonly id: string }[]>`
       select stable_space_entity_id(${principal.workspaceId},${spaceId}) id`
     await requireRead(this.#sql, principal, required(spaceRows[0]?.id), "space.read")
-    return this.#sql`select id,space_id "spaceId",sequence,name,start_date::text "startDate",
+    return this
+      .#sql`select id,space_id "spaceId",sequence::integer sequence,name,start_date::text "startDate",
       end_date::text "endDate",status,goal,capacity_hint "capacityHint",rollover_policy "rolloverPolicy",
-      revision from cycles where workspace_id=${principal.workspaceId} and space_id=${spaceId}
+      revision::integer revision from cycles where workspace_id=${principal.workspaceId} and space_id=${spaceId}
       order by sequence`
   }
 

@@ -16,6 +16,7 @@ import type {
   BoardQueryContext,
   BoardSnapshotRead,
 } from "./board-context.ts"
+import { compileBulkAccessCtes } from "./bulk-access-sql.ts"
 import { type CursorBinding, decodeCursor, encodeCursor } from "./cursor.ts"
 import { compileWorkFilter, compileWorkOrder } from "./filter-sql.ts"
 import { frozenWorkCard, parseFrozenWorkRow } from "./frozen-work.ts"
@@ -103,13 +104,19 @@ async function materialize(
   const order = compileWorkOrder(transaction, request.sort)
   const search = request.search ?? ""
   const rows = await transaction<{ readonly matched: number; readonly persisted: boolean }[]>`
-    with authorized as materialized (select e.id from entities e join work_item_pm pm on pm.work_item_id=e.id
+    with recursive access_candidates as materialized (
+      select e.id,pm.workflow_state_id,
+        stable_space_entity_id(e.workspace_id,pm.space_id) space_entity_id
+      from entities e join work_item_pm pm on pm.work_item_id=e.id
       where e.workspace_id=${principal.workspaceId} and e.kind='work_item'
-        and (${request.includeArchived} or e.lifecycle='active')
-        and entity_access_allowed(e.workspace_id,e.id,${principal.principalId},'work.read')
-        and entity_access_allowed(e.workspace_id,pm.workflow_state_id,${principal.principalId},'space.read')
-        and entity_access_allowed(e.workspace_id,stable_space_entity_id(e.workspace_id,pm.space_id),
-          ${principal.principalId},'space.read')),
+        and (${request.includeArchived} or e.lifecycle='active')),
+    access_roots(root_id,entity_id,permission) as (
+      select id,id,'work.read' from access_candidates
+      union all select id,workflow_state_id,'space.read' from access_candidates
+      union all select id,space_entity_id,'space.read' from access_candidates
+    ), ${compileBulkAccessCtes(transaction, principal.workspaceId, principal.principalId)},
+    authorized as materialized (select candidate.id from access_candidates candidate
+      join authorized_access_roots access on access.root_id=candidate.id),
     filtered as materialized (select e.id,e.current_revision,pm.workflow_state_id
       from authorized a join entities e on e.id=a.id join work_items w on w.id=e.id
       join work_item_pm pm on pm.work_item_id=e.id join workflow_states ws on ws.id=pm.workflow_state_id

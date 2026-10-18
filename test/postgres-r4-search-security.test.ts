@@ -93,6 +93,52 @@ test("comment search requires the read permission for its Project subject kind",
   assert.deepEqual(page.results, [])
 })
 
+test("search requires transitive dependency access before matched counts", async () => {
+  // Given
+  const states = await fixture.database.sql<{ readonly id: string }[]>`
+    select id from workflow_states where workspace_id='search' and space_id='public' and is_default`
+  const stateId = states[0]?.id
+  if (stateId === undefined) throw new TypeError("fixture state missing")
+  const dependencyId = await fixture.createWork(
+    "public",
+    stateId,
+    "Search dependency",
+    "search-dependency",
+  )
+  const childRows = await fixture.database.sql<{ readonly id: string }[]>`
+    select id from work_items where workspace_id='search' and title='Visible searchable'`
+  const childId = childRows[0]?.id
+  if (childId === undefined) throw new TypeError("fixture searchable Work Item missing")
+  await fixture.database.sql`update entity_acl_policies set mode='restricted'
+    where entity_id=${dependencyId}`
+  await fixture.database.sql`insert into entity_acl_allowances(entity_id,principal_id,permission)
+    values (${dependencyId},'owner','work.read')`
+  await fixture.database.sql`insert into entity_access_dependencies(entity_id,required_entity_id)
+    values (${childId},${dependencyId})`
+  const search = createPostgresSearch(fixture.database.sql, fixture.signingKey)
+
+  // When
+  const denied = await search.search(fixture.viewer, "search", {
+    text: "visible",
+    kinds: ["work_item"],
+    limit: 10,
+    cursor: null,
+  })
+  await fixture.database.sql`insert into entity_acl_allowances(entity_id,principal_id,permission)
+    values (${dependencyId},'viewer','work.read')`
+  const allowed = await search.search(fixture.viewer, "search", {
+    text: "visible",
+    kinds: ["work_item"],
+    limit: 10,
+    cursor: null,
+  })
+
+  // Then
+  assert.equal(denied.matched, 0)
+  assert.equal(allowed.matched, 1)
+  assert.equal(allowed.results[0]?.title, "Visible searchable")
+})
+
 test("100001 authorized matches reject search before snapshot persistence", async () => {
   // Given
   await fixture.database.sql`insert into entities

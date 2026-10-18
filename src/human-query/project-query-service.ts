@@ -10,6 +10,7 @@ import {
   WorkspaceNotFoundError,
 } from "../identity/authorization-errors.ts"
 import type { AuthenticatedPrincipal } from "../identity/types.ts"
+import { compileBulkAccessCtes } from "./bulk-access-sql.ts"
 import { type CursorBinding, decodeCursor, encodeCursor } from "./cursor.ts"
 import { compileProjectFilter, compileProjectOrder } from "./project-filter-sql.ts"
 import { QueryBudgetExceededError, SnapshotConflictError } from "./service.ts"
@@ -130,9 +131,13 @@ async function materialize(
   const filter = compileProjectFilter(transaction, query.filter, principal.principalId)
   const order = compileProjectOrder(transaction, query.sort)
   const rows = await transaction<{ readonly matched: number; readonly persisted: boolean }[]>`
-    with authorized as materialized (select e.id from entities e
+    with recursive access_candidates as materialized (select e.id from entities e
       where e.workspace_id=${principal.workspaceId} and e.kind='project'
-        and entity_access_allowed(e.workspace_id,e.id,${principal.principalId},'project.read')),
+    ), access_roots(root_id,entity_id,permission) as (
+      select id,id,'project.read' from access_candidates
+    ), ${compileBulkAccessCtes(transaction, principal.workspaceId, principal.principalId)},
+    authorized as materialized (select candidate.id from access_candidates candidate
+      join authorized_access_roots access on access.root_id=candidate.id),
     candidates as materialized (select e.id,e.current_revision,
       row_number() over(order by ${order})::integer ordinal
       from authorized a join entities e on e.id=a.id join projects p on p.id=e.id
