@@ -2,6 +2,7 @@ import type { TransactionSql } from "postgres"
 import type {
   CreateKnowledgeProposalSchema,
   DecideKnowledgeProposal,
+  ProposalSource,
 } from "../contracts/knowledge/index.ts"
 import type { LockedCommandTarget } from "../entities/command-unit-of-work.ts"
 import { CommandInvariantError, EntityNotFoundError } from "../entities/errors.ts"
@@ -10,6 +11,7 @@ import { insertEntity, linkEntityAccessDependency } from "../entities/registry.t
 import type { FeatureCommandCall } from "../http/feature-command-router.ts"
 import type { KnowledgeAction } from "./command-service.ts"
 import type { StoredProposal } from "./proposal-store.ts"
+import { assertNever } from "./provenance.ts"
 import type { KnowledgeReviewPolicy } from "./review-policy.ts"
 
 export async function validateProposalTarget(
@@ -60,11 +62,23 @@ export async function insertReview(
       ${input.policy.revision},${input.proposal.profileId},${input.proposal.profileRevision},
       ${input.proposal.inputRevision},${input.decision.rationale},${input.reviewedAt})`
   for (const [ordinal, source] of input.proposal.sources.entries()) {
-    const sourceRef = source.kind === "entity" ? source.entityId : source.artifactId
     const revision = source.kind === "entity" ? source.revision : null
     await transaction`insert into knowledge_review_evidence
       (review_id,ordinal,source_kind,source_ref,source_revision,evidence_role)
-      values (${input.reviewId},${ordinal},${source.kind},${sourceRef},${revision},${source.role})`
+      values (${input.reviewId},${ordinal},${source.kind},${reviewEvidenceRef(source)},${revision},${source.role})`
+  }
+}
+
+function reviewEvidenceRef(source: ProposalSource): string {
+  switch (source.kind) {
+    case "entity":
+      return source.entityId
+    case "runtime_artifact":
+      return source.artifactId
+    case "external":
+      return JSON.stringify(source)
+    default:
+      return assertNever(source)
   }
 }
 
