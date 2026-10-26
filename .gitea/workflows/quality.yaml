@@ -10,7 +10,7 @@ permissions:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    container: node:24-bookworm@sha256:3d27e5c11e5786e309ec3e03f93ae536eb36e6e5eb3714d5eb3300a36157add0
+    container: node:26.12.1-bookworm-slim@sha256:28147155d47dc31abe0a46e0d12b59b2fb3d0a2dcc5dc65fce76a074180b16fe
     timeout-minutes: 15
     steps:
       - name: Check out repository
