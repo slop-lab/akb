@@ -1,14 +1,21 @@
-FROM node:24.22.0-bookworm-slim AS build
+FROM node:26.12.1-bookworm-slim@sha256:28147155d47dc31abe0a46e0d12b59b2fb3d0a2dcc5dc65fce76a074180b16fe AS build
 
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci
+COPY script/setup-blocks.mjs script/setup-blocks.mjs
+RUN npm run setup:blocks
 COPY . .
-RUN npm run build:r4 && npm prune --omit=dev
+RUN npm run build:r4 \
+    && npm prune --omit=dev \
+    && rm -rf .deps
 
-FROM postgres:17-bookworm AS postgres-client
+FROM postgres:17.6-bookworm@sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3 AS postgres-client
 
-FROM node:24.22.0-bookworm-slim AS runtime
+FROM node:26.12.1-bookworm-slim@sha256:28147155d47dc31abe0a46e0d12b59b2fb3d0a2dcc5dc65fce76a074180b16fe AS runtime
 
 ENV NODE_ENV=production \
     PATH=/usr/lib/postgresql/17/bin:$PATH
