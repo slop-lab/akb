@@ -9,6 +9,7 @@ export interface PageProjectionProvider {
 export const CONTENT_PATHS = {
   pages: "/pages",
   page: "/pages/:pageId",
+  revision: "/pages/:pageId/revisions/:revision",
   history: "/pages/:pageId/history",
   restore: "/pages/:pageId/restore",
   archive: "/pages/:pageId/archive",
