@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24.22.0"
+    "node": "26.12.1"
   },
   "scripts": {
     "format:check": "biome format src test app apps/web/src apps/web/index.html apps/web/vite.config.ts playwright.config.ts package.json tsconfig.json tsconfig.browser.json tsconfig.web.json biome.json README.md --diagnostic-level=error",
@@ -15,7 +15,7 @@
     "test:integration": "npm run build && node --test build/test/health.test.js build/test/http-hardening.test.js build/test/openapi-contract.test.js build/test/openapi-examples.test.js build/test/openapi-operations.test.js build/test/path-segment-http.test.js build/test/request-boundary.test.js build/test/source-import.test.js build/test/store-port.test.js build/test/web-assets.test.js build/test/work-item-concurrency-http.test.js build/test/work-item-http.test.js build/test/work-item-list-restart.test.js",
     "test:browser": "playwright test --config playwright.config.ts",
     "test:agent": "node --test test/part-*.test.ts",
-    "test:features": "node --test test/content-domain.test.ts test/runtime-contracts.test.ts test/testsautomation-schedule.test.ts test/testsautomation-security.test.ts test/operations-config.test.ts test/operations-security.test.ts",
+    "test:features": "node --test test/content-domain.test.ts test/runtime-contracts.test.ts test/testsautomation-schedule.test.ts test/testsautomation-security.test.ts test/operations-config.test.ts test/operations-security.test.ts test/knowledge-work-hub-contract.test.ts test/setup-blocks-fresh-clone.test.mjs test/timestamp-contract.test.ts",
     "test:features:postgres": "node -e \"if (!process.env.DATABASE_URL) process.exit(2)\" && node --test --test-concurrency=1 test/content-postgres.test.ts test/postgres-command-unit-of-work.test.ts test/postgres-feature-*.test.ts test/postgres-planning-*.test.ts test/postgres-runtime-*.test.ts test/postgres-retrieval-*.test.ts test/postgres-knowledge-*.test.ts test/testsautomation-r8-http.test.ts test/testsautomation-analytics.test.ts test/testsautomation-recurrence-isolation.test.ts",
     "agent": "node app/agent-runtime.mjs",
     "test:postgres": "npm run build && node --test --test-concurrency=1 build/test/postgres-migrate.test.js build/test/postgres-r4-foundation.test.js build/test/postgres-r4-scale.test.js build/test/postgres-identity.test.js build/test/postgres-store.test.js build/test/postgres-authorized-store.test.js build/test/postgres-authorization-races.test.js build/test/postgres-http.test.js build/test/postgres-outbox.test.js build/test/postgres-outbox-atomicity.test.js build/test/postgres-outbox-locking.test.js build/test/postgres-replay.test.js build/test/postgres-space-acl.test.js build/test/postgres-space-acl-races.test.js build/test/postgres-space-http.test.js build/test/postgres-space-admin-cli.test.js",
@@ -65,6 +65,6 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4",
-    "zod": "^4.3.6"
+    "zod": "4.6.7"
   }
 }
