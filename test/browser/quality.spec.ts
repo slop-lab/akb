@@ -51,13 +51,13 @@ test("ten navigation cycles complete through released server snapshots", async (
     const workProjectQuery = app.page.waitForResponse(
       (response) => response.url().endsWith("/projects/query") && response.status() === 200,
     )
-    await app.page.getByRole("button", { name: "Work", exact: true }).click()
+    await app.page.getByRole("link", { name: "Work", exact: true }).click()
     await expect(app.page.getByRole("heading", { name: "Work" })).toBeVisible()
     await Promise.all([workQuery, workProjectQuery])
     const projectQuery = app.page.waitForResponse(
       (response) => response.url().endsWith("/projects/query") && response.status() === 200,
     )
-    await app.page.getByRole("button", { name: "Projects", exact: true }).click()
+    await app.page.getByRole("link", { name: "Projects", exact: true }).click()
     await expect(app.page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible()
     await projectQuery
   }
@@ -73,7 +73,7 @@ test("responsive Work surfaces have no page overflow and produce safe evidence",
 }) => {
   // Given: an authenticated Work query narrowed to a synthetic, absent title.
   await app.signIn()
-  await app.page.getByRole("button", { name: "Work", exact: true }).click()
+  await app.page.getByRole("link", { name: "Work", exact: true }).click()
   await expect(app.page.getByRole("heading", { name: "Work" })).toBeVisible()
   await app.page.getByRole("searchbox", { name: "Search" }).fill(`synthetic-${crypto.randomUUID()}`)
   const queryResponse = app.page.waitForResponse(
@@ -89,8 +89,8 @@ test("responsive Work surfaces have no page overflow and produce safe evidence",
     // When: each documented viewport is rendered.
     await app.page.setViewportSize({ width: breakpoint.width, height: breakpoint.height })
     if (breakpoint.width >= 768) {
-      await expect(app.page.getByRole("button", { name: "Work", exact: true })).toBeVisible()
-      await expect(app.page.getByRole("button", { name: "Projects", exact: true })).toBeVisible()
+      await expect(app.page.getByRole("link", { name: "Work", exact: true })).toBeVisible()
+      await expect(app.page.getByRole("link", { name: "Projects", exact: true })).toBeVisible()
     }
 
     // Then: the page remains within its viewport and evidence contains no user records.
@@ -109,7 +109,7 @@ test("responsive Work surfaces have no page overflow and produce safe evidence",
 test("Work detail tabs expose native semantics and keyboard navigation", async ({ app }) => {
   // Given: an authenticated Work list with a detail peek open.
   await app.signIn()
-  await app.page.getByRole("button", { name: "Work", exact: true }).click()
+  await app.page.getByRole("link", { name: "Work", exact: true }).click()
   const workItems = app.page.getByRole("region", { name: "Work items" })
   await workItems.getByRole("button").first().click()
   const tablist = app.page.getByRole("tablist")
