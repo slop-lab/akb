@@ -1,36 +1,38 @@
-import { ClockCounterClockwise, FilePlus, FloppyDisk } from "@phosphor-icons/react"
+import { FilePlus, FloppyDisk } from "@phosphor-icons/react"
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
-import { z } from "zod"
+import type { z } from "zod"
 import {
   type ContentDocument,
   ContentDocumentSchema,
   type Page,
-  PageHistoryEntrySchema,
-  PageSchema,
+  type PageHistoryEntrySchema,
 } from "../../../../../src/contracts/content/model.ts"
-import type { ScreenProps } from "../../app/types.ts"
-import { Badge, Button, EmptyState, ErrorPanel, Field } from "../../components/primitives.tsx"
+import { Button, EmptyState, Field } from "../../components/primitives.tsx"
 import { ScreenLayout } from "../../components/ScreenLayout.tsx"
 import { ApiError } from "../../lib/api.ts"
-import { BlocksEditor } from "../../vendor/blocks/index.ts"
+import { BlocksEditor, BlocksViewer } from "../../vendor/blocks/index.ts"
 import {
   EntityFeatureMutationSchema,
   featureCommand,
   workspaceFeaturePath,
 } from "../feature-api.ts"
+import {
+  type ContentScreenProps,
+  EMPTY_DOCUMENT,
+  HistorySchema,
+  PageResponseSchema,
+  PagesSchema,
+} from "./content-schemas.ts"
+import { HistoricalPageStatus, PageHistory, PageList, PageLoadError } from "./PageNavigation.tsx"
 
-const PagesSchema = z.object({ pages: z.array(PageSchema).readonly() })
-const PageResponseSchema = z.object({
-  page: PageSchema,
-  projection: z.record(z.string(), z.unknown()),
-})
-const HistorySchema = z.object({ revisions: z.array(PageHistoryEntrySchema).readonly() })
-const EMPTY_DOCUMENT: ContentDocument = {
-  version: 1,
-  blocks: [{ id: "paragraph:initial", type: "paragraph", text: "", children: [] }],
-}
-
-export function ContentScreen({ session, announce }: ScreenProps) {
+export function ContentScreen({
+  session,
+  announce,
+  initialPageId,
+  initialRevision,
+  initialRevisionError,
+  onLocationChange,
+}: ContentScreenProps) {
   const [pages, setPages] = useState<readonly Page[]>([])
   const [page, setPage] = useState<Page | null>(null)
   const [title, setTitle] = useState("")
@@ -38,6 +40,7 @@ export function ContentScreen({ session, announce }: ScreenProps) {
   const [history, setHistory] = useState<readonly z.infer<typeof PageHistoryEntrySchema>[]>([])
   const [error, setError] = useState<string | null>(null)
   const [conflictRevision, setConflictRevision] = useState<number | null>(null)
+  const [viewRevision, setViewRevision] = useState<number | undefined>(initialRevision)
 
   const root = workspaceFeaturePath(session, "content", "/pages")
   const loadPages = useCallback(async () => {
@@ -49,15 +52,20 @@ export function ContentScreen({ session, announce }: ScreenProps) {
   }, [root, session])
 
   const openPage = useCallback(
-    async (pageId: string) => {
+    async (pageId: string, revision?: number) => {
       setError(null)
+      setPage(null)
+      setHistory([])
       try {
-        const next = (
-          await session.api.feature(`${root}/${encodeURIComponent(pageId)}`, PageResponseSchema)
-        ).page
+        const pagePath =
+          revision === undefined
+            ? `${root}/${encodeURIComponent(pageId)}`
+            : `${root}/${encodeURIComponent(pageId)}/revisions/${revision}`
+        const next = (await session.api.feature(pagePath, PageResponseSchema)).page
         setPage(next)
         setTitle(next.title)
         documentRef.current = next.document
+        setViewRevision(revision)
         setConflictRevision(null)
         setHistory(
           (
@@ -68,13 +76,22 @@ export function ContentScreen({ session, announce }: ScreenProps) {
           ).revisions,
         )
       } catch (caught) {
+        setPage(null)
+        setHistory([])
         setError(caught instanceof Error ? caught.message : "Page could not be opened.")
       }
     },
     [root, session],
   )
 
-  useEffect(() => void loadPages(), [loadPages])
+  useEffect(() => {
+    void loadPages()
+    if (initialRevisionError !== undefined) {
+      setPage(null)
+      setHistory([])
+      setError(initialRevisionError)
+    } else if (initialPageId !== undefined) void openPage(initialPageId, initialRevision)
+  }, [initialPageId, initialRevision, initialRevisionError, loadPages, openPage])
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -91,6 +108,7 @@ export function ContentScreen({ session, announce }: ScreenProps) {
       )
       await loadPages()
       await openPage(result.result.id)
+      onLocationChange(result.result.id)
       announce(`${nextTitle} created`)
       form.reset()
     } catch (caught) {
@@ -154,55 +172,25 @@ export function ContentScreen({ session, announce }: ScreenProps) {
           <FilePlus size={16} aria-hidden="true" /> Create page
         </Button>
       </form>
-      {error === null ? null : conflictRevision !== null ? (
-        <ErrorPanel
-          title="This page changed on the server"
-          message={`Current server revision: ${conflictRevision}. Your unsent draft is retained. Reload latest to replace the editor with server content, or cancel to keep editing this draft.`}
-          actions={
-            page === null ? null : (
-              <>
-                <Button
-                  variant="quiet"
-                  onClick={() => {
-                    setError(null)
-                    setConflictRevision(null)
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={() => void openPage(page.id)}>Reload latest</Button>
-              </>
-            )
-          }
-        />
-      ) : (
-        <ErrorPanel message={error} />
-      )}
+      <PageLoadError
+        error={error}
+        conflictRevision={conflictRevision}
+        {...(page === null ? {} : { pageId: page.id })}
+        onCancel={() => {
+          setError(null)
+          setConflictRevision(null)
+        }}
+        onReload={(pageId) => void openPage(pageId)}
+      />
       <div className="master-detail">
-        <nav className="data-list" aria-label="Pages">
-          {pages.length === 0 ? (
-            <EmptyState
-              title="No pages yet"
-              body="Create a page above to add it to this workspace."
-            />
-          ) : (
-            pages.map((item) => (
-              <button
-                type="button"
-                className="search-result"
-                aria-current={page?.id === item.id ? "page" : undefined}
-                key={item.id}
-                onClick={() => void openPage(item.id)}
-              >
-                <Badge tone={item.lifecycle === "active" ? "info" : "neutral"}>
-                  {item.lifecycle}
-                </Badge>
-                <strong title={item.title}>{item.title}</strong>
-                <span className="mono">rev {item.revision}</span>
-              </button>
-            ))
-          )}
-        </nav>
+        <PageList
+          pages={pages}
+          {...(page === null ? {} : { selectedId: page.id })}
+          onOpen={(pageId) => {
+            onLocationChange(pageId)
+            void openPage(pageId)
+          }}
+        />
         {page === null ? (
           <EmptyState title="Select a page" body="Open a visible page or create a new one." />
         ) : (
@@ -212,42 +200,53 @@ export function ContentScreen({ session, announce }: ScreenProps) {
                 label="Title"
                 name="page-title"
                 value={title}
+                readOnly={viewRevision !== undefined}
                 onChange={(event) => setTitle(event.currentTarget.value)}
               />
-              <Button variant="primary" onClick={() => void save()}>
+              <Button
+                variant="primary"
+                disabled={viewRevision !== undefined}
+                onClick={() => void save()}
+              >
                 <FloppyDisk size={16} aria-hidden="true" /> Save
               </Button>
             </div>
             <div className="blocks-surface">
-              <BlocksEditor
-                key={`${page.id}:${page.revision}`}
-                label={`Edit ${page.title}`}
-                value={page.document}
-                onChange={(document) => {
-                  documentRef.current = document
+              {viewRevision === undefined ? (
+                <BlocksEditor
+                  key={`${page.id}:${page.revision}`}
+                  label={`Edit ${page.title}`}
+                  value={page.document}
+                  onChange={(document) => {
+                    documentRef.current = document
+                  }}
+                />
+              ) : (
+                <BlocksViewer
+                  value={page.document}
+                  label={`Read ${page.title} revision ${page.revision}`}
+                />
+              )}
+            </div>
+            {viewRevision === undefined ? null : (
+              <HistoricalPageStatus
+                page={page}
+                onOpenLatest={() => {
+                  onLocationChange(page.id)
+                  void openPage(page.id)
                 }}
               />
-            </div>
-            <section className="section-stack">
-              <h2>
-                <ClockCounterClockwise size={20} aria-hidden="true" /> History
-              </h2>
-              <div className="data-list">
-                {history.map((entry) => (
-                  <div className="record-row" key={entry.revision}>
-                    <strong>{entry.title}</strong>
-                    <span className="mono">rev {entry.revision}</span>
-                    <Button
-                      variant="quiet"
-                      disabled={entry.revision === page.revision}
-                      onClick={() => void restore(entry.revision)}
-                    >
-                      Restore
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </section>
+            )}
+            <PageHistory
+              page={page}
+              history={history}
+              historical={viewRevision !== undefined}
+              onView={(revision) => {
+                onLocationChange(page.id, revision)
+                void openPage(page.id, revision)
+              }}
+              onRestore={(revision) => void restore(revision)}
+            />
           </section>
         )}
       </div>
