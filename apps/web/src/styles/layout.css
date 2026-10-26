@@ -75,6 +75,12 @@
 .blocks-editor__content {
   white-space: pre-wrap;
 }
+.blocks-editor__error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-ink);
+  margin-block-start: var(--space-3);
+  padding: var(--space-3);
+}
 .blocks-editor:focus-within {
   border-radius: var(--radius-2);
   box-shadow: var(--focus-ring);
@@ -208,6 +214,7 @@
   min-block-size: var(--control-md);
   padding-inline: var(--space-2);
   text-align: start;
+  text-decoration: none;
 }
 .nav-item:hover {
   background: var(--color-surface-hover);
@@ -322,6 +329,10 @@
   display: flex;
   gap: var(--space-3);
   justify-content: space-between;
+}
+.panel__header > .badge {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .panel__meta {
   color: var(--color-ink-2);
@@ -686,4 +697,23 @@
 }
 .document-workspace .panel__header > .field {
   flex: 1 1 auto;
+}
+.knowledge-detail,
+.proposal-detail {
+  align-self: start;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.metadata-grid dd {
+  margin: var(--space-0);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.source-list {
+  display: grid;
+  gap: var(--space-2);
+  padding-inline-start: var(--space-5);
+}
+.source-list a {
+  overflow-wrap: anywhere;
 }

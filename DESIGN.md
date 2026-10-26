@@ -1,5 +1,17 @@
 # Agent-First Workspace Design System
 
+## AKB integration additions
+
+The implemented Pages, Knowledge, and Proposals surfaces reuse the shell, master-detail layout,
+semantic status panels, metadata grid, and spacing/color tokens below. Workspace-qualified links
+preserve item identity and exact revision through login; malformed revisions render an error rather
+than latest content. Historical Pages are read-only. The current canonical Page model supports
+unmarked text blocks, so the editor rejects unsupported marks or inline nodes without applying the
+lossy transaction. The proposal inbox is server-backed; a human explicitly records a decision.
+`CandidateDetails` uses native `details`/`summary` and the existing metadata grid to expose every
+typed candidate field before review and on accepted Knowledge. Provenance remains reference data,
+not a source-control action. Credentials remain memory-only, including on deep links.
+
 This file is the visual and interaction contract for the React/Vite web application. The delivered R4 surface remains limited to login, Projects, Space administration, Work list/board/peek, Work metadata and relations, comments, Saved Views, lexical search, and import/export. Later R5-R8 features may enter only as executable, contract-backed surfaces owned by their phase; placeholders, disabled navigation, and speculative mock data remain prohibited. The application renders Human Query and command DTOs as returned by the server; it does not reconstruct authorization, filtering, search, counts, ordering, or domain invariants in the browser.
 
 ## 0. Research Log
