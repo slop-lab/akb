@@ -34,6 +34,8 @@ export function ProposalScreen({
   const [proposals, setProposals] = useState<readonly KnowledgeProposalSummary[]>([])
   const [selected, setSelected] = useState<KnowledgeProposal | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [inboxError, setInboxError] = useState<string | null>(null)
+  const visibleError = error ?? inboxError
   const root = workspaceFeaturePath(session, "knowledge", "")
 
   const loadInbox = useCallback(async () => {
@@ -42,9 +44,11 @@ export function ProposalScreen({
         (await session.api.feature(`${root}/proposals?status=pending&limit=50`, ProposalListSchema))
           .proposals,
       )
-      setError(null)
+      setInboxError(null)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Proposal inbox could not be loaded.")
+      setInboxError(
+        caught instanceof Error ? caught.message : "Proposal inbox could not be loaded.",
+      )
     }
   }, [root, session])
 
@@ -52,6 +56,7 @@ export function ProposalScreen({
     async (proposalId: string) => {
       try {
         setSelected(null)
+        setError(null)
         setSelected(
           (
             await session.api.feature(
@@ -72,6 +77,10 @@ export function ProposalScreen({
   useEffect(() => void loadInbox(), [loadInbox])
   useEffect(() => {
     if (initialProposalId !== undefined) void openProposal(initialProposalId)
+    else {
+      setSelected(null)
+      setError(null)
+    }
   }, [initialProposalId, openProposal])
 
   async function review(event: FormEvent<HTMLFormElement>) {
@@ -122,7 +131,7 @@ export function ProposalScreen({
         />
       }
     >
-      {error === null ? null : <ErrorPanel message={error} />}
+      {visibleError === null ? null : <ErrorPanel message={visibleError} />}
       <div className="master-detail">
         <nav className="data-list" aria-label="Pending proposals">
           {proposals.length === 0 ? (

@@ -1,4 +1,4 @@
-import { type FormEvent, useRef, useState } from "react"
+import { type FormEvent, useEffect, useRef, useState } from "react"
 import type { Bootstrap } from "../../../../src/contracts/r4/index.ts"
 import { Button, ErrorPanel, Field } from "../components/primitives.tsx"
 import { ApiError, R4Api } from "../lib/api.ts"
@@ -19,6 +19,10 @@ export function Login({ initialWorkspace, onAuthenticated, onUnauthorized }: Log
   const [error, setError] = useState<string | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
 
+  useEffect(() => {
+    if (error !== null) errorRef.current?.focus()
+  }, [error])
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true)
@@ -33,7 +37,6 @@ export function Login({ initialWorkspace, onAuthenticated, onUnauthorized }: Log
       setError(
         caught instanceof ApiError ? caught.message : "The server response could not be read.",
       )
-      requestAnimationFrame(() => errorRef.current?.focus())
     } finally {
       setBusy(false)
     }
