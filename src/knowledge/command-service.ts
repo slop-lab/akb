@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto"
 import type { Sql } from "postgres"
 import {
   CreateKnowledgeProposalSchema,
@@ -11,7 +10,7 @@ import {
 } from "../entities/command-unit-of-work.ts"
 import { CommandInvariantError } from "../entities/errors.ts"
 import type { MutationRecord } from "../entities/mutation-types.ts"
-import { insertEntity, linkEntityAccessDependency } from "../entities/registry.ts"
+import { insertEntity, linkEntityAccessDependency, stableEntityId } from "../entities/registry.ts"
 import type { FeatureCommandCall, FeatureCommandExecutor } from "../http/feature-command-router.ts"
 import { ProposalApplierRegistry } from "./applier-registry.ts"
 import { KnowledgeObjectApplier } from "./canonical-applier.ts"
@@ -30,8 +29,8 @@ import { resolveKnowledgeReviewPolicy } from "./review-policy.ts"
 export const KNOWLEDGE_ACTIONS = ["knowledge.proposal.create", "knowledge.review.decide"] as const
 export type KnowledgeAction = (typeof KNOWLEDGE_ACTIONS)[number]
 export type KnowledgeCommandDependencies = {
-  readonly newProposalId?: () => string
-  readonly newReviewId?: () => string
+  readonly newProposalId?: (call: FeatureCommandCall<KnowledgeAction>) => string
+  readonly newReviewId?: (call: FeatureCommandCall<KnowledgeAction>) => string
   readonly now?: () => string
   readonly appliers?: ProposalApplierRegistry
 }
@@ -39,15 +38,19 @@ export type KnowledgeCommandDependencies = {
 export class KnowledgeCommandService implements FeatureCommandExecutor<KnowledgeAction> {
   readonly #sql: Sql
   readonly #unit: CommandUnitOfWork
-  readonly #newProposalId: () => string
-  readonly #newReviewId: () => string
+  readonly #newProposalId: (call: FeatureCommandCall<KnowledgeAction>) => string
+  readonly #newReviewId: (call: FeatureCommandCall<KnowledgeAction>) => string
   readonly #now: () => string
   readonly #appliers: ProposalApplierRegistry
 
   constructor(sql: Sql, dependencies: KnowledgeCommandDependencies = {}) {
     this.#sql = sql
-    this.#newProposalId = dependencies.newProposalId ?? (() => `knowledge-proposal:${randomUUID()}`)
-    this.#newReviewId = dependencies.newReviewId ?? (() => `knowledge-review:${randomUUID()}`)
+    this.#newProposalId =
+      dependencies.newProposalId ??
+      ((call) => stableEntityId("knowledge-proposal", call.workspaceId, call.idempotencyKey))
+    this.#newReviewId =
+      dependencies.newReviewId ??
+      ((call) => stableEntityId("knowledge-review", call.workspaceId, call.idempotencyKey))
     this.#now = dependencies.now ?? (() => new Date().toISOString())
     this.#unit = new CommandUnitOfWork(sql)
     this.#appliers = dependencies.appliers ?? new ProposalApplierRegistry()
@@ -67,7 +70,7 @@ export class KnowledgeCommandService implements FeatureCommandExecutor<Knowledge
 
   #propose(call: FeatureCommandCall<KnowledgeAction>): Promise<BatchMutationResult> {
     const value = CreateKnowledgeProposalSchema.parse(call.payload)
-    const proposalId = this.#newProposalId()
+    const proposalId = this.#newProposalId(call)
     return this.#unit.execute(
       batchInput(call, proposalId),
       [{ entityId: proposalId, expectedRevision: null, permission: "knowledge.propose" }],
@@ -112,8 +115,7 @@ export class KnowledgeCommandService implements FeatureCommandExecutor<Knowledge
     const proposal = await this.#sql.begin((transaction) =>
       loadProposal(transaction, call.workspaceId, proposalId),
     )
-    if (proposal.status !== "pending") throw new CommandInvariantError("proposal_already_decided")
-    const reviewId = this.#newReviewId()
+    const reviewId = this.#newReviewId(call)
     const canonicalTargets: readonly CommandTarget[] =
       decision.decision === "accepted"
         ? [
