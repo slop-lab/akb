@@ -1,4 +1,4 @@
-import { BlockViewer } from "@block-editor/model/viewer"
+import { BlockViewer } from "@slop-lab/blocks/viewer"
 import type { ContentDocument } from "../../../../../src/contracts/content/model.ts"
 import { toBlocksDocument } from "./document-adapter.ts"
 import { blocksRenderers, renderLockedBlock } from "./profile.tsx"

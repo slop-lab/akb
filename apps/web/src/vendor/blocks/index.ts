@@ -2,4 +2,8 @@ export type { BlocksEditorProps } from "./BlocksEditor.tsx"
 export { BlocksEditor } from "./BlocksEditor.tsx"
 export type { BlocksViewerProps } from "./BlocksViewer.tsx"
 export { BlocksViewer } from "./BlocksViewer.tsx"
-export { fromBlocksDocument, toBlocksDocument } from "./document-adapter.ts"
+export {
+  fromBlocksDocument,
+  toBlocksDocument,
+  UnsupportedBlocksEditingError,
+} from "./document-adapter.ts"
