@@ -21,5 +21,6 @@ export type Route =
   | "content"
   | "runtime"
   | "knowledge"
+  | "proposals"
   | "automation"
   | "transfer"
