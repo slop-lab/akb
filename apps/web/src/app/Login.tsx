@@ -4,6 +4,7 @@ import { Button, ErrorPanel, Field } from "../components/primitives.tsx"
 import { ApiError, R4Api } from "../lib/api.ts"
 
 type LoginProps = {
+  readonly initialWorkspace?: string
   readonly onAuthenticated: (session: {
     readonly api: R4Api
     readonly bootstrap: Bootstrap
@@ -11,8 +12,8 @@ type LoginProps = {
   readonly onUnauthorized: () => void
 }
 
-export function Login({ onAuthenticated, onUnauthorized }: LoginProps) {
-  const [workspace, setWorkspace] = useState("")
+export function Login({ initialWorkspace, onAuthenticated, onUnauthorized }: LoginProps) {
+  const [workspace, setWorkspace] = useState(initialWorkspace ?? "")
   const [token, setToken] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +57,10 @@ export function Login({ onAuthenticated, onUnauthorized }: LoginProps) {
           name="workspace"
           autoComplete="organization"
           required
+          readOnly={initialWorkspace !== undefined}
+          {...(initialWorkspace === undefined
+            ? {}
+            : { help: "This Workspace is fixed by the shared link." })}
           value={workspace}
           onChange={(event) => setWorkspace(event.currentTarget.value)}
         />
