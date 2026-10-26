@@ -7,7 +7,7 @@ test("authenticated feature workspace uses real R5-R8 surfaces", async ({ app })
   app.page.on("response", (response) => {
     if (response.url().includes("/api/planning/v1/")) planningReads.push(response.status())
   })
-  await app.page.getByRole("button", { name: "Planning" }).click()
+  await app.page.getByRole("link", { name: "Planning" }).click()
   await expect(app.page.getByRole("heading", { name: "Cycles and outcomes" })).toBeVisible()
   await expect(app.page.getByRole("heading", { name: "Notifications" })).toBeVisible()
   await expect.poll(() => planningReads.length).toBeGreaterThan(0)
@@ -17,16 +17,16 @@ test("authenticated feature workspace uses real R5-R8 surfaces", async ({ app })
     (response) =>
       response.url().includes("/api/content/v1/") && response.request().method() === "GET",
   )
-  await app.page.getByRole("button", { name: "Pages" }).click()
+  await app.page.getByRole("link", { name: "Pages" }).click()
   await expect(app.page.getByRole("heading", { name: "Pages", exact: true })).toBeVisible()
   expect((await pagesRead).status()).toBe(200)
 
-  await app.page.getByRole("button", { name: "Runs" }).click()
+  await app.page.getByRole("link", { name: "Runs" }).click()
   await expect(app.page.getByRole("heading", { name: "Runs", exact: true })).toBeVisible()
   await expect(app.page.getByLabel("Installation ID")).toBeVisible()
 
-  await app.page.getByRole("button", { name: "Knowledge" }).click()
-  await expect(app.page.getByRole("heading", { name: "Proposals and review" })).toBeVisible()
+  await app.page.getByRole("link", { name: "Knowledge" }).click()
+  await expect(app.page.getByRole("heading", { name: "Canonical knowledge" })).toBeVisible()
   const knowledgeRead = app.page.waitForResponse(
     (response) =>
       response.url().includes("/api/knowledge/v1/") && response.request().method() === "GET",
@@ -34,7 +34,7 @@ test("authenticated feature workspace uses real R5-R8 surfaces", async ({ app })
   await app.page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click()
   expect((await knowledgeRead).status()).toBe(200)
 
-  await app.page.getByRole("button", { name: "Automation" }).click()
+  await app.page.getByRole("link", { name: "Automation" }).click()
   await expect(app.page.getByRole("heading", { name: "Intake and automation" })).toBeVisible()
   await expect(app.page.getByRole("heading", { name: "Analytics" })).toBeVisible()
   await expect(app.page.getByRole("heading", { name: "New intake" })).toBeVisible()
@@ -44,7 +44,7 @@ test("authenticated feature workspace uses real R5-R8 surfaces", async ({ app })
     { label: "Planning", heading: "Cycles and outcomes" },
     { label: "Pages", heading: "Pages" },
     { label: "Runs", heading: "Runs" },
-    { label: "Knowledge", heading: "Proposals and review" },
+    { label: "Knowledge", heading: "Canonical knowledge" },
     { label: "Automation", heading: "Intake and automation" },
   ] as const
   for (const width of [375, 768, 1280] as const) {
@@ -53,7 +53,7 @@ test("authenticated feature workspace uses real R5-R8 surfaces", async ({ app })
       const navigation = app.page.locator("aside.sidebar nav")
       const menu = app.page.getByRole("button", { name: "Menu" })
       if (await menu.isVisible()) await menu.click()
-      await navigation.getByRole("button", { name: route.label, exact: true }).click()
+      await navigation.getByRole("link", { name: route.label, exact: true }).click()
       await expect(
         app.page.getByRole("heading", { name: route.heading, exact: true }),
       ).toBeVisible()
@@ -160,7 +160,7 @@ test("runtime collections append independently through their own cursors", async
   })
 
   // When: each collection's load-more action is used once.
-  await app.page.getByRole("button", { name: "Runs" }).click()
+  await app.page.getByRole("link", { name: "Runs" }).click()
   await app.page.getByLabel("Run ID").fill(runId)
   await app.page.getByRole("button", { name: "Inspect" }).click()
   await app.page.getByRole("button", { name: "Load more activity" }).click()

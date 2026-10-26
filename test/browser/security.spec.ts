@@ -5,7 +5,7 @@ test("viewer isolation and in-memory authentication survive no persistence", asy
   await app.signIn("viewer")
 
   // When: the viewer searches for the known private fixture marker.
-  await app.page.getByRole("button", { name: "Search" }).first().click()
+  await app.page.getByRole("link", { name: "Search" }).click()
   await expect(app.page.getByRole("heading", { name: "Search", exact: true })).toBeVisible()
   await app.page.getByLabel("Search text").fill("PRIVATE-NOT-FOR-VIEWER")
   const searchResponse = app.page.waitForResponse(
@@ -43,9 +43,7 @@ test("invalid credentials fail without echoing the entered token", async ({ app 
   expect((await response).status()).toBe(401)
   const alert = app.page.getByRole("alert")
   await expect(alert).toBeVisible()
-  expect(await alert.evaluate((element) => element.parentElement === document.activeElement)).toBe(
-    true,
-  )
+  await expect(alert.locator("..")).toBeFocused()
   await expect(app.page.getByLabel("Bearer token")).toHaveValue("")
   await expect(app.page.getByText(invalidToken, { exact: false })).toHaveCount(0)
   await app.expectEmptyBrowserStorage()

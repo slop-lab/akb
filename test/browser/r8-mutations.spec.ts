@@ -23,7 +23,7 @@ test("owner completes R8 planning, page conflict, knowledge, and automation muta
   if (workflowStateId === undefined) throw new TypeError("fixture workflow state is missing")
 
   // When: the owner creates a planning cycle through the UI.
-  await app.page.getByRole("button", { name: "Planning" }).click()
+  await app.page.getByRole("link", { name: "Planning" }).click()
   await app.page.getByLabel("Cycle name").fill(`Browser cycle ${suffix}`)
   await app.page.getByLabel("Start date").fill("2026-11-01")
   await app.page.getByLabel("End date").fill("2026-11-14")
@@ -42,7 +42,7 @@ test("owner completes R8 planning, page conflict, knowledge, and automation muta
   })
 
   // When: a page is created, edited, then made stale by a concurrent server mutation.
-  await app.page.getByRole("button", { name: "Pages" }).click()
+  await app.page.getByRole("link", { name: "Pages" }).click()
   const pageTitle = `Browser page ${suffix}`
   await app.page.getByLabel("New page title").fill(pageTitle)
   const createPageResponse = app.page.waitForResponse((response) =>
@@ -83,7 +83,8 @@ test("owner completes R8 planning, page conflict, knowledge, and automation muta
   await conflictAlert.screenshot({ path: "/tmp/opencode/r8-ui-qa/page-edit-conflict-alert.png" })
 
   // When: a claim proposal is created and accepted through the built-in policy.
-  await app.page.getByRole("button", { name: "Knowledge" }).click()
+  await app.page.getByRole("link", { name: "Proposals" }).click()
+  await app.page.locator("summary").filter({ hasText: "Create proposal" }).click()
   await app.page.getByLabel("Target ID").fill(`browser-claim-${suffix}`)
   await app.page.getByLabel("Title", { exact: true }).fill(`Browser claim ${suffix}`)
   await app.page.getByLabel("Statement").fill("The browser can complete knowledge review.")
@@ -100,7 +101,7 @@ test("owner completes R8 planning, page conflict, knowledge, and automation muta
   })
 
   // When: analytics, intake acceptance, and an event rule execute through Automation.
-  await app.page.getByRole("button", { name: "Automation" }).click()
+  await app.page.getByRole("link", { name: "Automation" }).click()
   await app.page.getByLabel("From", { exact: true }).fill("2026-01-01T00:00")
   await app.page.getByLabel("To", { exact: true }).fill("2026-12-31T23:59")
   const analyticsResponse = app.page.waitForResponse(
