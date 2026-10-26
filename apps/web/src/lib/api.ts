@@ -65,6 +65,7 @@ export class R4Api {
   constructor(workspace: string, token: string, onUnauthorized: () => void) {
     this.#workspace = workspace
     this.#http = ky.create({
+      baseUrl: window.location.origin,
       headers: { authorization: `Bearer ${token}` },
       retry: 0,
       timeout: 15_000,
@@ -79,11 +80,11 @@ export class R4Api {
   }
 
   #human(path: string): string {
-    return `api/human/v1/workspaces/${encodeURIComponent(this.#workspace)}${path}`
+    return `/api/human/v1/workspaces/${encodeURIComponent(this.#workspace)}${path}`
   }
 
   #commands(path: string): string {
-    return `api/commands/v1/workspaces/${encodeURIComponent(this.#workspace)}${path}`
+    return `/api/commands/v1/workspaces/${encodeURIComponent(this.#workspace)}${path}`
   }
 
   async #json<T>(request: Promise<Response>, schema: ZodType<T>): Promise<T> {
