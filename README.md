@@ -92,17 +92,21 @@ begin `/api/human/v1/workspaces/:workspaceId`; generic replay is
   versioned stream, PM/query snapshots, retention, and backup profiles.
 - [`docs/r4-local-runbook.md`](docs/r4-local-runbook.md) gives the supported local setup and named
   verification gates without embedding secrets.
+- [`docs/local-development.md`](docs/local-development.md) is the fresh-clone Node 26, PostgreSQL
+  17, local Blocks, and Docker Compose setup.
 - [`docs/backup-recovery.md`](docs/backup-recovery.md) defines profile-aware backup and recovery.
 - [`docs/adr/README.md`](docs/adr/README.md) registers accepted and proposed decisions.
 
 ## Local R4 Startup
 
-Use Node.js 24, npm, a PostgreSQL 17 database, and PostgreSQL 17 backup clients when exercising the
-backup gate. The complete sequence, including operator grants and secret handling, is in the
-[local runbook](docs/r4-local-runbook.md). The abbreviated flow is:
+Use exact Node.js 26.12.1, npm, a PostgreSQL 17 database, and PostgreSQL 17 backup clients when
+exercising the backup gate. The complete fresh-clone sequence, including the ignored pinned Blocks
+checkout, is in the [local development guide](docs/local-development.md). The abbreviated native
+flow is:
 
 ```sh
 npm ci
+npm run setup:blocks
 DATABASE_URL='postgres://operator@host/database' npm run migrate:postgres
 npm run build:r4
 DATABASE_URL='postgres://operator@host/database' \
@@ -118,8 +122,9 @@ The administrator CLI bootstraps the first human credential, adds the R4 permiss
 existing member, and manages private-Space grants. Tokens are printed once; only SHA-256 digests are
 stored. Do not place bearer tokens in URLs, browser storage, fixtures, or documentation.
 
-The historical `npm start` demo remains unchanged and process-local. `.dim/` remains preserved
-development infrastructure, not application source or evidence of product completion.
+The historical `npm start` demo remains unchanged and process-local. The obsolete tracked `.dim/`
+agent/DinD lifecycle is proposed for removal in a separate protected configuration change; it is
+not application source or evidence of product completion.
 
 ## Development and Evidence Gates
 
