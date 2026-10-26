@@ -8,7 +8,7 @@ x-app-environment: &app-environment
 
 services:
   postgres:
-    image: postgres:17.6-bookworm
+    image: postgres:17.6-bookworm@sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${AFW_POSTGRES_USER:-afw}
@@ -22,6 +22,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - postgres_wal_archive:/var/lib/postgresql/wal-archive
+    ports:
+      - "127.0.0.1:${AFW_POSTGRES_PORT:-5432}:5432"
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
@@ -62,6 +64,8 @@ services:
         exec npm run migrate:postgres
 
   app:
+    build:
+      context: .
     image: agent-first-workspace:${AFW_IMAGE_TAG:-local}
     restart: unless-stopped
     environment: *app-environment
