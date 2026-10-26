@@ -5,7 +5,8 @@
 This is a trusted local CLI/embedded host and ACP stdio adapter, not completion of R6.
 It uses exactly pinned `@slop-lab/part`, `@slop-lab/part-plugins`, and
 `@slop-lab/part-node` version `0.1.0`. These APIs are experimental.
-Use Node.js **24.22.0 or newer** and run `npm ci`.
+The adapter requires Node.js **24.22.0 or newer**; this repository selects exact Node.js **26.12.1**
+in `.node-version`. Use that toolchain and run `npm ci`.
 
 The runtime reuses the authenticated R4 HTTP API and its existing credential authority.
 It does not mint Run-scoped credentials or implement durable Runs, leases, generations,

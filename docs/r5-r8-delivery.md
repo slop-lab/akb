@@ -35,7 +35,7 @@ SHA-256 `d4381bb1fcda3ccee51d4b058c017830386b6a7e5509996d7b60b3e6dae1e24d`.
 
 ## Blocks and Part boundaries
 
-Blocks is checked out locally at commit `c2eb16e929a99a9d9660900ea5c669b0daa2a167` under ignored
+The current Blocks pin is commit `df6f800828cd58acd2af65c32e7341609601be89` under ignored
 `.deps/blocks`. Only `apps/web/src/vendor/blocks/` imports its unstable packages. Canonical content
 contracts stay application-owned. See [Blocks setup](blocks-integration.md); setup refuses dirty
 checkouts rather than overwriting local changes.
@@ -58,7 +58,7 @@ npm run build:r4
 npm run start:r4
 ```
 
-Use Node.js 24.22.0 or newer. Supply database/signing secrets privately as described in the
+Use the exact Node.js `26.12.1` toolchain in `.node-version`. Supply database/signing secrets privately as described in the
 [R4 runbook](r4-local-runbook.md) and [R8 operations runbook](r8-operations.md).
 
 Existing owners retain their prior grants after upgrade. Operators explicitly assign feature
