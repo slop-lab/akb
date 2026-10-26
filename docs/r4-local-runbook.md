@@ -80,8 +80,9 @@ The R4 application defaults to `127.0.0.1:3001`. It serves `apps/web/dist` and t
 origin. Override `HOST`, `PORT`, or `WEB_ASSETS_DIR` only through deployment configuration.
 
 The historical `npm start` entrypoint remains the unauthenticated process-local demo on port 3000.
-It is not upgraded or redirected by this runbook. `.dim/` remains preserved development
-infrastructure and is not application source.
+It is not upgraded or redirected by this runbook. The obsolete repository `.dim/` lifecycle is
+removed in this proposal. Current DIM workspace and service helpers are managed independently;
+their configuration and protected-change approval remain with DIM operators.
 
 ## Named local gates
 
