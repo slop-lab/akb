@@ -9,6 +9,10 @@ import { SearchScreen } from "../features/search/SearchScreen.tsx"
 import { SpacesScreen } from "../features/spaces/SpacesScreen.tsx"
 import { TransferScreen } from "../features/transfer/TransferScreen.tsx"
 import { WorkScreen } from "../features/work/WorkScreen.tsx"
+import {
+  type ContentWorkflowDraft,
+  EMPTY_CONTENT_WORKFLOW_DRAFT,
+} from "../features/content/content-workflow-state.ts"
 import { type AppLocation, hrefForLocation, parseLocation, withWorkspace } from "./navigation.ts"
 import type { Session } from "./types.ts"
 import { WorkspaceNavigation } from "./WorkspaceNavigation.tsx"
@@ -36,6 +40,9 @@ export function Workspace({
   const [navOpen, setNavOpen] = useState(false)
   const [workProjectId, setWorkProjectId] = useState("")
   const [workSpaceId, setWorkSpaceId] = useState("")
+  const [contentWorkflowDraft, setContentWorkflowDraft] = useState<ContentWorkflowDraft>(
+    EMPTY_CONTENT_WORKFLOW_DRAFT,
+  )
   const navigationId = useId()
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const route = location.route
@@ -161,6 +168,8 @@ export function Workspace({
                   ...(revision === undefined ? {} : { revision }),
                 })
               }
+              workflowDraft={contentWorkflowDraft}
+              onWorkflowDraftChange={setContentWorkflowDraft}
             />
           </Suspense>
         ) : null}

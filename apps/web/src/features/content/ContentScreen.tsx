@@ -1,5 +1,5 @@
 import { FilePlus, FloppyDisk } from "@phosphor-icons/react"
-import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { z } from "zod"
 import {
   type ContentDocument,
@@ -11,11 +11,7 @@ import { Button, EmptyState, Field } from "../../components/primitives.tsx"
 import { ScreenLayout } from "../../components/ScreenLayout.tsx"
 import { ApiError } from "../../lib/api.ts"
 import { BlocksEditor, BlocksViewer } from "../../vendor/blocks/index.ts"
-import {
-  EntityFeatureMutationSchema,
-  featureCommand,
-  workspaceFeaturePath,
-} from "../feature-api.ts"
+import { featureCommand, workspaceFeaturePath } from "../feature-api.ts"
 import {
   type ContentScreenProps,
   EMPTY_DOCUMENT,
@@ -23,7 +19,10 @@ import {
   PageResponseSchema,
   PagesSchema,
 } from "./content-schemas.ts"
+import { CreatePageDialog } from "./CreatePageDialog.tsx"
 import { HistoricalPageStatus, PageHistory, PageList, PageLoadError } from "./PageNavigation.tsx"
+import { TaskContextWorkflow } from "./TaskContextWorkflow.tsx"
+import { referencesFromSelectionPage } from "./workflow-ui.ts"
 
 export function ContentScreen({
   session,
@@ -32,6 +31,8 @@ export function ContentScreen({
   initialRevision,
   initialRevisionError,
   onLocationChange,
+  workflowDraft,
+  onWorkflowDraftChange,
 }: ContentScreenProps) {
   const [pages, setPages] = useState<readonly Page[]>([])
   const [page, setPage] = useState<Page | null>(null)
@@ -41,6 +42,7 @@ export function ContentScreen({
   const [error, setError] = useState<string | null>(null)
   const [conflictRevision, setConflictRevision] = useState<number | null>(null)
   const [viewRevision, setViewRevision] = useState<number | undefined>(initialRevision)
+  const [createOpen, setCreateOpen] = useState(false)
 
   const root = workspaceFeaturePath(session, "content", "/pages")
   const loadPages = useCallback(async () => {
@@ -62,6 +64,21 @@ export function ContentScreen({
             ? `${root}/${encodeURIComponent(pageId)}`
             : `${root}/${encodeURIComponent(pageId)}/revisions/${revision}`
         const next = (await session.api.feature(pagePath, PageResponseSchema)).page
+        let selectionError: string | null = null
+        try {
+          const references = referencesFromSelectionPage(
+            session.bootstrap.workspace.id,
+            next.document,
+          )
+          if (references !== null)
+            onWorkflowDraftChange({
+              references,
+              selectionPage: { id: next.id, revision: next.revision },
+            })
+        } catch (caught) {
+          selectionError =
+            caught instanceof Error ? caught.message : "The saved context selection is invalid."
+        }
         setPage(next)
         setTitle(next.title)
         documentRef.current = next.document
@@ -75,13 +92,14 @@ export function ContentScreen({
             )
           ).revisions,
         )
+        setError(selectionError)
       } catch (caught) {
         setPage(null)
         setHistory([])
         setError(caught instanceof Error ? caught.message : "Page could not be opened.")
       }
     },
-    [root, session],
+    [onWorkflowDraftChange, root, session],
   )
 
   useEffect(() => {
@@ -93,27 +111,11 @@ export function ContentScreen({
     } else if (initialPageId !== undefined) void openPage(initialPageId, initialRevision)
   }, [initialPageId, initialRevision, initialRevisionError, loadPages, openPage])
 
-  async function create(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = event.currentTarget
-    const nextTitle = String(new FormData(form).get("title"))
-    try {
-      const result = EntityFeatureMutationSchema.parse(
-        await featureCommand(session, "content", "/pages", "POST", null, {
-          spaceId: null,
-          parentPageId: null,
-          title: nextTitle,
-          document: EMPTY_DOCUMENT,
-        }),
-      )
-      await loadPages()
-      await openPage(result.result.id)
-      onLocationChange(result.result.id)
-      announce(`${nextTitle} created`)
-      form.reset()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Page could not be created.")
-    }
+  async function openCreated(pageId: string, nextTitle: string) {
+    setCreateOpen(false)
+    await loadPages()
+    onLocationChange(pageId)
+    announce(`${nextTitle} created`)
   }
 
   async function save() {
@@ -164,14 +166,26 @@ export function ContentScreen({
     <ScreenLayout
       eyebrow="Documents"
       title="Pages"
-      description="Canonical Blocks documents with revision history and explicit conflict recovery."
-    >
-      <form className="inline-form" onSubmit={(event) => void create(event)}>
-        <Field label="New page title" name="title" required />
-        <Button type="submit" variant="primary">
-          <FilePlus size={16} aria-hidden="true" /> Create page
+      description="Create operational Pages, pin exact task context, and keep revision history explicit."
+      actions={
+        <Button variant="primary" onClick={() => setCreateOpen(true)}>
+          <FilePlus size={16} aria-hidden="true" /> New Page
         </Button>
-      </form>
+      }
+    >
+      <CreatePageDialog
+        session={session}
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={openCreated}
+      />
+      <TaskContextWorkflow
+        session={session}
+        announce={announce}
+        onCreated={openCreated}
+        draft={workflowDraft}
+        onDraftChange={onWorkflowDraftChange}
+      />
       <PageLoadError
         error={error}
         conflictRevision={conflictRevision}
