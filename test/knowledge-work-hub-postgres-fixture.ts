@@ -108,6 +108,10 @@ export class WorkHubPostgresFixture {
     })
   }
 
+  get origin(): string {
+    return `http://127.0.0.1:${this.#port}`
+  }
+
   async close(): Promise<void> {
     await new Promise<void>((resolve, reject) =>
       this.#server.close((error) => (error === undefined ? resolve() : reject(error))),
