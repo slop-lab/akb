@@ -1,4 +1,4 @@
-import { FilePlus, FloppyDisk } from "@phosphor-icons/react"
+import { FilePlus } from "@phosphor-icons/react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { z } from "zod"
 import {
@@ -7,10 +7,10 @@ import {
   type Page,
   type PageHistoryEntrySchema,
 } from "../../../../../src/contracts/content/model.ts"
-import { Button, EmptyState, Field } from "../../components/primitives.tsx"
+import { Button, EmptyState } from "../../components/primitives.tsx"
 import { ScreenLayout } from "../../components/ScreenLayout.tsx"
 import { ApiError } from "../../lib/api.ts"
-import { BlocksEditor, BlocksViewer } from "../../vendor/blocks/index.ts"
+import { LatestRequest } from "../../lib/latest-request.ts"
 import { featureCommand, workspaceFeaturePath } from "../feature-api.ts"
 import {
   type ContentScreenProps,
@@ -20,7 +20,8 @@ import {
   PagesSchema,
 } from "./content-schemas.ts"
 import { CreatePageDialog } from "./CreatePageDialog.tsx"
-import { HistoricalPageStatus, PageHistory, PageList, PageLoadError } from "./PageNavigation.tsx"
+import { PageList, PageLoadError } from "./PageNavigation.tsx"
+import { PageWorkspace } from "./PageWorkspace.tsx"
 import { TaskContextWorkflow } from "./TaskContextWorkflow.tsx"
 import { referencesFromSelectionPage } from "./workflow-ui.ts"
 
@@ -43,6 +44,7 @@ export function ContentScreen({
   const [conflictRevision, setConflictRevision] = useState<number | null>(null)
   const [viewRevision, setViewRevision] = useState<number | undefined>(initialRevision)
   const [createOpen, setCreateOpen] = useState(false)
+  const pageRequests = useRef(new LatestRequest()).current
 
   const root = workspaceFeaturePath(session, "content", "/pages")
   const loadPages = useCallback(async () => {
@@ -55,6 +57,7 @@ export function ContentScreen({
 
   const openPage = useCallback(
     async (pageId: string, revision?: number) => {
+      const isCurrent = pageRequests.start()
       setError(null)
       setPage(null)
       setHistory([])
@@ -64,6 +67,7 @@ export function ContentScreen({
             ? `${root}/${encodeURIComponent(pageId)}`
             : `${root}/${encodeURIComponent(pageId)}/revisions/${revision}`
         const next = (await session.api.feature(pagePath, PageResponseSchema)).page
+        if (!isCurrent()) return
         let selectionError: string | null = null
         try {
           const references = referencesFromSelectionPage(
@@ -84,32 +88,33 @@ export function ContentScreen({
         documentRef.current = next.document
         setViewRevision(revision)
         setConflictRevision(null)
-        setHistory(
-          (
-            await session.api.feature(
-              `${root}/${encodeURIComponent(pageId)}/history`,
-              HistorySchema,
-            )
-          ).revisions,
+        const nextHistory = await session.api.feature(
+          `${root}/${encodeURIComponent(pageId)}/history`,
+          HistorySchema,
         )
+        if (!isCurrent()) return
+        setHistory(nextHistory.revisions)
         setError(selectionError)
       } catch (caught) {
+        if (!isCurrent()) return
         setPage(null)
         setHistory([])
         setError(caught instanceof Error ? caught.message : "Page could not be opened.")
       }
     },
-    [onWorkflowDraftChange, root, session],
+    [onWorkflowDraftChange, pageRequests, root, session],
   )
 
   useEffect(() => {
     void loadPages()
     if (initialRevisionError !== undefined) {
+      pageRequests.invalidate()
       setPage(null)
       setHistory([])
       setError(initialRevisionError)
     } else if (initialPageId !== undefined) void openPage(initialPageId, initialRevision)
-  }, [initialPageId, initialRevision, initialRevisionError, loadPages, openPage])
+    return () => pageRequests.invalidate()
+  }, [initialPageId, initialRevision, initialRevisionError, loadPages, openPage, pageRequests])
 
   async function openCreated(pageId: string, nextTitle: string) {
     setCreateOpen(false)
@@ -208,60 +213,26 @@ export function ContentScreen({
         {page === null ? (
           <EmptyState title="Select a page" body="Open a visible page or create a new one." />
         ) : (
-          <section className="document-workspace">
-            <div className="panel__header">
-              <Field
-                label="Title"
-                name="page-title"
-                value={title}
-                readOnly={viewRevision !== undefined}
-                onChange={(event) => setTitle(event.currentTarget.value)}
-              />
-              <Button
-                variant="primary"
-                disabled={viewRevision !== undefined}
-                onClick={() => void save()}
-              >
-                <FloppyDisk size={16} aria-hidden="true" /> Save
-              </Button>
-            </div>
-            <div className="blocks-surface">
-              {viewRevision === undefined ? (
-                <BlocksEditor
-                  key={`${page.id}:${page.revision}`}
-                  label={`Edit ${page.title}`}
-                  value={page.document}
-                  onChange={(document) => {
-                    documentRef.current = document
-                  }}
-                />
-              ) : (
-                <BlocksViewer
-                  value={page.document}
-                  label={`Read ${page.title} revision ${page.revision}`}
-                />
-              )}
-            </div>
-            {viewRevision === undefined ? null : (
-              <HistoricalPageStatus
-                page={page}
-                onOpenLatest={() => {
-                  onLocationChange(page.id)
-                  void openPage(page.id)
-                }}
-              />
-            )}
-            <PageHistory
-              page={page}
-              history={history}
-              historical={viewRevision !== undefined}
-              onView={(revision) => {
-                onLocationChange(page.id, revision)
-                void openPage(page.id, revision)
-              }}
-              onRestore={(revision) => void restore(revision)}
-            />
-          </section>
+          <PageWorkspace
+            page={page}
+            title={title}
+            historical={viewRevision !== undefined}
+            history={history}
+            onTitleChange={setTitle}
+            onDocumentChange={(document) => {
+              documentRef.current = document
+            }}
+            onSave={() => void save()}
+            onOpenLatest={() => {
+              onLocationChange(page.id)
+              void openPage(page.id)
+            }}
+            onView={(revision) => {
+              onLocationChange(page.id, revision)
+              void openPage(page.id, revision)
+            }}
+            onRestore={(revision) => void restore(revision)}
+          />
         )}
       </div>
     </ScreenLayout>
