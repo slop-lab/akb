@@ -12,6 +12,21 @@ lossy transaction. The proposal inbox is server-backed; a human explicitly recor
 typed candidate field before review and on accepted Knowledge. Provenance remains reference data,
 not a source-control action. Credentials remain memory-only, including on deep links.
 
+Operational specifications remain ordinary Pages rather than a separate product surface. The Pages
+header offers bounded server-provided templates for blank, common-guidance, feature-brief, and
+decision-record documents; every result opens in the existing editor and revision history. A
+collapsible **Task context** panel uses the existing form, data-list, and status primitives to search
+visible Pages or Knowledge by title, pin an explicit positive revision, and save the selection as an
+ordinary Page. The saved Page contains one canonical `akb-context-selection` JSON block and may be
+reopened to restore the exact tray. Source links are Workspace-qualified and revision-qualified.
+Context inspection is explicit-selection only: missing or revoked sources fail the whole request,
+the byte budget remains visible, and the UI never implies inherited defaults, automatic expansion,
+or completeness. An unsaved tray survives ordinary in-app route changes in Workspace memory only;
+refresh, logout, or authentication reset clears it. Context items show a readable Page or Knowledge
+preview with the raw revision snapshot secondary. Copy actions expose qualified links,
+credential-free context request JSON, or exact proposal-source JSON containing every selected
+revision plus the optional selection Page; none of these actions submit or accept Knowledge.
+
 This file is the visual and interaction contract for the React/Vite web application. The delivered R4 surface remains limited to login, Projects, Space administration, Work list/board/peek, Work metadata and relations, comments, Saved Views, lexical search, and import/export. Later R5-R8 features may enter only as executable, contract-backed surfaces owned by their phase; placeholders, disabled navigation, and speculative mock data remain prohibited. The application renders Human Query and command DTOs as returned by the server; it does not reconstruct authorization, filtering, search, counts, ordering, or domain invariants in the browser.
 
 ## 0. Research Log

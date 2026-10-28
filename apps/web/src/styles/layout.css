@@ -632,6 +632,10 @@
 .search-result:hover {
   background: var(--color-surface-hover);
 }
+.search-result[aria-current="page"] {
+  background: var(--color-surface-selected);
+  box-shadow: var(--selection-inset);
+}
 .transfer-grid {
   display: grid;
   gap: var(--space-4);
@@ -716,4 +720,123 @@
 }
 .source-list a {
   overflow-wrap: anywhere;
+}
+
+.task-context {
+  display: grid;
+  gap: var(--space-4);
+}
+.task-context > summary {
+  align-items: center;
+  display: flex;
+  min-block-size: var(--control-md);
+}
+.context-search {
+  align-items: end;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(min(180px, 100%), 1fr) minmax(min(240px, 100%), 2fr) auto;
+}
+.context-result {
+  align-items: end;
+  border-block-end: 1px solid var(--color-border-subtle);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: max-content minmax(0, 1fr) minmax(96px, 120px) auto;
+  padding: var(--space-3);
+}
+.context-result:last-child {
+  border-block-end: 0;
+}
+.context-result__identity {
+  align-self: center;
+  display: grid;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.context-result__identity > .mono {
+  color: var(--color-ink-3);
+  font-size: 12px;
+}
+.context-revision input {
+  inline-size: 100%;
+}
+.context-tray {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-3);
+  display: grid;
+  overflow: hidden;
+}
+.context-reference {
+  align-items: center;
+  border-block-end: 1px solid var(--color-border-subtle);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+  padding: var(--space-3);
+}
+.context-reference:last-child {
+  border-block-end: 0;
+}
+.context-reference > div:first-child {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+.context-reference strong {
+  overflow-wrap: anywhere;
+}
+.context-reference .button {
+  padding-inline: var(--space-2);
+  white-space: nowrap;
+}
+.context-actions {
+  background: var(--color-surface-1);
+  border-block-start: 1px solid var(--color-border-subtle);
+  display: grid;
+  gap: var(--space-4);
+  padding-block-start: var(--space-4);
+}
+.code-field {
+  min-block-size: var(--editor-min-height);
+  overflow-wrap: anywhere;
+  resize: vertical;
+}
+.blocks-viewer code {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.context-inspection {
+  display: grid;
+  gap: var(--space-3);
+}
+.context-item {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-2);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+.context-inspection summary {
+  cursor: pointer;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.context-inspection pre {
+  background: var(--color-surface-2);
+  margin-block-start: var(--space-3);
+  max-block-size: var(--editor-min-height);
+  overflow: auto;
+  padding: var(--space-3);
+  white-space: pre-wrap;
+}
+.context-item-preview {
+  display: grid;
+  gap: var(--space-3);
+}
+.context-item-preview .blocks-viewer .static-viewer {
+  min-block-size: 0;
 }
