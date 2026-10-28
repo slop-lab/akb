@@ -32,7 +32,7 @@ export class ContentWorkflowReadService {
       await lockWorkflowRead(context)
       const grants = await transaction`select 1 from membership_permissions
         where workspace_id=${workspaceId} and principal_id=${principal.principalId}
-          and permission='content.read'`
+          and permission in ('content.read','content.manage') limit 1`
       if (grants.length !== 1) throw new EntityNotFoundError(workspaceId)
     })
   }
