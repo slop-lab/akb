@@ -64,6 +64,7 @@ export function Workspace({
 
   useEffect(() => {
     function shortcuts(event: KeyboardEvent) {
+      if (document.querySelector("dialog[open]") !== null) return
       const target = event.target
       if (
         target instanceof HTMLInputElement ||

@@ -92,6 +92,8 @@ test("Page creation cannot be dismissed while its command is committing", async 
     await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled()
     await app.page.keyboard.press("Escape")
     await expect(dialog).toBeVisible()
+    await app.page.keyboard.press("b")
+    await expect(dialog).toBeVisible()
   } finally {
     release?.()
   }
