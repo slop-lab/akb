@@ -90,7 +90,6 @@ export function ContentScreen({
         setTitle(next.title)
         documentRef.current = next.document
         setViewRevision(revision)
-        setConflictRevision(null)
         const nextHistory = await session.api.feature(
           `${root}/${encodeURIComponent(pageId)}/history`,
           HistorySchema,
@@ -101,7 +100,6 @@ export function ContentScreen({
       } catch (caught) {
         if (!isCurrent()) return
         setPage(null)
-        setHistory([])
         setError(caught instanceof Error ? caught.message : "Page could not be opened.")
       }
     },
@@ -158,8 +156,7 @@ export function ContentScreen({
       await openPage(page.id)
     } catch (caught) {
       if (!isCurrent()) return
-      const message = caught instanceof Error ? caught.message : "Page could not be saved."
-      setError(message)
+      setError(caught instanceof Error ? caught.message : "Page could not be saved.")
       if (caught instanceof ApiError && caught.code === "revision_conflict") {
         const { actual } = caught.details
         setConflictRevision(typeof actual === "number" ? actual : null)
