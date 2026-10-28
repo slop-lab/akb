@@ -44,11 +44,15 @@ test("owner completes R8 planning, page conflict, knowledge, and automation muta
   // When: a page is created, edited, then made stale by a concurrent server mutation.
   await app.page.getByRole("link", { name: "Pages" }).click()
   const pageTitle = `Browser page ${suffix}`
-  await app.page.getByLabel("New page title").fill(pageTitle)
+  await app.page.getByRole("button", { name: "New Page", exact: true }).click()
+  await app.page.getByLabel("Page title", { exact: true }).fill(pageTitle)
   const createPageResponse = app.page.waitForResponse((response) =>
     response.url().endsWith("/pages"),
   )
-  await app.page.getByRole("button", { name: "Create page" }).click()
+  await app.page
+    .getByRole("dialog", { name: "Create Page" })
+    .getByRole("button", { name: "Create Page", exact: true })
+    .click()
   const pageMutation = z
     .object({ result: z.object({ id: z.string() }) })
     .parse(await (await createPageResponse).json())

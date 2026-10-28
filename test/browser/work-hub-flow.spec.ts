@@ -21,11 +21,15 @@ test("Work Hub context returns as a durable human-reviewed knowledge proposal", 
   const resultRevision = `result-${suffix}-v1`
   const workspacePath = `/workspaces/${encodeURIComponent(process.env["R4_WORKSPACE_ID"] ?? "")}`
   await app.signIn("owner", `${workspacePath}/pages`)
-  await app.page.getByLabel("New page title").fill(pageTitle)
+  await app.page.getByRole("button", { name: "New Page", exact: true }).click()
+  await app.page.getByLabel("Page title", { exact: true }).fill(pageTitle)
   const createResponsePromise = app.page.waitForResponse(
     (response) => response.url().endsWith("/pages") && response.request().method() === "POST",
   )
-  await app.page.getByRole("button", { name: "Create page" }).click()
+  await app.page
+    .getByRole("dialog", { name: "Create Page" })
+    .getByRole("button", { name: "Create Page", exact: true })
+    .click()
   const createResponse = await createResponsePromise
   expect(createResponse.status()).toBe(201)
   const created = MutationSchema.parse(await createResponse.json())
@@ -144,7 +148,6 @@ test("Work Hub context returns as a durable human-reviewed knowledge proposal", 
       expect(contained).toBe(true)
       await app.page.screenshot({
         path: `.omo/evidence/akb-work-hub/${capture.slug}-${width}.png`,
-        fullPage: true,
         animations: "disabled",
       })
     }
