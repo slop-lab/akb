@@ -4,6 +4,9 @@ Use ordinary AKB Pages for shared guidance, feature briefs, deliberate exception
 records. This workflow adds authoring and retrieval conveniences, not a separate SpecBase database,
 semantic inheritance engine, schema platform, plugin runtime, or Git synchronization service.
 
+For the live development example, verification results, and remaining evidence limits, see
+[document-workflow-delivery.md](document-workflow-delivery.md).
+
 ## Human workflow
 
 1. In **Pages**, choose a common-guidance, feature-brief, or decision-record template. The result is
