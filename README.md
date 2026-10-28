@@ -99,6 +99,11 @@ begin `/api/human/v1/workspaces/:workspaceId`; generic replay is
 
 ## Local R4 Startup
 
+The [document-based specification workflow](docs/document-workflow.md) uses ordinary Pages for
+shared guidance, feature briefs, and decision records. It includes live title discovery and bounded
+explicit Page/Knowledge revision contexts for humans and agents, without a semantic inheritance
+engine or separate SpecBase service.
+
 Use exact Node.js 26.12.1, npm, a PostgreSQL 17 database, and PostgreSQL 17 backup clients when
 exercising the backup gate. The complete fresh-clone sequence, including the ignored pinned Blocks
 checkout, is in the [local development guide](docs/local-development.md). The abbreviated native
