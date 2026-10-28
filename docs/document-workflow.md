@@ -13,7 +13,8 @@ semantic inheritance engine, schema platform, plugin runtime, or Git synchroniza
 3. Discover existing Pages and Knowledge by title. Open their exact revisions before relying on them.
 4. Explicitly select the saved Page/Knowledge revisions required for a task. Unsaved editor text is
    not part of that selection. The context reader neither follows links nor infers inherited rules.
-5. Save a selection as an ordinary Page to share or revisit it. Reopening it checks access again;
+5. Save a selection as an ordinary Page to share or revisit it. Reopening checks access to that Page
+   and restores its selectors. **Load read-only context** separately checks every referenced source;
    the selection itself is not an access grant or an immutable semantic baseline.
 6. Submit useful results through the existing Knowledge proposal API/inbox. A human explicitly
    accepts, rejects, or requests changes. Acceptance does not silently rewrite a source Page.
@@ -29,7 +30,8 @@ exact. Selecting the latest revision for a new task is an explicit operation, no
 ## Agent access
 
 All operations use bearer authentication and an explicit AKB workspace. They do not require an AKB
-Run, a fake Work Item, or an agent runtime. A context reader needs only the read grants for its
+Run, a fake Work Item, or an agent runtime. Static templates are available with `content.read` or
+`content.manage`; template access grants no access to existing document bodies. A context reader needs the read grants for its
 selected sources: `content.read` for Pages and `knowledge.read` for Knowledge. Saving ordinary Pages
 requires existing `content.manage`; submitting a result requires `knowledge.propose`. Neither read
 access nor proposal submission grants `knowledge.accept`, `review.decide`, or `run.delegate`.
