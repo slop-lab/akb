@@ -100,9 +100,20 @@ export function DiscoveryResults({
           </div>
           <label className="field context-revision">
             <span className="field__label">Revision</span>
-            <input name="revision" type="number" min={1} defaultValue={item.revision} required />
+            <input
+              name="revision"
+              type="number"
+              min={1}
+              defaultValue={item.revision}
+              required
+              aria-label={`Revision for ${item.title} (${item.id})`}
+            />
           </label>
-          <Button type="submit" variant="quiet">
+          <Button
+            type="submit"
+            variant="quiet"
+            aria-label={`Add ${item.title} (${item.id}) to context`}
+          >
             <Plus size={16} aria-hidden="true" /> Add
           </Button>
         </form>

@@ -38,13 +38,27 @@ export function ContextSelectionTray({
               <span className="mono">rev {reference.revision}</span>
             </div>
             <div className="cluster">
-              <a className="button button--quiet" href={href} target="_blank" rel="noreferrer">
+              <a
+                className="button button--quiet"
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Open ${reference.kind} ${reference.id} revision ${reference.revision}`}
+              >
                 <LinkSimple size={16} aria-hidden="true" /> Open
               </a>
-              <Button variant="quiet" onClick={() => onCopy(href, "Source link copied")}>
+              <Button
+                variant="quiet"
+                onClick={() => onCopy(href, "Source link copied")}
+                aria-label={`Copy link for ${reference.kind} ${reference.id} revision ${reference.revision}`}
+              >
                 <Copy size={16} aria-hidden="true" /> Copy link
               </Button>
-              <Button variant="quiet" onClick={() => onRemove(reference)}>
+              <Button
+                variant="quiet"
+                onClick={() => onRemove(reference)}
+                aria-label={`Remove ${reference.kind} ${reference.id} revision ${reference.revision} from context`}
+              >
                 <Trash size={16} aria-hidden="true" /> Remove
               </Button>
             </div>

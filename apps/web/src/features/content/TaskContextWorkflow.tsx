@@ -1,5 +1,5 @@
 import { FilePlus } from "@phosphor-icons/react"
-import { type FormEvent, useState } from "react"
+import { type FormEvent, useRef, useState } from "react"
 import {
   ContentDocumentDiscoveryResponseSchema,
   type ContentDocumentSummary,
@@ -12,6 +12,7 @@ import {
 } from "../../../../../src/contracts/content/workflow.ts"
 import type { ScreenProps } from "../../app/types.ts"
 import { Button, ErrorPanel, Field } from "../../components/primitives.tsx"
+import { LatestRequest } from "../../lib/latest-request.ts"
 import {
   EntityFeatureMutationSchema,
   featureCommand,
@@ -51,23 +52,36 @@ export function TaskContextWorkflow({
   const [items, setItems] = useState<readonly ContentDocumentSummary[]>([])
   const [searched, setSearched] = useState(false)
   const [nextAfterId, setNextAfterId] = useState<string | null>(null)
-  const [context, setContext] = useState<ContextReadResponse | null>(null)
+  const [loadedContext, setLoadedContext] = useState<{
+    readonly key: string
+    readonly value: ContextReadResponse
+  } | null>(null)
   const [maxBytes, setMaxBytes] = useState(String(DEFAULT_CONTEXT_MAX_BYTES))
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [discovering, setDiscovering] = useState(false)
+  const discoveryRequests = useRef(new LatestRequest()).current
+  const contextRequests = useRef(new LatestRequest()).current
   const root = workspaceFeaturePath(session, "content", "")
   const { references, selectionPage } = draft
+  const requestKey = JSON.stringify({ references, selectionPage, maxBytes: Number(maxBytes) })
+  const currentRequestKey = useRef(requestKey)
+  currentRequestKey.current = requestKey
+  const context = loadedContext?.key === requestKey ? loadedContext.value : null
 
   function resetDiscovery() {
+    discoveryRequests.invalidate()
+    setDiscovering(false)
     setItems([])
     setNextAfterId(null)
     setSearched(false)
-    setContext(null)
+    setLoadedContext(null)
     setError(null)
   }
 
   async function discover(afterId = "") {
-    setBusy(true)
+    const isCurrent = discoveryRequests.start()
+    setDiscovering(true)
     setError(null)
     try {
       const parameters = new URLSearchParams({ kind, query, limit: "20", afterId })
@@ -75,15 +89,19 @@ export function TaskContextWorkflow({
         `${root}/documents?${parameters.toString()}`,
         ContentDocumentDiscoveryResponseSchema,
       )
-      setItems(afterId.length === 0 ? response.items : [...items, ...response.items])
+      if (!isCurrent()) return
+      setItems((previous) =>
+        afterId.length === 0 ? response.items : [...previous, ...response.items],
+      )
       setNextAfterId(response.nextAfterId)
       setSearched(true)
     } catch (caught) {
+      if (!isCurrent()) return
       setError(
         caught instanceof Error ? caught.message : "Visible documents could not be searched.",
       )
     } finally {
-      setBusy(false)
+      if (isCurrent()) setDiscovering(false)
     }
   }
 
@@ -92,7 +110,7 @@ export function TaskContextWorkflow({
       const nextReferences = appendContextReference(references, item, revision)
       if (nextReferences === references) return
       onDraftChange({ references: nextReferences, selectionPage: null })
-      setContext(null)
+      setLoadedContext(null)
       setError(null)
       announce(`${item.title} revision ${revision} pinned`)
     } catch (caught) {
@@ -124,24 +142,27 @@ export function TaskContextWorkflow({
   }
 
   async function inspect() {
+    const isCurrent = contextRequests.start()
+    const expectedKey = requestKey
     setBusy(true)
     setError(null)
     try {
-      setContext(null)
+      setLoadedContext(null)
       const request = ContextReadRequestSchema.parse({
         ...(selectionPage === null ? { references } : { selectionPage }),
         maxBytes: Number(maxBytes),
       })
-      setContext(
-        await session.api.feature(`${root}/context`, ContextReadResponseSchema, {
-          method: "POST",
-          body: request,
-        }),
-      )
+      const response = await session.api.feature(`${root}/context`, ContextReadResponseSchema, {
+        method: "POST",
+        body: request,
+      })
+      if (isCurrent() && currentRequestKey.current === expectedKey)
+        setLoadedContext({ key: expectedKey, value: response })
     } catch (caught) {
-      setError(contextWorkflowErrorMessage(caught, "Task context could not be loaded."))
+      if (isCurrent() && currentRequestKey.current === expectedKey)
+        setError(contextWorkflowErrorMessage(caught, "Task context could not be loaded."))
     } finally {
-      setBusy(false)
+      if (isCurrent()) setBusy(false)
     }
   }
 
@@ -168,7 +189,7 @@ export function TaskContextWorkflow({
       <TaskContextSearch
         kind={kind}
         query={query}
-        busy={busy}
+        busy={busy || discovering}
         onKindChange={(nextKind) => {
           setKind(nextKind)
           resetDiscovery()
@@ -181,7 +202,7 @@ export function TaskContextWorkflow({
       />
       <DiscoveryResults items={items} searched={searched} onAdd={addReference} />
       {nextAfterId === null ? null : (
-        <Button variant="quiet" onClick={() => void discover(nextAfterId)}>
+        <Button variant="quiet" busy={discovering} onClick={() => void discover(nextAfterId)}>
           Load more results
         </Button>
       )}
@@ -195,7 +216,7 @@ export function TaskContextWorkflow({
             ),
             selectionPage: null,
           })
-          setContext(null)
+          setLoadedContext(null)
         }}
         onCopy={(value, message) => void copy(value, message)}
       />
