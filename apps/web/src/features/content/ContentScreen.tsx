@@ -45,6 +45,7 @@ export function ContentScreen({
   const [viewRevision, setViewRevision] = useState<number | undefined>(initialRevision)
   const [createOpen, setCreateOpen] = useState(false)
   const pageRequests = useRef(new LatestRequest()).current
+  const mutationRequests = useRef(new LatestRequest()).current
 
   const root = workspaceFeaturePath(session, "content", "/pages")
   const loadPages = useCallback(async () => {
@@ -57,8 +58,10 @@ export function ContentScreen({
 
   const openPage = useCallback(
     async (pageId: string, revision?: number) => {
+      mutationRequests.invalidate()
       const isCurrent = pageRequests.start()
       setError(null)
+      setConflictRevision(null)
       setPage(null)
       setHistory([])
       try {
@@ -102,7 +105,7 @@ export function ContentScreen({
         setError(caught instanceof Error ? caught.message : "Page could not be opened.")
       }
     },
-    [onWorkflowDraftChange, pageRequests, root, session],
+    [mutationRequests, onWorkflowDraftChange, pageRequests, root, session],
   )
 
   useEffect(() => {
@@ -113,8 +116,19 @@ export function ContentScreen({
       setHistory([])
       setError(initialRevisionError)
     } else if (initialPageId !== undefined) void openPage(initialPageId, initialRevision)
-    return () => pageRequests.invalidate()
-  }, [initialPageId, initialRevision, initialRevisionError, loadPages, openPage, pageRequests])
+    return () => {
+      pageRequests.invalidate()
+      mutationRequests.invalidate()
+    }
+  }, [
+    initialPageId,
+    initialRevision,
+    initialRevisionError,
+    loadPages,
+    mutationRequests,
+    openPage,
+    pageRequests,
+  ])
 
   async function openCreated(pageId: string, nextTitle: string) {
     setCreateOpen(false)
@@ -125,6 +139,7 @@ export function ContentScreen({
 
   async function save() {
     if (page === null) return
+    const isCurrent = mutationRequests.start()
     setError(null)
     try {
       ContentDocumentSchema.parse(documentRef.current)
@@ -136,10 +151,13 @@ export function ContentScreen({
         page.revision,
         { title, document: documentRef.current },
       )
-      await openPage(page.id)
+      if (!isCurrent()) return
       await loadPages()
+      if (!isCurrent()) return
       announce(`${title} saved`)
+      await openPage(page.id)
     } catch (caught) {
+      if (!isCurrent()) return
       const message = caught instanceof Error ? caught.message : "Page could not be saved."
       setError(message)
       if (caught instanceof ApiError && caught.code === "revision_conflict") {
@@ -151,6 +169,7 @@ export function ContentScreen({
 
   async function restore(revision: number) {
     if (page === null) return
+    const isCurrent = mutationRequests.start()
     try {
       await featureCommand(
         session,
@@ -160,9 +179,11 @@ export function ContentScreen({
         page.revision,
         { revision },
       )
-      await openPage(page.id)
+      if (!isCurrent()) return
       announce(`Revision ${revision} restored`)
+      await openPage(page.id)
     } catch (caught) {
+      if (!isCurrent()) return
       setError(caught instanceof Error ? caught.message : "Revision could not be restored.")
     }
   }
