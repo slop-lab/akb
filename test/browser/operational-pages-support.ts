@@ -3,7 +3,7 @@ import { z } from "zod"
 import { expect } from "./fixtures.ts"
 
 export const MutationSchema = z.object({
-  result: z.record(z.string(), z.unknown()),
+  result: z.object({ id: z.string().min(1) }).passthrough(),
   revision: z.number().int().positive(),
 })
 

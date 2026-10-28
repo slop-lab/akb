@@ -1,4 +1,3 @@
-import { z } from "zod"
 import { proposalSourcesFromContext } from "../../apps/web/src/features/content/workflow-ui.ts"
 import { ContextReadResponseSchema } from "../../src/contracts/content/workflow.ts"
 import { expect, test } from "./fixtures.ts"
@@ -15,9 +14,12 @@ test("Pages templates and a saved exact Task context feed the human Knowledge in
 }) => {
   // Given: accepted Knowledge exists for mixed Page and Knowledge discovery.
   const suffix = crypto.randomUUID().slice(0, 8)
-  const workspaceId = process.env.R4_WORKSPACE_ID ?? ""
+  const {
+    R4_WORKSPACE_ID: workspaceId = "",
+    R4_BROWSER_BASE_URL: browserBaseUrl = "http://127.0.0.1:3000",
+  } = process.env
   const workspacePath = `/workspaces/${encodeURIComponent(workspaceId)}`
-  const browserOrigin = new URL(process.env.R4_BROWSER_BASE_URL ?? "http://127.0.0.1:3000").origin
+  const browserOrigin = new URL(browserBaseUrl).origin
   await app.context.grantPermissions(["clipboard-read", "clipboard-write"], {
     origin: browserOrigin,
   })
@@ -72,7 +74,7 @@ test("Pages templates and a saved exact Task context feed the human Knowledge in
   const commonTitle = `Common guidance ${suffix}`
   const commonCreate = await createTemplatePage(app.page, commonTitle, "common-guidance")
   await expect(app.page.getByRole("heading", { name: "Purpose", exact: true })).toBeVisible()
-  const commonPageId = z.string().parse(commonCreate.result.id)
+  const commonPageId = commonCreate.result.id
   const revisedTitle = `${commonTitle} revised`
   await app.page.getByLabel("Title", { exact: true }).fill(revisedTitle)
   const commonSave = app.page.waitForResponse(
@@ -119,7 +121,7 @@ test("Pages templates and a saved exact Task context feed the human Knowledge in
   )
   await app.page.getByRole("button", { name: "Save as Page", exact: true }).click()
   const selection = MutationSchema.parse(await (await selectionCreate).json())
-  const selectionPageId = z.string().parse(selection.result.id)
+  const selectionPageId = selection.result.id
 
   // Then: a fresh login restores the manifest and loads exactly the pinned old revision.
   const selectionLink = `${workspacePath}/pages/${encodeURIComponent(selectionPageId)}?revision=${selection.revision}`
