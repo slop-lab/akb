@@ -17,8 +17,8 @@ export function Button({ variant = "secondary", busy = false, children, ...props
     <button
       className={`button button--${variant}`}
       aria-busy={busy}
-      disabled={busy || props.disabled}
       {...props}
+      disabled={busy || props.disabled}
     >
       {busy ? <span className="spinner" aria-hidden="true" /> : null}
       {children}
@@ -146,11 +146,13 @@ export function Dialog({
   open,
   children,
   onClose,
+  dismissible = true,
 }: {
   readonly title: string
   readonly open: boolean
   readonly children: ReactNode
   readonly onClose: () => void
+  readonly dismissible?: boolean
 }) {
   const titleId = useId()
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -169,12 +171,12 @@ export function Dialog({
         aria-labelledby={titleId}
         onCancel={(event) => {
           event.preventDefault()
-          onClose()
+          if (dismissible) onClose()
         }}
       >
         <header className="dialog__header">
           <h2 id={titleId}>{title}</h2>
-          <Button variant="quiet" onClick={onClose}>
+          <Button variant="quiet" onClick={onClose} disabled={!dismissible}>
             Close
           </Button>
         </header>

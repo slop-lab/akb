@@ -1,5 +1,5 @@
 import { FilePlus } from "@phosphor-icons/react"
-import { type FormEvent, useEffect, useState } from "react"
+import { type FormEvent, useEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { ContentPageTemplateSchema } from "../../../../../src/contracts/content/templates.ts"
 import type { Session } from "../../app/types.ts"
@@ -28,6 +28,11 @@ export function CreatePageDialog({ session, open, onClose, onCreated }: CreatePa
   const [templateId, setTemplateId] = useState("blank")
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const committing = useRef(false)
+
+  function close() {
+    if (!committing.current) onClose()
+  }
 
   useEffect(() => {
     if (!open) return
@@ -42,6 +47,7 @@ export function CreatePageDialog({ session, open, onClose, onCreated }: CreatePa
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (committing.current) return
     const form = event.currentTarget
     const data = new FormData(form)
     const title = String(data.get("title"))
@@ -50,6 +56,7 @@ export function CreatePageDialog({ session, open, onClose, onCreated }: CreatePa
       setError("Select an available Page template.")
       return
     }
+    committing.current = true
     setBusy(true)
     setError(null)
     try {
@@ -67,27 +74,28 @@ export function CreatePageDialog({ session, open, onClose, onCreated }: CreatePa
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Page could not be created.")
     } finally {
+      committing.current = false
       setBusy(false)
     }
   }
 
   const selected = templates.find((template) => template.id === templateId)
   return (
-    <Dialog title="Create Page" open={open} onClose={onClose}>
+    <Dialog title="Create Page" open={open} dismissible={!busy} onClose={close}>
       <form className="form-stack" onSubmit={(event) => void create(event)}>
         {error === null ? null : <ErrorPanel message={error} />}
-        <Field label="Page title" name="title" required autoFocus />
+        <Field label="Page title" name="title" required autoFocus disabled={busy} />
         <SelectField
           label="Template"
           name="template"
           value={templateId}
-          disabled={templates.length === 0}
+          disabled={busy || templates.length === 0}
           options={templates.map((template) => ({ value: template.id, label: template.name }))}
           onChange={setTemplateId}
         />
         {selected === undefined ? null : <p className="field__help">{selected.description}</p>}
         <div className="dialog-actions">
-          <Button type="button" variant="quiet" onClick={onClose}>
+          <Button type="button" variant="quiet" onClick={close} disabled={busy}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" busy={busy} disabled={templates.length === 0}>
