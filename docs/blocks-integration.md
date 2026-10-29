@@ -10,7 +10,7 @@ source: it lives under ignored `.deps/blocks`, and generated package output stay
 Run the bootstrap before web typechecking, testing, or building:
 
 ```sh
-npm run setup:blocks
+pnpm run setup:blocks
 ```
 
 `script/setup-blocks.mjs` clones only when `.deps/blocks` is absent, verifies the expected origin,
@@ -22,7 +22,7 @@ disabled; package builds then run explicitly.
 
 The root installation is independent of this checkout. TypeScript and Vite aliases resolve the
 generated `@slop-lab/blocks`, `@slop-lab/blocks-prosemirror`, and ProseMirror files directly from
-`.deps/blocks`. A fresh `npm ci` therefore does not attempt to install an unavailable workspace
+`.deps/blocks`. A fresh `pnpm install --frozen-lockfile` therefore does not attempt to install an unavailable workspace
 package; Blocks-dependent web commands intentionally require the bootstrap first.
 
 ## Project-owned boundary
@@ -56,10 +56,10 @@ modified. See [the connector contract](work-hub-integration.md) for revision and
 ## Verification
 
 ```sh
-npm run setup:blocks
-npm run web:test
-npm run web:typecheck
-npm run web:build
+pnpm run setup:blocks
+pnpm run web:test
+pnpm run web:typecheck
+pnpm run web:build
 ```
 
 The development showcase is available at `/?showcase`. Its block section must be exercised in a

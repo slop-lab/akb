@@ -124,7 +124,8 @@
   .search-form,
   .transfer-grid,
   .feature-columns,
-  .master-detail {
+  .master-detail,
+  .project-library-picker {
     grid-template-columns: 1fr;
   }
   .master-detail .search-result {

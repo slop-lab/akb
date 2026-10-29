@@ -28,6 +28,9 @@ Part tools. Shared rules are documents, not inferred inheritance or an automatic
 
 ## Verification performed
 
+The npm command spellings below are preserved as historical evidence for the recorded 2026-10-28
+run. Current development uses the pnpm workflow in [local-development.md](local-development.md).
+
 | Gate | Observed result |
 |---|---|
 | `npm run check` | Passed formatting, lint, native types, build, unit/integration/agent/feature gates |

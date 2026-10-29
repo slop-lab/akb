@@ -3,7 +3,7 @@ import { createR4CommandRouter } from "../src/http/command-v1/router.ts"
 import { IdentityAdmin } from "../src/identity/admin.ts"
 import { createAuthenticatedPostgresServer } from "../src/postgres/authenticated-server.ts"
 import { eventId, workItemId } from "../src/work-items/identifiers.ts"
-import type { UnmigratedPostgresTestFixture } from "./postgres-fixture.ts"
+import type { UnmigratedPostgresTestFixture } from "./postgres/postgres-fixture.ts"
 
 export type CommandResponse = {
   readonly status: number

@@ -13,7 +13,7 @@ bounded evidence, not a formal gate promotion.
 
 ## Requirements
 
-- Node.js 24 and npm with the committed lockfile.
+- Node.js 26.12.1 and pnpm 10.17.1 with the committed lockfile.
 - PostgreSQL 17 for the application database.
 - PostgreSQL 17 `pg_dump` and `pg_restore` for backup rehearsal.
 - A same-origin deployment for the built web application and API.
@@ -21,8 +21,8 @@ bounded evidence, not a formal gate promotion.
 Install exactly the locked dependencies and migrate the target database:
 
 ```sh
-npm ci
-DATABASE_URL='postgres://operator@host/workspace' npm run migrate:postgres
+pnpm install --frozen-lockfile
+DATABASE_URL='postgres://operator@host/workspace' pnpm run migrate:postgres
 ```
 
 ## Bootstrap identity and grants
@@ -31,11 +31,11 @@ Bootstrap prints a bearer token once. Capture it in an operator-controlled secre
 write it into the repository, command history, URLs, browser storage, fixtures, or documentation.
 
 ```sh
-DATABASE_URL='postgres://operator@host/workspace' npm run admin -- bootstrap-workspace \
+DATABASE_URL='postgres://operator@host/workspace' pnpm run admin bootstrap-workspace \
   --workspace-id example --workspace-name "Example" \
   --principal-id admin --principal-name "Example Admin"
 
-DATABASE_URL='postgres://operator@host/workspace' npm run admin -- grant-r4-permissions \
+DATABASE_URL='postgres://operator@host/workspace' pnpm run admin grant-r4-permissions \
   --workspace-id example --principal-id admin
 ```
 
@@ -43,10 +43,10 @@ For an operator-created private Space, add explicit Space grants. Workspace role
 participation do not bypass private-Space ACL.
 
 ```sh
-DATABASE_URL='postgres://operator@host/workspace' npm run admin -- create-space \
+DATABASE_URL='postgres://operator@host/workspace' pnpm run admin create-space \
   --workspace-id example --space-id private --space-name "Private" --visibility private
 
-DATABASE_URL='postgres://operator@host/workspace' npm run admin -- set-space-permissions \
+DATABASE_URL='postgres://operator@host/workspace' pnpm run admin set-space-permissions \
   --workspace-id example --space-id private --principal-id admin \
   --permissions work.read,work.create,work.update,work.assign,space.read,space.manage,project.read,project.manage,comment.create,comment.update,relation.manage,view.read,view.manage,history.read,acl.manage
 ```
@@ -70,16 +70,16 @@ and import validation tokens; it is never sent to browser code or stored in appl
 ## Build and start
 
 ```sh
-npm run build:r4
+pnpm run build:r4
 DATABASE_URL='postgres://operator@host/workspace' \
 R4_CURSOR_SIGNING_KEY="$R4_CURSOR_SIGNING_KEY" \
-npm run start:r4
+pnpm run start:r4
 ```
 
 The R4 application defaults to `127.0.0.1:3001`. It serves `apps/web/dist` and the API from the same
 origin. Override `HOST`, `PORT`, or `WEB_ASSETS_DIR` only through deployment configuration.
 
-The historical `npm start` entrypoint remains the unauthenticated process-local demo on port 3000.
+The historical `start` entrypoint remains the unauthenticated process-local demo on port 3000.
 It is not upgraded or redirected by this runbook. The obsolete repository `.dim/` lifecycle is
 removed in this proposal. Current DIM workspace and service helpers are managed independently;
 their configuration and protected-change approval remain with DIM operators.
@@ -87,15 +87,11 @@ their configuration and protected-change approval remain with DIM operators.
 ## Named local gates
 
 ```sh
-npm run format:check
-npm run lint
-npm run typecheck
-npm run build
-npm test
-npm run test:postgres
-npm run test:r4
-npm run test:commands
-npm run test:backup
+pnpm run check
+pnpm run test:postgres
+pnpm run test:r4
+pnpm run test:commands
+pnpm run test:backup
 node --test build/test/r4-route-inventory.test.js
 node script/generate-api-r4.mjs --check
 ```

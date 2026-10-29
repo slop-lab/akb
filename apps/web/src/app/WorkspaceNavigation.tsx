@@ -1,6 +1,7 @@
 import {
   ArrowSquareOut,
   BookOpenText,
+  Books,
   Briefcase,
   CalendarCheck,
   Database,
@@ -23,6 +24,7 @@ const NAVIGATION = [
   { route: "work", label: "Work", icon: ListChecks },
   { route: "search", label: "Search", icon: MagnifyingGlass },
   { route: "planning", label: "Planning", icon: CalendarCheck },
+  { route: "library", label: "Project library", icon: Books },
   { route: "content", label: "Pages", icon: BookOpenText },
   { route: "runtime", label: "Runs", icon: TerminalWindow },
   { route: "knowledge", label: "Knowledge", icon: Graph },

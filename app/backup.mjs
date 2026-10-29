@@ -1,3 +1,4 @@
+// @ts-check
 import { publicBackupError, runBackupCli } from "../src/operations/backup/run.ts"
 
 try {

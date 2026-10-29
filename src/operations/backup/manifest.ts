@@ -7,6 +7,8 @@ import {
   PROFILE_009,
   PROFILE_010,
   PROFILE_016,
+  PROFILE_017,
+  PROFILE_018,
   profileFromId,
 } from "./profiles.ts"
 
@@ -84,12 +86,30 @@ const Format2Manifest016Schema = z.strictObject({
   ...ManifestContentsSchema,
 })
 
+const Format2Manifest017Schema = z.strictObject({
+  formatVersion: z.literal(2),
+  profile: z.literal("project-kb-schema-017-public-v1"),
+  ...ManifestMetadataSchema,
+  schemaFingerprint: z.literal(PROFILE_017.schemaFingerprint),
+  ...ManifestContentsSchema,
+})
+
+const Format2Manifest018Schema = z.strictObject({
+  formatVersion: z.literal(2),
+  profile: z.literal("project-kb-schema-018-public-v1"),
+  ...ManifestMetadataSchema,
+  schemaFingerprint: z.literal(PROFILE_018.schemaFingerprint),
+  ...ManifestContentsSchema,
+})
+
 const ManifestShapeSchema = z.union([
   Format1ManifestSchema,
   Format2Manifest008Schema,
   Format2Manifest009Schema,
   Format2Manifest010Schema,
   Format2Manifest016Schema,
+  Format2Manifest017Schema,
+  Format2Manifest018Schema,
 ])
 
 export type MigrationDigest = z.infer<typeof MigrationSchema>
@@ -101,6 +121,8 @@ export type ManifestInput =
   | Omit<z.infer<typeof Format2Manifest009Schema>, "overallDigest">
   | Omit<z.infer<typeof Format2Manifest010Schema>, "overallDigest">
   | Omit<z.infer<typeof Format2Manifest016Schema>, "overallDigest">
+  | Omit<z.infer<typeof Format2Manifest017Schema>, "overallDigest">
+  | Omit<z.infer<typeof Format2Manifest018Schema>, "overallDigest">
 
 export function sha256(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex")

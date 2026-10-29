@@ -1,3 +1,5 @@
+// @ts-check
+
 import { execFile, spawn } from "node:child_process"
 import { mkdir, stat } from "node:fs/promises"
 import { resolve } from "node:path"
@@ -18,9 +20,14 @@ if (args.length > 0 && !checkOnly) {
   throw new TypeError("Usage: node script/setup-blocks.mjs [--check]")
 }
 
-const run = (command, args, cwd = ROOT) =>
+/**
+ * @param {string} command
+ * @param {readonly string[]} commandArgs
+ * @param {string} [cwd]
+ */
+const run = (command, commandArgs, cwd = ROOT) =>
   new Promise((resolveRun, rejectRun) => {
-    const child = spawn(command, args, {
+    const child = spawn(command, commandArgs, {
       cwd,
       env: { ...process.env, GIT_MASTER: "1" },
       stdio: "inherit",
@@ -32,14 +39,20 @@ const run = (command, args, cwd = ROOT) =>
     })
   })
 
-const output = async (command, args, cwd = ROOT) => {
-  const result = await exec(command, args, {
+/**
+ * @param {string} command
+ * @param {readonly string[]} commandArgs
+ * @param {string} [cwd]
+ */
+const output = async (command, commandArgs, cwd = ROOT) => {
+  const result = await exec(command, commandArgs, {
     cwd,
     env: { ...process.env, GIT_MASTER: "1" },
   })
   return result.stdout.trim()
 }
 
+/** @param {string} path */
 const exists = async (path) =>
   stat(path)
     .then(() => true)
@@ -47,6 +60,13 @@ const exists = async (path) =>
       if (error instanceof Error && "code" in error && error.code === "ENOENT") return false
       throw error
     })
+
+if (!checkOnly) {
+  const pnpmVersion = await output("pnpm", ["--version"])
+  if (pnpmVersion !== PNPM_VERSION) {
+    throw new TypeError(`Expected pnpm ${PNPM_VERSION}, received ${pnpmVersion}`)
+  }
+}
 
 if (!checkOnly) await mkdir(DEPENDENCIES, { recursive: true })
 const checkoutExists = await exists(CHECKOUT)
@@ -88,9 +108,8 @@ if (checkoutCreated || head !== REVISION) {
 }
 
 if (!checkOnly) {
-  const pnpm = ["exec", "--yes", `--package=pnpm@${PNPM_VERSION}`, "--", "pnpm"]
-  await run("npm", [...pnpm, "install", "--frozen-lockfile", "--ignore-scripts"], CHECKOUT)
-  await run("npm", [...pnpm, "--filter", "./packages/**", "--fail-if-no-match", "build"], CHECKOUT)
+  await run("pnpm", ["install", "--frozen-lockfile", "--ignore-scripts"], CHECKOUT)
+  await run("pnpm", ["--filter", "./packages/**", "--fail-if-no-match", "run", "build"], CHECKOUT)
 }
 
 process.stdout.write(`Blocks ${checkOnly ? "checkout verified" : "ready"} at ${REVISION}\n`)

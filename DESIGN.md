@@ -27,13 +27,39 @@ preview with the raw revision snapshot secondary. Copy actions expose qualified 
 credential-free context request JSON, or exact proposal-source JSON containing every selected
 revision plus the optional selection Page; none of these actions submit or accept Knowledge.
 
-This file is the visual and interaction contract for the React/Vite web application. The delivered R4 surface remains limited to login, Projects, Space administration, Work list/board/peek, Work metadata and relations, comments, Saved Views, lexical search, and import/export. Later R5-R8 features may enter only as executable, contract-backed surfaces owned by their phase; placeholders, disabled navigation, and speculative mock data remain prohibited. The application renders Human Query and command DTOs as returned by the server; it does not reconstruct authorization, filtering, search, counts, ordering, or domain invariants in the browser.
+This file is the visual and interaction contract for the React/Vite web application. The delivered
+R4 surface remains limited to login, Projects, Space administration, Work list/board/peek, Work
+metadata and relations, comments, Saved Views, lexical search, and import/export. Later R5-R8
+features may enter only as executable, contract-backed surfaces owned by their phase; placeholders,
+disabled navigation, and speculative mock data remain prohibited. The application renders Human
+Query and command DTOs as returned by the server; it does not reconstruct authorization, filtering,
+search, counts, ordering, or domain invariants in the browser.
 
 ## 0. Research Log
 
 - **Product baseline:** [`docs/r4-delivery-contract.md`](docs/r4-delivery-contract.md), [`docs/roadmap.md`](docs/roadmap.md), and [`docs/product-and-domain.md`](docs/product-and-domain.md). These sources define the R4 boundary, Workspace/Space/Project/Work relationships, revision conflicts, server-authoritative queries, security boundary, and required human surfaces.
-- **Embedded references:** shortlisted [Linear](https://linear.app), [Notion](https://www.notion.so), and [Airtable](https://www.airtable.com) from the local frontend reference index. Picked the local `minimalist-skill.md` Layer A and `linear.app.md` Layer B in full because a precise project-management hierarchy, compact controls, and restrained chroma fit the operational brief. Adapted decisions: one scarce accent, strong sidebar/list/detail hierarchy, compact metadata, visible selection, and low-radius controls. Rejected decisions: Linear's dark-first marketing canvas, Inter, ultra-faint contrast, and icon-only primary actions.
-- **Lazyweb:** ran 3 desktop queries on 2026-10-11: `project management list board sidebar`, `issue detail drawer comments metadata`, and `saved views filters command palette`. Viewed 6 downloaded screens, not only search metadata: [ClickUp](https://clickup.com) board (`screens:2506f791d73b63312298814f`), ClickUp list (`screens:5452b3091ee426ffecf01a1b`), [Jira](https://www.atlassian.com/software/jira) issue master-detail (`screens:2ff70c92321a4395afd08b1c`), [Linear](https://linear.app) triage detail (`screens:c6165f54b1411773251ff3c3`), [Contractbook](https://contractbook.com) filtered-table/save-view (`screens:898cde34f138fdf2d2780886`), and [Cycle](https://www.cycle.app) view-settings (`screens:70f265955b17e4d1afee9aae`). Transferable grammar: a stable sidebar and page header, one compact contextual toolbar, aligned table metadata, independently scrolling board columns, selected-row detail without route loss, visible filter tokens, and prefilled focused configuration dialogs. Avoided their stacked navigation, crowded toolbars, tiny low-contrast metadata, duplicated create actions, and ambiguous adjacent save actions. Source service: [Lazyweb](https://www.lazyweb.com); screenshots were temporary research inputs and are not repository assets.
+- **Embedded references:** shortlisted [Linear](https://linear.app), [Notion](https://www.notion.so),
+  and [Airtable](https://www.airtable.com) from the local frontend reference index. Picked the local
+  `minimalist-skill.md` Layer A and `linear.app.md` Layer B in full because a precise
+  project-management hierarchy, compact controls, and restrained chroma fit the operational brief.
+  Adapted decisions: one scarce accent, strong sidebar/list/detail hierarchy, compact metadata,
+  visible selection, and low-radius controls. Rejected decisions: Linear's dark-first marketing
+  canvas, Inter, ultra-faint contrast, and icon-only primary actions.
+- **Lazyweb:** ran 3 desktop queries on 2026-10-11: `project management list board sidebar`,
+  `issue detail drawer comments metadata`, and `saved views filters command palette`. Viewed 6
+  downloaded screens, not only search metadata: [ClickUp](https://clickup.com) board
+  (`screens:2506f791d73b63312298814f`), ClickUp list (`screens:5452b3091ee426ffecf01a1b`),
+  [Jira](https://www.atlassian.com/software/jira) issue master-detail
+  (`screens:2ff70c92321a4395afd08b1c`), [Linear](https://linear.app) triage detail
+  (`screens:c6165f54b1411773251ff3c3`), [Contractbook](https://contractbook.com)
+  filtered-table/save-view (`screens:898cde34f138fdf2d2780886`), and
+  [Cycle](https://www.cycle.app) view-settings (`screens:70f265955b17e4d1afee9aae`). Transferable
+  grammar: a stable sidebar and page header, one compact contextual toolbar, aligned table metadata,
+  independently scrolling board columns, selected-row detail without route loss, visible filter
+  tokens, and prefilled focused configuration dialogs. Avoided their stacked navigation, crowded
+  toolbars, tiny low-contrast metadata, duplicated create actions, and ambiguous adjacent save
+  actions. Source service: [Lazyweb](https://www.lazyweb.com); screenshots were temporary research
+  inputs and are not repository assets.
 - **Imagen concept drafts:** skipped. No image-generation tool is available in the parent toolset, so no draft or reference-fidelity claim is made.
 - **Designpowers:** loaded the frontend integration contract and Lane C review guidance. This document includes inclusive personas, adaptive constraints, debt language, and a future evidence handoff without claiming review of an unbuilt surface.
 - **Primitive Showcase Gate:** pending by design. The implementation worker must build and visually verify the Section 5 primitive showcase at 375, 768, and 1280 px before composing product screens. No browser or visual-QA pass is claimed by this document-only task.
@@ -49,7 +75,8 @@ The interface should feel accountable, quick, and durable rather than decorative
 ### Product principles
 
 1. **Context before chrome:** Workspace, Space, Project, query, and selected Work Item remain legible during every action.
-2. **Server truth is visible:** counts, result membership, board columns, search matches, permissions, warnings, revisions, and conflicts come from server DTOs. The UI does not “fix” or infer them.
+2. **Server truth is visible:** counts, result membership, board columns, search matches, permissions,
+   warnings, revisions, and conflicts come from server DTOs. The UI does not "fix" or infer them.
 3. **Structure before color:** alignment, typography, spacing, and separators carry hierarchy. Accent and semantic colors carry interaction or status only.
 4. **Fast paths stay named:** frequent actions may include shortcuts, but visible labels remain. Icons from Phosphor Bold/Regular or Radix supplement text; no emoji or unlabeled custom glyphs.
 5. **Edits are reversible and revision-aware:** optimistic feedback is local and restrained. A conflict restores server state for the affected field, retains unsent user text, and offers Reload or Cancel/Reapply where the command contract permits.
@@ -62,7 +89,7 @@ This is an app shell, not a marketing page. Content is ordered by the operator's
 | Job | Content block | Outcome |
 |---|---|---|
 | Navigate | Workspace identity, primary sections, Spaces, Saved Views | Establish location without losing the active query |
-| Orient | Breadcrumb, page title, result/selection context, revision/status | Answer “where am I and what am I changing?” |
+| Orient | Breadcrumb, page title, result/selection context, revision/status | Answer "where am I and what am I changing?" |
 | Control | Tabs, list/board toggle, search, filters, sort, primary create action | Change only the server query or start an authorized command |
 | Compare | Project cards, Work table, board columns/cards, search results | Scan real structured data consistently |
 | Inspect | Peek drawer with metadata, relations, comments, history affordance | Inspect and edit without abandoning the source context |
@@ -81,7 +108,13 @@ This is an app shell, not a marketing page. Content is ordered by the operator's
 
 ### Scope guardrail
 
-R4 includes only the screens and primitives specified in this document. R5-R8 work may add a real feature only when its owning worker supplies an executable contract and the feature is isolated from R4 domain assumptions. Do not add timeline, Cycle, Milestone, Module, documents/pages, rich text collaboration, Runs, agent panels, planning, proposal/review, notifications/inbox, analytics, or other later-phase placeholders to navigation, command palette, empty states, or mock data. The development showcase may expose completed primitives before a product route exists, but it must label them as development surfaces and exercise real behavior rather than imply product completion.
+R4 includes only the screens and primitives specified in this document. R5-R8 work may add a real
+feature only when its owning worker supplies an executable contract and the feature is isolated from
+R4 domain assumptions. Do not add timeline, Cycle, Milestone, Module, documents/pages, rich text
+collaboration, Runs, agent panels, planning, proposal/review, notifications/inbox, analytics, or other
+later-phase placeholders to navigation, command palette, empty states, or mock data. The development
+showcase may expose completed primitives before a product route exists, but it must label them as
+development surfaces and exercise real behavior rather than imply product completion.
 
 ## 2. Color
 
@@ -282,7 +315,7 @@ Every interactive primitive implements applicable states: default, hover, active
 
 ### Login form
 
-- **Structure:** centered `--login-panel-max` panel containing product name, H1 `Sign in`, Workspace ID, bearer token, primary `Sign in`, and a short security note: “Your token is kept in memory for this session.”
+- **Structure:** centered `--login-panel-max` panel containing product name, H1 `Sign in`, Workspace ID, bearer token, primary `Sign in`, and a short security note: "Your token is kept in memory for this session."
 - **States:** untouched, validating, invalid credentials, unavailable server, signed out after 401, and submitting. Error language never includes credential fragments.
 - **Contract:** token exists only in React memory. It is never written to `localStorage`, `sessionStorage`, IndexedDB, cookies by app code, URLs, logs, analytics, error text, or bundled demo data. Refresh, logout, and 401 clear token and query caches.
 - **Accessibility:** focus moves to the error summary after failed submit, then links to the invalid field. Password managers are not treated as application persistence.
@@ -292,7 +325,7 @@ Every interactive primitive implements applicable states: default, hover, active
 - **Structure:** Workspace identity; primary links `Projects`, `Work`, `Search`; scoped Space list; Saved Views list; import/export under a named `Workspace data` action, not as top-level clutter. Local tabs are reserved for views of the same entity.
 - **States:** current route uses `aria-current=page`; active tab uses `aria-selected`; expanded groups persist only in non-sensitive route/UI state.
 - **View toggle:** named segmented control with `List` and `Board`; updates the route/query representation without resetting filters, sort, snapshot restart context, or Space/Project scope.
-- **Scope:** do not render R5+ disabled links or “coming soon” placeholders.
+- **Scope:** do not render R5+ disabled links or "coming soon" placeholders.
 
 ### Query toolbar, filter builder, and sort control
 
@@ -314,7 +347,7 @@ Every interactive primitive implements applicable states: default, hover, active
 
 - **Board:** horizontal `BoardGrid` with one column per returned workflow group, including zero-count columns. Each header shows state name, category cue, server count, and add action when authorized.
 - **Card anatomy:** key + priority; title (two lines); owner/Project/date metadata; fixed label lane; archived state. A whole card is not a button: title opens peek, while explicit controls handle actions.
-- **Move:** pointer drag is progressive enhancement. On keyboard or touch, `Move…` opens a dialog/listbox of server-permitted destination states, confirms the selection, and submits the revision-safe command. During drag, announce source/target and expose valid/invalid target text. Never reorder optimistically across a server-defined workflow position without a command result.
+- **Move:** pointer drag is progressive enhancement. On keyboard or touch, `Move...` opens a dialog/listbox of server-permitted destination states, confirms the selection, and submits the revision-safe command. During drag, announce source/target and expose valid/invalid target text. Never reorder optimistically across a server-defined workflow position without a command result.
 - **Pagination:** each column has its own cursor and `Load more`; loading one column does not reset others. Board counts remain server counts.
 - **States:** empty column remains a target; moving card uses origin placeholder; command success settles returned DTO; failure/conflict restores only that card and preserves open text in peek.
 
@@ -429,6 +462,42 @@ Blocks draft and offer an explicit latest-server reload rather than silently ove
 side. Automation direct actions use the same command envelope and exported response schemas as
 entity-backed mutations; the browser does not infer a successful registry outcome.
 
+### Project library and portable notebook
+
+- **Purpose:** `Project library` is an independent creative notebook area for a selected Project.
+  It uses ordinary child Pages beneath one Project notebook root and does not embed Task context,
+  specification controls, asset upload, a DAW, or a map editor.
+- **Hosted composition:** the route combines a searchable Project selector with the portable
+  `ProjectNotebook` master-detail surface. Project and selected Page identity are durable URL query
+  state. Switching either invalidates older async reads so late responses cannot replace the active
+  Project, list, or editor. With no selected Project, a named `Create project` action returns to the
+  real Projects surface rather than presenting a dead-end placeholder.
+- **Portable composition:** `.kb-project-library` owns a compact header, notebook status, template
+  chooser, direct-child Page list, and document work plane. All selectors are `kb-*` namespaced and
+  all visual values resolve through `--kb-*` tokens, whose defaults map to the host tokens in
+  Sections 2-7. External hosts may override only those public variables. Portable-only aliases add
+  `--kb-list-width`, `--kb-list-min`, `--kb-disabled-opacity`, `--kb-font-ui`, body/compact/caption
+  type aliases, and `--kb-selection-inset`; these remain definitions, never one-off component values.
+- **Templates:** blank and Project overview are general-purpose; Composition brief, Game map brief,
+  Experiment log, and Creative decision remain named editable starting points. Template cards use
+  exact borders and a selected inset rather than decorative imagery or color coding.
+- **Editing:** the hosted surface supplies the existing Blocks editor. The portable default editor
+  exposes every block text field while preserving block type, IDs, children, and optional metadata;
+  it never converts the canonical document to Markdown. A save error or revision conflict leaves the
+  title and document draft in place; a conflict exposes explicit `Reload latest` before replacing
+  either. Title and editor inputs are inert during open/create/save requests so a late response cannot
+  overwrite keystrokes entered after a request began. Successful create/save refreshes the
+  direct-child list and settles the returned server Page.
+- **Source files:** helper copy explains that DAW sessions, engine maps, reference media, and other
+  binaries stay in their source tools; Pages record paths, URLs, observations, and decisions.
+- **Responsive behavior:** at 1280 px the list and editor use a 280 px / flexible split; at 768 px
+  the list remains a narrower first column; below 768 px the flow becomes one column with all named
+  controls at least `--control-lg`. There is no primary-content horizontal scroll at 375 px.
+- **Accessibility:** Project, template, and Page controls retain visible labels; selected documents
+  use `aria-current`; creation and save status use native busy/disabled semantics; errors remain
+  inline adjacent to the action that failed; focus order follows selector, create controls, Page
+  list, title, editor, then Save.
+
 ## 6. Motion & Interaction
 
 ### Timing tokens
@@ -458,7 +527,7 @@ entity-backed mutations; the browser does not infer a successful registry outcom
 | `Escape` | Palette/popover/dialog/peek | Close the topmost dismissible layer and restore trigger focus |
 | `Tab` / `Shift+Tab` | Everywhere | Follow DOM/task order; trap within modal layers only |
 | Arrow keys | Tabs/listbox/menu | Follow the component's ARIA pattern |
-| `Move…` action | Board card | Open keyboard-accessible destination chooser; pointer drag is never required |
+| `Move...` action | Board card | Open keyboard-accessible destination chooser; pointer drag is never required |
 
 Inputs, textareas, selects, content rendered as editors, open comboboxes, and active IME composition are guarded from global shortcuts. Do not hijack browser Find, Back, Refresh, or standard text-editing keys.
 
@@ -501,7 +570,7 @@ Depth comes from warm-neutral surface steps and precise borders. Shadows are res
 - All R4 tasks are keyboard-complete: login; create/edit/filter; switch list/board; open/close peek; move board card; add relation/comment; save view; search; archive/restore; import; export.
 - `:focus-visible` uses `--focus-ring` and is never removed. Selection and focus can coexist visibly.
 - Modal dialog, mobile navigation, command palette, and mobile peek trap focus, make background inert, close on Escape when safe, and restore trigger focus. Side-by-side desktop peek does not trap focus.
-- Pointer drag always has `Move…` plus ordered destination controls. Reordering workflow states and sort entries also has Up/Down alternatives.
+- Pointer drag always has `Move...` plus ordered destination controls. Reordering workflow states and sort entries also has Up/Down alternatives.
 
 ### Screen reader and live feedback
 

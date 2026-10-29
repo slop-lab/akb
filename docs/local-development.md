@@ -6,14 +6,14 @@ tokens in URLs.
 
 ## Exact inputs
 
-- Node.js `26.12.1` (`.node-version`; npm `11.20.0` is bundled). Docker uses the exact
+- Node.js `26.12.1` (`.node-version`). Docker uses the exact
   multi-platform image digest recorded in `Dockerfile`.
 - PostgreSQL `17.6` in Compose and PostgreSQL 17 clients in the application image, both using the
   exact recorded multi-platform image digest.
 - Blocks commit `df6f800828cd58acd2af65c32e7341609601be89` under ignored `.deps/blocks`.
-- pnpm `10.17.1`, invoked ephemerally by `npm exec`; no global install is required.
+- pnpm `10.17.1`, pinned by the root `packageManager` field.
 
-The Blocks repository is not an npm dependency, tracked vendor tree, or submodule. Do not modify it
+The Blocks repository is not a root workspace dependency, tracked vendor tree, or submodule. Do not modify it
 for AKB-only work.
 
 ## Initialize ignored local state
@@ -59,14 +59,14 @@ ignored `secrets/` only when absent; reruns preserve existing files and never pr
 Install the root lockfile, then prepare Blocks:
 
 ```sh
-npm ci
-npm run setup:blocks
+pnpm install --frozen-lockfile
+pnpm run setup:blocks
 ```
 
 `setup:blocks` verifies the GitHub origin, refuses a non-Git or dirty checkout, fetches the exact
 commit only when needed, checks it out detached, installs its frozen lockfile without lifecycle
 scripts, and explicitly builds its packages. To validate an existing checkout without installing
-or changing anything, run `npm run setup:blocks -- --check`.
+or changing anything, run `pnpm run setup:blocks --check`.
 
 ## Docker Compose: complete local service
 
@@ -109,13 +109,14 @@ browser.
 docker compose up --detach postgres
 export DATABASE_URL="postgres://afw:$(cat secrets/postgres-password)@127.0.0.1:5432/afw"
 export R4_CURSOR_SIGNING_KEY="$(cat secrets/cursor-signing-key)"
-npm run migrate:postgres
-npm run build:r4
-npm run start:r4
+pnpm run migrate:postgres
+pnpm run build:r4
+pnpm run start:r4
 ```
 
-The authenticated server and same-origin UI are then at `http://127.0.0.1:3001`. `npm start` is the
-historical unauthenticated in-memory demo and is not the supported integrated development server.
+The authenticated server and same-origin UI are then at `http://127.0.0.1:3001`. The historical
+`start` script is the unauthenticated in-memory demo and is not the supported integrated development
+server.
 
 ### Scoped development principals
 
@@ -148,7 +149,7 @@ loopback defaults only when the corresponding environment variables are absent, 
 repository root, and starts the authenticated R4 server in the foreground. Build the UI first:
 
 ```sh
-npm run build:r4
+pnpm run build:r4
 node script/start-local.mjs
 ```
 
@@ -203,7 +204,7 @@ the workspace runtime. Do not mount a host Docker/controller socket, embed beare
 legacy `.dim/` privileged agent stack to publish the application. Tokens stay in request headers,
 never in the registered URL.
 
-For UI iteration after the backend is running, use `npm run web:dev`. Its Vite server is
+For UI iteration after the backend is running, use `pnpm run web:dev`. Its Vite server is
 `http://127.0.0.1:5173` and proxies API requests to the configured local backend. Keep persisted
 application data in PostgreSQL, server logs in the foreground or Compose logs, and generated web
 assets in `apps/web/dist`.
@@ -213,9 +214,9 @@ assets in `apps/web/dist`.
 Lightweight setup checks:
 
 ```sh
-npm run setup:blocks -- --check
-npm run web:typecheck
-npm run web:build
+pnpm run setup:blocks --check
+pnpm run web:typecheck
+pnpm run web:build
 docker compose config --quiet
 ```
 

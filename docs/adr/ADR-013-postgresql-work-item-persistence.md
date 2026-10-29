@@ -31,7 +31,7 @@ The PostgreSQL adapter does not preserve the finite capacities of the bounded de
 adapter. Those limits protect process memory and are not a durable-domain quota. Removing those
 adapter-specific limits avoids globally serializing every durable mutation on one quota counter.
 
-Migrations run only through `npm run migrate:postgres`; application startup never mutates schema.
+Migrations run only through `pnpm run migrate:postgres`; application startup never mutates schema.
 `DATABASE_URL` is mandatory for migration, administration, and PostgreSQL server commands. Committed
 migration files are immutable and migration tracking verifies SHA-256 checksums. Legacy metadata may
 backfill only migration 001 at its pinned known digest. ADR-014 proposes the subsequently implemented
@@ -70,10 +70,10 @@ delivery, replay APIs, retention, telemetry, backup/restore, or full R3.
 
 ## Verification
 
-`npm run test:postgres` requires a real `DATABASE_URL` and never skips. It proves restart persistence,
+`pnpm run test:postgres` requires a real `DATABASE_URL` and never skips. It proves restart persistence,
 same-base patch concurrency, duplicate-create replay, transaction rollback across current/history/
 event/idempotency records, workspace list scoping, and the asynchronous HTTP surface. Default
-`npm run check` continues to cover the in-memory adapter; PostgreSQL verification remains an explicit
+`pnpm run check` continues to cover the in-memory adapter; PostgreSQL verification remains an explicit
 separate gate while CI runner availability is deferred.
 
 ## Related Decisions

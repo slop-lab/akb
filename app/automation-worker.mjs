@@ -1,3 +1,4 @@
+// @ts-check
 import { AutomationWorker } from "../build/src/automation/worker.js"
 import { createPostgresClient, databaseUrlFromEnvironment } from "../build/src/postgres/client.js"
 import { automationWorkerConfiguration } from "./automation-worker-config.mjs"

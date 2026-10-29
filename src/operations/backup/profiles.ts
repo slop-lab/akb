@@ -5,7 +5,7 @@ import {
   SCHEMA_009_TABLES,
   SCHEMA_010_TABLES,
 } from "./resources.ts"
-import { SCHEMA_016_ADDITIONAL_TABLES } from "./resources-r8.ts"
+import { SCHEMA_016_ADDITIONAL_TABLES, SCHEMA_017_ADDITIONAL_TABLES } from "./resources-r8.ts"
 
 export const SCHEMA_004_MIGRATIONS = [
   {
@@ -90,6 +90,22 @@ export const SCHEMA_016_MIGRATIONS = [
   },
 ] as const
 
+export const SCHEMA_017_MIGRATIONS = [
+  ...SCHEMA_016_MIGRATIONS,
+  {
+    name: "017_project_notebooks.sql",
+    checksum: "6b0082c343886b3853997e1020750d5ccc35904d1235df95612c651559394fa0",
+  },
+] as const
+
+export const SCHEMA_018_MIGRATIONS = [
+  ...SCHEMA_017_MIGRATIONS,
+  {
+    name: "018_project_notebook_retention.sql",
+    checksum: "1b45ce5956ba727b2b1ea78638fcb043591f0ea4f422c5bfede6e110c35720ad",
+  },
+] as const
+
 export const SCHEMA_004_FINGERPRINT =
   "9779ac0afb4287e3453a658daca57f10ebb3cd7e37d9bb77521526a08e1192eb"
 export const SCHEMA_008_FINGERPRINT =
@@ -100,6 +116,12 @@ export const SCHEMA_010_FINGERPRINT =
 export const SCHEMA_016_FINGERPRINT =
   "3f9e29ddb69d8e3d5d5b0a7108eebdf3f84e8be3da367d1cc9bbbe1aa2e9230b"
 export const SCHEMA_016_TABLES = [...SCHEMA_010_TABLES, ...SCHEMA_016_ADDITIONAL_TABLES] as const
+export const SCHEMA_017_FINGERPRINT =
+  "6ca931bc2f9089970d232665d6ccc39a294e7bf53909cd48bd02821b8f085fdd"
+export const SCHEMA_017_TABLES = [...SCHEMA_016_TABLES, ...SCHEMA_017_ADDITIONAL_TABLES] as const
+export const SCHEMA_018_FINGERPRINT =
+  "d6b795527ac83dba80e21712ee1760da06e2bba162f4d4486e50a7171c878188"
+export const SCHEMA_018_TABLES = SCHEMA_017_TABLES
 
 export type BackupProfile = {
   readonly id:
@@ -108,12 +130,16 @@ export type BackupProfile = {
     | "r4-schema-009-public-v1"
     | "r4-schema-010-public-v1"
     | "r8-schema-016-public-v1"
+    | "project-kb-schema-017-public-v1"
+    | "project-kb-schema-018-public-v1"
   readonly finalMigration:
     | "004_space_acl.sql"
     | "008_human_query_import_retention.sql"
     | "009_legacy_workflow_revision_history.sql"
     | "010_legacy_work_query_projection.sql"
     | "016_automation.sql"
+    | "017_project_notebooks.sql"
+    | "018_project_notebook_retention.sql"
   readonly migrations: readonly { readonly name: string; readonly checksum: string }[]
   readonly tables: readonly TableResource[]
   readonly schemaFingerprint: string
@@ -159,6 +185,22 @@ export const PROFILE_016: BackupProfile = Object.freeze({
   schemaFingerprint: SCHEMA_016_FINGERPRINT,
 })
 
+export const PROFILE_017: BackupProfile = Object.freeze({
+  id: "project-kb-schema-017-public-v1",
+  finalMigration: "017_project_notebooks.sql",
+  migrations: SCHEMA_017_MIGRATIONS,
+  tables: SCHEMA_017_TABLES,
+  schemaFingerprint: SCHEMA_017_FINGERPRINT,
+})
+
+export const PROFILE_018: BackupProfile = Object.freeze({
+  id: "project-kb-schema-018-public-v1",
+  finalMigration: "018_project_notebook_retention.sql",
+  migrations: SCHEMA_018_MIGRATIONS,
+  tables: SCHEMA_018_TABLES,
+  schemaFingerprint: SCHEMA_018_FINGERPRINT,
+})
+
 export function profileFromLedger(
   ledger: readonly { readonly name: string; readonly checksum: string }[],
 ): BackupProfile {
@@ -167,6 +209,8 @@ export function profileFromLedger(
   if (JSON.stringify(ledger) === JSON.stringify(PROFILE_009.migrations)) return PROFILE_009
   if (JSON.stringify(ledger) === JSON.stringify(PROFILE_010.migrations)) return PROFILE_010
   if (JSON.stringify(ledger) === JSON.stringify(PROFILE_016.migrations)) return PROFILE_016
+  if (JSON.stringify(ledger) === JSON.stringify(PROFILE_017.migrations)) return PROFILE_017
+  if (JSON.stringify(ledger) === JSON.stringify(PROFILE_018.migrations)) return PROFILE_018
   throw new TypeError("database migration ledger has no registered backup profile")
 }
 
@@ -182,5 +226,9 @@ export function profileFromId(id: BackupProfile["id"]): BackupProfile {
       return PROFILE_010
     case "r8-schema-016-public-v1":
       return PROFILE_016
+    case "project-kb-schema-017-public-v1":
+      return PROFILE_017
+    case "project-kb-schema-018-public-v1":
+      return PROFILE_018
   }
 }

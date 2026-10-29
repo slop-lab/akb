@@ -699,6 +699,14 @@
   gap: var(--space-5);
   min-inline-size: 0;
 }
+.project-library-picker {
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr) minmax(min(var(--login-panel-max), 100%), 1fr);
+}
+.project-library-picker > div:first-child {
+  display: grid;
+  gap: var(--space-1);
+}
 .document-workspace .panel__header > .field {
   flex: 1 1 auto;
 }

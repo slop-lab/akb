@@ -1,3 +1,4 @@
+// @ts-check
 import { readFile, writeFile } from "node:fs/promises"
 import { z } from "zod"
 import {
@@ -61,7 +62,9 @@ function jsonBody(schema) {
 }
 
 function response(description, schema, mediaType = "application/json") {
-  return schema === undefined ? { description } : { description, content: { [mediaType]: { schema: jsonSchema(schema) } } }
+  return schema === undefined
+    ? { description }
+    : { description, content: { [mediaType]: { schema: jsonSchema(schema) } } }
 }
 
 function operation(path, options) {
@@ -98,21 +101,69 @@ function commandPaths() {
 
 const getRoutes = [
   ["/api/human/v1/workspaces/{workspaceId}/bootstrap", "human-bootstrap", BootstrapSchema],
-  ["/api/human/v1/workspaces/{workspaceId}/spaces", "list-readable-spaces", z.strictObject({ spaces: z.array(SpaceSchema) })],
-  ["/api/human/v1/workspaces/{workspaceId}/spaces/{spaceId}/config", "read-space-config", SpaceConfigSchema],
+  [
+    "/api/human/v1/workspaces/{workspaceId}/spaces",
+    "list-readable-spaces",
+    z.strictObject({ spaces: z.array(SpaceSchema) }),
+  ],
+  [
+    "/api/human/v1/workspaces/{workspaceId}/spaces/{spaceId}/config",
+    "read-space-config",
+    SpaceConfigSchema,
+  ],
   ["/api/human/v1/workspaces/{workspaceId}/projects/{projectId}", "read-project", ProjectSchema],
-  ["/api/human/v1/workspaces/{workspaceId}/work-items/{workItemId}", "read-r4-work-item", WorkItemDetailSchema],
-  ["/api/human/v1/workspaces/{workspaceId}/entities/{entityId}/history", "read-entity-history", z.array(HistoryEntrySchema)],
-  ["/api/human/v1/workspaces/{workspaceId}/entities/{entityId}/relations", "read-entity-relations", z.array(RelationSchema)],
-  ["/api/human/v1/workspaces/{workspaceId}/entities/{entityId}/comments", "read-entity-comments", z.array(CommentSchema)],
-  ["/api/human/v1/workspaces/{workspaceId}/saved-views", "list-saved-views", z.strictObject({ views: z.array(SavedViewSchema) })],
+  [
+    "/api/human/v1/workspaces/{workspaceId}/work-items/{workItemId}",
+    "read-r4-work-item",
+    WorkItemDetailSchema,
+  ],
+  [
+    "/api/human/v1/workspaces/{workspaceId}/entities/{entityId}/history",
+    "read-entity-history",
+    z.array(HistoryEntrySchema),
+  ],
+  [
+    "/api/human/v1/workspaces/{workspaceId}/entities/{entityId}/relations",
+    "read-entity-relations",
+    z.array(RelationSchema),
+  ],
+  [
+    "/api/human/v1/workspaces/{workspaceId}/entities/{entityId}/comments",
+    "read-entity-comments",
+    z.array(CommentSchema),
+  ],
+  [
+    "/api/human/v1/workspaces/{workspaceId}/saved-views",
+    "list-saved-views",
+    z.strictObject({ views: z.array(SavedViewSchema) }),
+  ],
 ]
 
 const jsonRoutes = [
-  ["/api/human/v1/workspaces/{workspaceId}/projects/query", "query-projects", ProjectQuerySchema, ProjectPageSchema],
-  ["/api/human/v1/workspaces/{workspaceId}/work-items/query", "query-work-items", HumanWorkQuerySchema, QueryPageSchema],
-  ["/api/human/v1/workspaces/{workspaceId}/work-items/board", "query-work-board", BoardRequestSchema, BoardSchema],
-  ["/api/human/v1/workspaces/{workspaceId}/search", "search-r4", SearchRequestPagedSchema, SearchPageSchema],
+  [
+    "/api/human/v1/workspaces/{workspaceId}/projects/query",
+    "query-projects",
+    ProjectQuerySchema,
+    ProjectPageSchema,
+  ],
+  [
+    "/api/human/v1/workspaces/{workspaceId}/work-items/query",
+    "query-work-items",
+    HumanWorkQuerySchema,
+    QueryPageSchema,
+  ],
+  [
+    "/api/human/v1/workspaces/{workspaceId}/work-items/board",
+    "query-work-board",
+    BoardRequestSchema,
+    BoardSchema,
+  ],
+  [
+    "/api/human/v1/workspaces/{workspaceId}/search",
+    "search-r4",
+    SearchRequestPagedSchema,
+    SearchPageSchema,
+  ],
 ]
 
 function specialPaths(paths) {
@@ -223,7 +274,8 @@ const document = {
   info: {
     title: "Agent-First Workspace R3/R4 API",
     version: "0.1.0-r4-local",
-    description: "Generated inventory for the locally implemented R3/R4 surface. It is not evidence that roadmap phase gates or CI have passed.",
+    description:
+      "Generated inventory for the locally implemented R3/R4 surface. It is not evidence that roadmap phase gates or CI have passed.",
   },
   security: [{ bearerAuth: [] }],
   paths: specialPaths(commandPaths()),
@@ -234,7 +286,9 @@ const content = `${JSON.stringify(document, null, 2)}\n`
 if (process.argv.includes("--check")) {
   const current = await readFile(OUTPUT_PATH, "utf8").catch(() => "")
   if (current !== content) {
-    process.stderr.write("docs/openapi-r4.json is not generated from the current R4 route schemas\n")
+    process.stderr.write(
+      "docs/openapi-r4.json is not generated from the current R4 route schemas\n",
+    )
     process.exitCode = 1
   }
 } else {

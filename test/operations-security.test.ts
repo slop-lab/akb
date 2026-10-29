@@ -10,7 +10,13 @@ import {
   loadBackupEncryptionKey,
 } from "../src/operations/backup/encryption.ts"
 import { createArtifactDirectory, inspectArtifact } from "../src/operations/backup/files.ts"
-import { PROFILE_004, PROFILE_010, PROFILE_016 } from "../src/operations/backup/profiles.ts"
+import {
+  PROFILE_004,
+  PROFILE_010,
+  PROFILE_016,
+  PROFILE_017,
+  PROFILE_018,
+} from "../src/operations/backup/profiles.ts"
 import { applyBackupRetention, planBackupRetention } from "../src/operations/backup/retention.ts"
 import { planForwardUpgrade } from "../src/operations/backup/upgrade.ts"
 
@@ -120,6 +126,22 @@ test("profile 016 includes every knowledge authority table", () => {
     PROFILE_016.tables.some(({ name }) => name === "knowledge_review_policies"),
     true,
   )
+})
+
+test("profile 017 extends profile 016 only with the ordered project notebook resource", () => {
+  assert.deepEqual(PROFILE_017.tables.slice(0, PROFILE_016.tables.length), PROFILE_016.tables)
+  assert.deepEqual(PROFILE_017.tables.at(-1), {
+    name: "project_notebooks",
+    order: [
+      { column: "workspace_id", kind: "text" },
+      { column: "project_id", kind: "text" },
+      { column: "page_id", kind: "text" },
+    ],
+  })
+})
+
+test("profile 018 preserves the profile 017 table catalog", () => {
+  assert.deepEqual(PROFILE_018.tables, PROFILE_017.tables)
 })
 
 test("plaintext activation acknowledgement requires the exact unsafe phrase", () => {

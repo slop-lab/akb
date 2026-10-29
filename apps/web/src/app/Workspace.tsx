@@ -1,6 +1,10 @@
 import { SignOut } from "@phosphor-icons/react"
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from "react"
 import { Button } from "../components/primitives.tsx"
+import {
+  type ContentWorkflowDraft,
+  EMPTY_CONTENT_WORKFLOW_DRAFT,
+} from "../features/content/content-workflow-state.ts"
 import { KnowledgeScreen } from "../features/knowledge/KnowledgeScreen.tsx"
 import { PlanningScreen } from "../features/planning/PlanningScreen.tsx"
 import { ProjectsScreen } from "../features/projects/ProjectsScreen.tsx"
@@ -9,10 +13,6 @@ import { SearchScreen } from "../features/search/SearchScreen.tsx"
 import { SpacesScreen } from "../features/spaces/SpacesScreen.tsx"
 import { TransferScreen } from "../features/transfer/TransferScreen.tsx"
 import { WorkScreen } from "../features/work/WorkScreen.tsx"
-import {
-  type ContentWorkflowDraft,
-  EMPTY_CONTENT_WORKFLOW_DRAFT,
-} from "../features/content/content-workflow-state.ts"
 import { type AppLocation, hrefForLocation, parseLocation, withWorkspace } from "./navigation.ts"
 import type { Session } from "./types.ts"
 import { WorkspaceNavigation } from "./WorkspaceNavigation.tsx"
@@ -24,6 +24,10 @@ const ContentScreen = lazy(async () => {
 const AutomationScreen = lazy(async () => {
   const module = await import("../features/automation/AutomationScreen.tsx")
   return { default: module.AutomationScreen }
+})
+const ProjectLibraryScreen = lazy(async () => {
+  const module = await import("../features/project-kb/ProjectLibraryScreen.tsx")
+  return { default: module.ProjectLibraryScreen }
 })
 
 export function Workspace({
@@ -149,6 +153,27 @@ export function Workspace({
         ) : null}
         {route === "search" ? <SearchScreen {...props} /> : null}
         {route === "planning" ? <PlanningScreen {...props} /> : null}
+        {route === "library" ? (
+          <Suspense fallback={<p role="status">Loading Project library...</p>}>
+            <ProjectLibraryScreen
+              {...props}
+              {...(location.route === "library" && location.projectId !== undefined
+                ? { projectId: location.projectId }
+                : {})}
+              {...(location.route === "library" && location.pageId !== undefined
+                ? { pageId: location.pageId }
+                : {})}
+              onLocationChange={(projectId, pageId) =>
+                navigate({
+                  route: "library",
+                  ...(projectId === undefined ? {} : { projectId }),
+                  ...(pageId === undefined ? {} : { pageId }),
+                })
+              }
+              onOpenProjects={() => navigate({ route: "projects" })}
+            />
+          </Suspense>
+        ) : null}
         {route === "content" ? (
           <Suspense fallback={<p role="status">Loading page...</p>}>
             <ContentScreen

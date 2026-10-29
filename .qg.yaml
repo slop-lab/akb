@@ -1,0 +1,61 @@
+presets: [js]
+
+scan:
+  defaultMode: full
+
+hooks:
+  preCommit:
+    installation: auto
+
+artifacts:
+  generated:
+    include:
+      - .deps/**
+      - .omo/**
+      - .dim/**
+      - .codegraph/**
+      - .env
+      - .env.*
+      - build/**
+      - secrets/**
+      - playwright-report/**
+      - test-results/**
+      - apps/web/dist/**
+      - packages/*/dist/**
+      - docs/openapi*.json
+      - '**/*.tgz'
+    exclude:
+      - .env.example
+
+rules:
+  package/allowed-name:
+    severity: error
+    options:
+      allowedPatterns:
+        - '@slop-lab/akb(-.*)?'
+        - '@this-project/.*'
+      ignoredDirectories:
+        - .git
+        - .local
+        - .qg
+        - node_modules
+        - dist
+        - .deps
+        - .omo
+        - .dim
+        - .codegraph
+        - build
+        - secrets
+        - playwright-report
+        - test-results
+
+checks:
+  - name: package-scopes
+    command: node
+    args: [script/package-name-policy.ts]
+    message: Use the AKB publish scope or explicitly private project-local scope.
+  - name: code
+    command: pnpm
+    args: [run, 'check:code']
+    timeoutMs: 300000
+    message: Fix formatting, lint, type, build, or test failures before committing.

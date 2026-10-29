@@ -27,6 +27,9 @@ historical unauthenticated `npm start` demo. `node script/start-local.mjs` suppl
 configuration to that same real server. `node script/dev-principals.mjs` creates the scoped
 development identities once and preserves existing state on rerun.
 
+Those npm spellings and the validation commands below are preserved as evidence for this historical
+branch. Current operators use the pnpm commands in [local-development.md](local-development.md).
+
 ## What was actually exercised
 
 The live AKB acceptance used real PostgreSQL and separate author/reviewer browser contexts:

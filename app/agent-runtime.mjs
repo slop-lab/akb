@@ -1,3 +1,4 @@
+// @ts-check
 import { runAgentCli } from "../src/agent-runtime/cli.ts"
 import { createWorkspaceToolBundle, describeWorkspaceTools } from "../src/agent-tools/index.ts"
 

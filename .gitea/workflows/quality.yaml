@@ -13,19 +13,27 @@ jobs:
     container: node:26.12.1-bookworm-slim@sha256:28147155d47dc31abe0a46e0d12b59b2fb3d0a2dcc5dc65fce76a074180b16fe
     timeout-minutes: 15
     steps:
+      - name: Install Git and pnpm
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends ca-certificates git
+          rm -rf /var/lib/apt/lists/*
+          npm install --global pnpm@10.17.1
       - name: Check out repository
         uses: builtin:checkout
         with:
           fetch-depth: 1
-      - name: Print Node and npm versions
+      - name: Print Node and pnpm versions
         run: |
           node --version
-          npm --version
+          pnpm --version
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Set up Blocks
+        run: pnpm run setup:blocks
       - name: Run checks
-        run: npm run check
+        run: pnpm run check
       - name: Build
-        run: npm run build
+        run: pnpm run build
       - name: Audit dependencies
-        run: npm audit --audit-level=high
+        run: pnpm audit --audit-level=high

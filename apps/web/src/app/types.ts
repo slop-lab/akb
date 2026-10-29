@@ -18,6 +18,7 @@ export type Route =
   | "saved"
   | "search"
   | "planning"
+  | "library"
   | "content"
   | "runtime"
   | "knowledge"

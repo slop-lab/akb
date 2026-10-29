@@ -73,3 +73,14 @@ export const SCHEMA_016_ADDITIONAL_TABLES = [
   { name: "work_item_modules", order: [{ column: "work_item_id", kind: "text" }, { column: "module_id", kind: "text" }] },
   { name: "work_item_planning", order: [{ column: "work_item_id", kind: "text" }] },
 ] as const satisfies readonly TableResource[]
+
+export const SCHEMA_017_ADDITIONAL_TABLES = [
+  {
+    name: "project_notebooks",
+    order: [
+      { column: "workspace_id", kind: "text" },
+      { column: "project_id", kind: "text" },
+      { column: "page_id", kind: "text" },
+    ],
+  },
+] as const satisfies readonly TableResource[]

@@ -10,7 +10,7 @@ import { eventId, workItemId } from "../src/work-items/identifiers.ts"
 import {
   createUnmigratedPostgresTestFixture,
   type UnmigratedPostgresTestFixture,
-} from "./postgres-fixture.ts"
+} from "./postgres/postgres-fixture.ts"
 import { sendRawRequest } from "./raw-http-fixture.ts"
 
 const CommandEnvelopeSchema = z.strictObject({

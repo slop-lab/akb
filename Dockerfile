@@ -1,21 +1,26 @@
-FROM node:26.12.1-bookworm-slim@sha256:28147155d47dc31abe0a46e0d12b59b2fb3d0a2dcc5dc65fce76a074180b16fe AS build
+FROM node:26.12.1-bookworm-slim@sha256:28147155d47dc31abe0a46e0d12b59b2fb3d0a2dcc5dc65fce76a074180b16fe AS node-base
+
+RUN npm install --global pnpm@10.17.1
+
+FROM node-base AS build
 
 WORKDIR /app
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/project-kb/package.json packages/project-kb/package.json
+RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY script/setup-blocks.mjs script/setup-blocks.mjs
-RUN npm run setup:blocks
+RUN pnpm run setup:blocks
 COPY . .
-RUN npm run build:r4 \
-    && npm prune --omit=dev \
+RUN pnpm run build:r4 \
+    && CI=true pnpm prune --prod --ignore-scripts \
     && rm -rf .deps
 
 FROM postgres:17.6-bookworm@sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3 AS postgres-client
 
-FROM node:26.12.1-bookworm-slim@sha256:28147155d47dc31abe0a46e0d12b59b2fb3d0a2dcc5dc65fce76a074180b16fe AS runtime
+FROM node-base AS runtime
 
 ENV NODE_ENV=production \
     PATH=/usr/lib/postgresql/17/bin:$PATH
@@ -30,4 +35,4 @@ USER node
 EXPOSE 3001
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=4 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-CMD ["npm", "run", "start:r4"]
+CMD ["pnpm", "run", "start:r4"]

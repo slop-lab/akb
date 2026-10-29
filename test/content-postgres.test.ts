@@ -13,7 +13,7 @@ import { eventId, workItemId } from "../src/work-items/identifiers.ts"
 import {
   createUnmigratedPostgresTestFixture,
   type UnmigratedPostgresTestFixture,
-} from "./postgres-fixture.ts"
+} from "./postgres/postgres-fixture.ts"
 
 let fixture: UnmigratedPostgresTestFixture
 let server: Server | undefined

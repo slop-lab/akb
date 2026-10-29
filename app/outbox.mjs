@@ -1,3 +1,4 @@
+// @ts-check
 import { runOutboxCli } from "../src/outbox/cli.ts"
 
 const controller = new AbortController()

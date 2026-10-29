@@ -51,18 +51,19 @@ Pages and the authenticated shell are lazy-loaded so the editor is not part of l
 ## Setup and operator authority
 
 ```sh
-npm ci
-npm run setup:blocks
-npm run migrate:postgres
-npm run build:r4
-npm run start:r4
+pnpm install --frozen-lockfile
+pnpm run setup:blocks
+pnpm run migrate:postgres
+pnpm run build:r4
+pnpm run start:r4
 ```
 
-Use the exact Node.js `26.12.1` toolchain in `.node-version`. Supply database/signing secrets privately as described in the
-[R4 runbook](r4-local-runbook.md) and [R8 operations runbook](r8-operations.md).
+Use the exact Node.js `26.12.1` toolchain in `.node-version`. Supply database/signing secrets
+privately as described in the [R4 runbook](r4-local-runbook.md) and
+[R8 operations runbook](r8-operations.md).
 
 Existing owners retain their prior grants after upgrade. Operators explicitly assign feature
-permissions through `npm run admin -- set-permissions`, `provision-principal`,
+permissions through `pnpm run admin set-permissions`, `provision-principal`,
 `set-space-permissions`, and `set-entity-access`. These commands accept all registered permission
 atoms. `set-permissions` replaces the full grant set; include every permission to retain.
 `grant-r4-permissions` intentionally remains the original 15-permission bundle. No migration
@@ -71,14 +72,14 @@ silently grants newly introduced authority.
 ## Reproducible verification
 
 ```sh
-npm run check
-npm run web:typecheck
-npm run web:test
-npm run web:build
-npm run test:features:postgres  # requires DATABASE_URL; isolated disposable schemas
-npm run test:postgres
-npm run test:r4
-npm run test:backup            # requires PostgreSQL 17 clients and database creation authority
+pnpm run check
+pnpm run web:typecheck
+pnpm run web:test
+pnpm run web:build
+pnpm run test:features:postgres  # requires DATABASE_URL; isolated disposable schemas
+pnpm run test:postgres
+pnpm run test:r4
+pnpm run test:backup            # requires PostgreSQL 17 clients and database creation authority
 docker compose config --quiet
 ```
 

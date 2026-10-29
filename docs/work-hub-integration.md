@@ -129,7 +129,7 @@ These routes are for the AKB review UI, not the Work Hub connector:
 
 - `GET /api/knowledge/v1/workspaces/:workspaceId/proposals?status=pending&limit=50` returns
   `{ "proposals": KnowledgeProposalSummary[] }`; status is one of `pending`, `accepted`,
-  `rejected`, or `changes_requested`, and limit is 1–100.
+  `rejected`, or `changes_requested`, and limit is 1-100.
 - `GET /api/knowledge/v1/workspaces/:workspaceId/proposals/:proposalId` returns
   `{ "proposal": KnowledgeProposal }`, including candidate, ordered sources, relations,
   proposer ID, creation time, status, and proposal revision.

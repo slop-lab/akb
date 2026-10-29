@@ -12,9 +12,9 @@ exit scenarios have not passed. No canonical product section is marked `Implemen
 
 Two application generations coexist intentionally:
 
-- `npm start` runs the historical unauthenticated in-memory demo on `127.0.0.1:3000`.
-- `npm run start:postgres` runs the authenticated legacy PostgreSQL Work Item surface.
-- `npm run start:r4` runs the authenticated R3/R4 PostgreSQL application and same-origin web build
+- `pnpm start` runs the historical unauthenticated in-memory demo on `127.0.0.1:3000`.
+- `pnpm run start:postgres` runs the authenticated legacy PostgreSQL Work Item surface.
+- `pnpm run start:r4` runs the authenticated R3/R4 PostgreSQL application and same-origin web build
   on `127.0.0.1:3001` by default.
 
 The locally delivered R3/R4 checkpoint includes:
@@ -62,7 +62,7 @@ open. See the delivery inventory for exact supported paths and evidence boundari
 ## API Contracts
 
 A bounded [Part-based agent runtime](docs/agent-runtime.md) is available through
-`npm run agent -- help`, with read-only Workspace tools by default and ACP stdio support.
+`pnpm run agent help`, with read-only Workspace tools by default and ACP stdio support.
 It requires Node.js 24.22.0 or newer. It is a trusted local adapter over existing R4 authority,
 not completion of the planned R6 identity, persistence, or progressive-retrieval protocol.
 
@@ -99,24 +99,29 @@ begin `/api/human/v1/workspaces/:workspaceId`; generic replay is
 
 ## Local R4 Startup
 
+The independent [Project library](docs/project-library.md) supports lightweight music, game-map,
+and other production notebooks. Its separate
+[`@slop-lab/akb-project-kb` package](packages/project-kb/README.md) exports server, browser-client,
+contracts, and embeddable React entrypoints for external applications.
+
 The [document-based specification workflow](docs/document-workflow.md) uses ordinary Pages for
 shared guidance, feature briefs, and decision records. It includes live title discovery and bounded
 explicit Page/Knowledge revision contexts for humans and agents, without a semantic inheritance
 engine or separate SpecBase service.
 
-Use exact Node.js 26.12.1, npm, a PostgreSQL 17 database, and PostgreSQL 17 backup clients when
+Use exact Node.js 26.12.1, pnpm 10.17.1, a PostgreSQL 17 database, and PostgreSQL 17 backup clients when
 exercising the backup gate. The complete fresh-clone sequence, including the ignored pinned Blocks
 checkout, is in the [local development guide](docs/local-development.md). The abbreviated native
 flow is:
 
 ```sh
-npm ci
-npm run setup:blocks
-DATABASE_URL='postgres://operator@host/database' npm run migrate:postgres
-npm run build:r4
+pnpm install --frozen-lockfile
+pnpm run setup:blocks
+DATABASE_URL='postgres://operator@host/database' pnpm run migrate:postgres
+pnpm run build:r4
 DATABASE_URL='postgres://operator@host/database' \
 R4_CURSOR_SIGNING_KEY="$R4_CURSOR_SIGNING_KEY" \
-npm run start:r4
+pnpm run start:r4
 ```
 
 Generate `R4_CURSOR_SIGNING_KEY` as at least 32 random bytes encoded with base64url, keep it outside
@@ -127,25 +132,30 @@ The administrator CLI bootstraps the first human credential, adds the R4 permiss
 existing member, and manages private-Space grants. Tokens are printed once; only SHA-256 digests are
 stored. Do not place bearer tokens in URLs, browser storage, fixtures, or documentation.
 
-The historical `npm start` demo remains unchanged and process-local. The obsolete tracked `.dim/`
+The historical `start` demo remains unchanged and process-local. The obsolete tracked `.dim/`
 agent/DinD lifecycle is proposed for removal in a separate protected configuration change; it is
 not application source or evidence of product completion.
 
 ## Development and Evidence Gates
 
 ```sh
-npm run format:check
-npm run lint
-npm run typecheck
-npm run build
-npm test
-npm run test:postgres   # requires DATABASE_URL and never skips
-npm run test:r4         # requires DATABASE_URL and never skips
-npm run test:commands   # requires DATABASE_URL and never skips
-npm run test:backup     # requires PostgreSQL 17 tools and database creation authority
+pnpm run check
+pnpm run test:postgres   # requires DATABASE_URL and never skips
+pnpm run test:r4         # requires DATABASE_URL and never skips
+pnpm run test:commands   # requires DATABASE_URL and never skips
+pnpm run test:backup     # requires PostgreSQL 17 tools and database creation authority
 node --test build/test/r4-route-inventory.test.js
 node script/generate-api-r4.mjs --check
 ```
+
+`pnpm run check` runs the full QG gate. QG always applies its CLI `recommendedRules` base; the root
+`.qg.yaml` additionally enables the installed optional `js` preset. The configuration enforces the
+public package pattern `@slop-lab/akb(-.*)?` and private package pattern `@this-project/.*`. QG's
+`package-scopes` check inventories the pnpm workspace and cross-checks each package's `private` flag:
+publishable packages require the `@slop-lab` pattern, while private packages require
+`@this-project`. Its code tools gate invokes `check:code` for formatting, lint, type, build, and test
+checks. The recommended base is a quality policy, not a claim that QG runs every available formatter
+or tool.
 
 These are named local gates. A local exit code of zero is evidence for that command only. Prior
 recorded runs reported 71 `test:postgres`, 28 `test:backup`, and 141 `test:r4` tests on an older

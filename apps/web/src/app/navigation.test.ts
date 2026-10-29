@@ -53,3 +53,31 @@ test("reports invalid historical revisions instead of substituting latest", () =
     revisionError: "Revision must be a positive integer.",
   })
 })
+
+test("roundtrips Project library selection in durable query state", () => {
+  // Given
+  const location = {
+    route: "library",
+    workspaceId: "workspace-1",
+    projectId: "project alpha",
+    pageId: "page 7",
+  } as const
+
+  // When
+  const href = hrefForLocation(location)
+  const parsed = parseLocation(new URL(href, "https://akb.example"))
+
+  // Then
+  expect(href).toBe("/workspaces/workspace-1/library?projectId=project+alpha&pageId=page+7")
+  expect(parsed).toEqual(location)
+})
+
+test("ignores malformed Project library identifiers without losing the route", () => {
+  // Given / When
+  const location = parseLocation(
+    new URL("https://akb.example/workspaces/workspace-1/library?projectId=&pageId=bad%2Fid"),
+  )
+
+  // Then
+  expect(location).toEqual({ route: "library", workspaceId: "workspace-1" })
+})

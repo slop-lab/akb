@@ -2,7 +2,7 @@ import type { TransactionSql } from "postgres"
 import { readMigrationCatalog } from "../../postgres/migrate.ts"
 import { backupError } from "./errors.ts"
 import { readTrustedLocalProfiles } from "./profile-catalog.ts"
-import { type BackupProfile, PROFILE_016 } from "./profiles.ts"
+import { type BackupProfile, PROFILE_018 } from "./profiles.ts"
 
 type MigrationEntry = { readonly name: string; readonly checksum: string }
 
@@ -31,7 +31,7 @@ export async function upgradeSchemaToCurrent(
   await readTrustedLocalProfiles()
   const migrations = await readMigrationCatalog()
   const local = migrations.map(({ version, checksum }) => ({ name: version, checksum }))
-  planForwardUpgrade(sourceProfile, PROFILE_016, local)
+  planForwardUpgrade(sourceProfile, PROFILE_018, local)
   const forward = migrations.slice(sourceProfile.migrations.length)
   await transaction`set local search_path = public`
   for (const migration of forward) {

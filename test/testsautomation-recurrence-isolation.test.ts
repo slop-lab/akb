@@ -11,7 +11,7 @@ import { ALL_WORK_PERMISSIONS } from "../src/identity/types.ts"
 import { createAuthenticatedPostgresServer } from "../src/postgres/authenticated-server.ts"
 import { migrateDatabase } from "../src/postgres/migrate.ts"
 import { eventId, workItemId } from "../src/work-items/identifiers.ts"
-import { createUnmigratedPostgresTestFixture } from "./postgres-fixture.ts"
+import { createUnmigratedPostgresTestFixture } from "./postgres/postgres-fixture.ts"
 import {
   type AutomationApi,
   close,

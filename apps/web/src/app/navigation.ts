@@ -9,14 +9,15 @@ type RevisionLocation = {
 export type AppLocation = LocationBase &
   (
     | ({ readonly route: "content"; readonly pageId?: string } & RevisionLocation)
+    | { readonly route: "library"; readonly projectId?: string; readonly pageId?: string }
     | ({ readonly route: "knowledge"; readonly knowledgeId?: string } & RevisionLocation)
     | { readonly route: "proposals"; readonly proposalId?: string }
-    | { readonly route: Exclude<Route, "content" | "knowledge" | "proposals"> }
+    | { readonly route: Exclude<Route, "content" | "knowledge" | "proposals" | "library"> }
   )
 
 const staticRouteFrom = (
   path: string,
-): Exclude<Route, "content" | "knowledge" | "proposals"> | undefined => {
+): Exclude<Route, "content" | "knowledge" | "proposals" | "library"> | undefined => {
   switch (path) {
     case "projects":
     case "spaces":
@@ -65,6 +66,16 @@ export function parseLocation(url: URL): AppLocation {
   const entityId = decodeSegment(qualified ? segments[3] : segments[1])
   const workspace = workspaceId === undefined ? {} : { workspaceId }
   switch (section) {
+    case "library": {
+      const projectId = decodeSegment(url.searchParams.get("projectId") ?? undefined)
+      const pageId = decodeSegment(url.searchParams.get("pageId") ?? undefined)
+      return {
+        route: "library",
+        ...workspace,
+        ...(projectId === undefined ? {} : { projectId }),
+        ...(pageId === undefined ? {} : { pageId }),
+      }
+    }
     case "pages":
       return {
         route: "content",
@@ -122,6 +133,13 @@ export function hrefForLocation(location: AppLocation): string {
         : `${prefix}/proposals/${encodeURIComponent(location.proposalId)}`
     case "projects":
       return `${prefix}/projects`
+    case "library": {
+      const query = new URLSearchParams()
+      if (location.projectId !== undefined) query.set("projectId", location.projectId)
+      if (location.pageId !== undefined) query.set("pageId", location.pageId)
+      const suffix = query.size === 0 ? "" : `?${query.toString()}`
+      return `${prefix}/library${suffix}`
+    }
     case "saved":
       return `${prefix}/saved-views`
     case "spaces":

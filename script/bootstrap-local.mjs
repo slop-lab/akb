@@ -1,3 +1,4 @@
+// @ts-check
 import { randomBytes } from "node:crypto"
 import { constants } from "node:fs"
 import { chmod, copyFile, mkdir, open } from "node:fs/promises"
