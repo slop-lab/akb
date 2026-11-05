@@ -118,8 +118,10 @@ The administrator CLI bootstraps the first human credential, adds the R4 permiss
 existing member, and manages private-Space grants. Tokens are printed once; only SHA-256 digests are
 stored. Do not place bearer tokens in URLs, browser storage, fixtures, or documentation.
 
-The historical `npm start` demo remains unchanged and process-local. `.dim/` remains preserved
-development infrastructure, not application source or evidence of product completion.
+The historical `npm start` demo remains unchanged and process-local. DIM uses an ordinary Git
+workspace; host-installed plugins own tooling, and the optional [repository policy](.dim/README.md)
+contains GitHub mappings rather than lifecycle hooks. These files are not application source or
+evidence of product completion.
 
 ## Development and Evidence Gates
 
