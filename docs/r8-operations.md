@@ -83,7 +83,7 @@ and explicitly reactivate integrations after inspection.
 
 ## Verification and known open gates
 
-Run `npm run check`, the PostgreSQL suites against PostgreSQL 17, `npm run test:backup`,
+Run `pnpm run check`, the PostgreSQL suites against PostgreSQL 17, `pnpm run test:backup`,
 `docker compose config --quiet`, and an actual encrypted backup/restore rehearsal for each release
 candidate. The following remain non-blocking recorded gaps rather than inferred passes:
 

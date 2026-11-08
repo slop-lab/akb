@@ -28,7 +28,9 @@ export async function restoreBackup(input: {
     | "r4-schema-009-public-v1"
     | "r4-schema-010-public-v1"
     | "r8-schema-016-public-v1"
-  readonly finalProfile: "r8-schema-016-public-v1"
+    | "project-kb-schema-017-public-v1"
+    | "project-kb-schema-018-public-v1"
+  readonly finalProfile: "project-kb-schema-018-public-v1"
 }> {
   const connection = toolConnection(input.databaseUrl)
   const recoveryId = randomUUID()
@@ -117,7 +119,7 @@ export async function restoreBackup(input: {
           activationAllowed,
           recoveryId,
           sourceProfile: recovery.sourceProfile.id,
-          finalProfile: "r8-schema-016-public-v1",
+          finalProfile: "project-kb-schema-018-public-v1",
         }
       } catch (error) {
         await writePrivateReport(reportFile, {

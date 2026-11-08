@@ -122,8 +122,8 @@ test("Project pagination is latest-wins and preserves later-page selections", as
     throw new TypeError("Project fixtures are incomplete")
 
   // When: Projects reloads and two continuation clicks are dispatched in one browser task.
-  await app.page.getByRole("button", { name: "Work", exact: true }).click()
-  await app.page.getByRole("button", { name: "Projects", exact: true }).click()
+  await app.page.getByRole("link", { name: "Work", exact: true }).click()
+  await app.page.getByRole("link", { name: "Projects", exact: true }).click()
   await expect(app.page.getByRole("heading", { name: sentinel.name })).toHaveCount(0)
   let continuationRequests = 0
   app.page.on("request", (request) => {
@@ -155,7 +155,7 @@ test("Project pagination is latest-wins and preserves later-page selections", as
   await expect(app.page.getByRole("heading", { name: sentinel.name })).toHaveCount(1)
 
   // When: Work's Project selector receives an intentionally reordered pair of real responses.
-  await app.page.getByRole("button", { name: "Work", exact: true }).click()
+  await app.page.getByRole("link", { name: "Work", exact: true }).click()
   await app.page.getByText("More filters and sort").click()
   const filter = app.page.locator(".filter-panel")
   const projectSearch = filter.getByLabel("Search projects")

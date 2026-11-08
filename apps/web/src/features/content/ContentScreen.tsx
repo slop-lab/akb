@@ -1,36 +1,40 @@
-import { ClockCounterClockwise, FilePlus, FloppyDisk } from "@phosphor-icons/react"
-import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
-import { z } from "zod"
+import { FilePlus } from "@phosphor-icons/react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { z } from "zod"
 import {
   type ContentDocument,
   ContentDocumentSchema,
   type Page,
-  PageHistoryEntrySchema,
-  PageSchema,
+  type PageHistoryEntrySchema,
 } from "../../../../../src/contracts/content/model.ts"
-import type { ScreenProps } from "../../app/types.ts"
-import { Badge, Button, EmptyState, ErrorPanel, Field } from "../../components/primitives.tsx"
+import { Button, EmptyState } from "../../components/primitives.tsx"
 import { ScreenLayout } from "../../components/ScreenLayout.tsx"
 import { ApiError } from "../../lib/api.ts"
-import { BlocksEditor } from "../../vendor/blocks/index.ts"
+import { LatestRequest } from "../../lib/latest-request.ts"
+import { featureCommand, workspaceFeaturePath } from "../feature-api.ts"
 import {
-  EntityFeatureMutationSchema,
-  featureCommand,
-  workspaceFeaturePath,
-} from "../feature-api.ts"
+  type ContentScreenProps,
+  EMPTY_DOCUMENT,
+  HistorySchema,
+  PageResponseSchema,
+  PagesSchema,
+} from "./content-schemas.ts"
+import { CreatePageDialog } from "./CreatePageDialog.tsx"
+import { PageList, PageLoadError } from "./PageNavigation.tsx"
+import { PageWorkspace } from "./PageWorkspace.tsx"
+import { TaskContextWorkflow } from "./TaskContextWorkflow.tsx"
+import { referencesFromSelectionPage } from "./workflow-ui.ts"
 
-const PagesSchema = z.object({ pages: z.array(PageSchema).readonly() })
-const PageResponseSchema = z.object({
-  page: PageSchema,
-  projection: z.record(z.string(), z.unknown()),
-})
-const HistorySchema = z.object({ revisions: z.array(PageHistoryEntrySchema).readonly() })
-const EMPTY_DOCUMENT: ContentDocument = {
-  version: 1,
-  blocks: [{ id: "paragraph:initial", type: "paragraph", text: "", children: [] }],
-}
-
-export function ContentScreen({ session, announce }: ScreenProps) {
+export function ContentScreen({
+  session,
+  announce,
+  initialPageId,
+  initialRevision,
+  initialRevisionError,
+  onLocationChange,
+  workflowDraft,
+  onWorkflowDraftChange,
+}: ContentScreenProps) {
   const [pages, setPages] = useState<readonly Page[]>([])
   const [page, setPage] = useState<Page | null>(null)
   const [title, setTitle] = useState("")
@@ -38,6 +42,10 @@ export function ContentScreen({ session, announce }: ScreenProps) {
   const [history, setHistory] = useState<readonly z.infer<typeof PageHistoryEntrySchema>[]>([])
   const [error, setError] = useState<string | null>(null)
   const [conflictRevision, setConflictRevision] = useState<number | null>(null)
+  const [viewRevision, setViewRevision] = useState<number | undefined>(initialRevision)
+  const [createOpen, setCreateOpen] = useState(false)
+  const pageRequests = useRef(new LatestRequest()).current
+  const mutationRequests = useRef(new LatestRequest()).current
 
   const root = workspaceFeaturePath(session, "content", "/pages")
   const loadPages = useCallback(async () => {
@@ -49,57 +57,87 @@ export function ContentScreen({ session, announce }: ScreenProps) {
   }, [root, session])
 
   const openPage = useCallback(
-    async (pageId: string) => {
+    async (pageId: string, revision?: number) => {
+      mutationRequests.invalidate()
+      const isCurrent = pageRequests.start()
       setError(null)
+      setConflictRevision(null)
+      setPage(null)
+      setHistory([])
       try {
-        const next = (
-          await session.api.feature(`${root}/${encodeURIComponent(pageId)}`, PageResponseSchema)
-        ).page
+        const pagePath =
+          revision === undefined
+            ? `${root}/${encodeURIComponent(pageId)}`
+            : `${root}/${encodeURIComponent(pageId)}/revisions/${revision}`
+        const next = (await session.api.feature(pagePath, PageResponseSchema)).page
+        if (!isCurrent()) return
+        let selectionError: string | null = null
+        try {
+          const references = referencesFromSelectionPage(
+            session.bootstrap.workspace.id,
+            next.document,
+          )
+          if (references !== null)
+            onWorkflowDraftChange({
+              references,
+              selectionPage: { id: next.id, revision: next.revision },
+            })
+        } catch (caught) {
+          selectionError =
+            caught instanceof Error ? caught.message : "The saved context selection is invalid."
+        }
         setPage(next)
         setTitle(next.title)
         documentRef.current = next.document
-        setConflictRevision(null)
-        setHistory(
-          (
-            await session.api.feature(
-              `${root}/${encodeURIComponent(pageId)}/history`,
-              HistorySchema,
-            )
-          ).revisions,
+        setViewRevision(revision)
+        const nextHistory = await session.api.feature(
+          `${root}/${encodeURIComponent(pageId)}/history`,
+          HistorySchema,
         )
+        if (!isCurrent()) return
+        setHistory(nextHistory.revisions)
+        setError(selectionError)
       } catch (caught) {
+        if (!isCurrent()) return
+        setPage(null)
         setError(caught instanceof Error ? caught.message : "Page could not be opened.")
       }
     },
-    [root, session],
+    [mutationRequests, onWorkflowDraftChange, pageRequests, root, session],
   )
 
-  useEffect(() => void loadPages(), [loadPages])
-
-  async function create(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = event.currentTarget
-    const nextTitle = String(new FormData(form).get("title"))
-    try {
-      const result = EntityFeatureMutationSchema.parse(
-        await featureCommand(session, "content", "/pages", "POST", null, {
-          spaceId: null,
-          parentPageId: null,
-          title: nextTitle,
-          document: EMPTY_DOCUMENT,
-        }),
-      )
-      await loadPages()
-      await openPage(result.result.id)
-      announce(`${nextTitle} created`)
-      form.reset()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Page could not be created.")
+  useEffect(() => {
+    void loadPages()
+    if (initialRevisionError !== undefined) {
+      pageRequests.invalidate()
+      setPage(null)
+      setHistory([])
+      setError(initialRevisionError)
+    } else if (initialPageId !== undefined) void openPage(initialPageId, initialRevision)
+    return () => {
+      pageRequests.invalidate()
+      mutationRequests.invalidate()
     }
+  }, [
+    initialPageId,
+    initialRevision,
+    initialRevisionError,
+    loadPages,
+    mutationRequests,
+    openPage,
+    pageRequests,
+  ])
+
+  async function openCreated(pageId: string, nextTitle: string) {
+    setCreateOpen(false)
+    await loadPages()
+    onLocationChange(pageId)
+    announce(`${nextTitle} created`)
   }
 
   async function save() {
     if (page === null) return
+    const isCurrent = mutationRequests.start()
     setError(null)
     try {
       ContentDocumentSchema.parse(documentRef.current)
@@ -111,12 +149,14 @@ export function ContentScreen({ session, announce }: ScreenProps) {
         page.revision,
         { title, document: documentRef.current },
       )
-      await openPage(page.id)
+      if (!isCurrent()) return
       await loadPages()
+      if (!isCurrent()) return
       announce(`${title} saved`)
+      await openPage(page.id)
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "Page could not be saved."
-      setError(message)
+      if (!isCurrent()) return
+      setError(caught instanceof Error ? caught.message : "Page could not be saved.")
       if (caught instanceof ApiError && caught.code === "revision_conflict") {
         const { actual } = caught.details
         setConflictRevision(typeof actual === "number" ? actual : null)
@@ -126,6 +166,7 @@ export function ContentScreen({ session, announce }: ScreenProps) {
 
   async function restore(revision: number) {
     if (page === null) return
+    const isCurrent = mutationRequests.start()
     try {
       await featureCommand(
         session,
@@ -135,9 +176,11 @@ export function ContentScreen({ session, announce }: ScreenProps) {
         page.revision,
         { revision },
       )
-      await openPage(page.id)
+      if (!isCurrent()) return
       announce(`Revision ${revision} restored`)
+      await openPage(page.id)
     } catch (caught) {
+      if (!isCurrent()) return
       setError(caught instanceof Error ? caught.message : "Revision could not be restored.")
     }
   }
@@ -146,109 +189,68 @@ export function ContentScreen({ session, announce }: ScreenProps) {
     <ScreenLayout
       eyebrow="Documents"
       title="Pages"
-      description="Canonical Blocks documents with revision history and explicit conflict recovery."
-    >
-      <form className="inline-form" onSubmit={(event) => void create(event)}>
-        <Field label="New page title" name="title" required />
-        <Button type="submit" variant="primary">
-          <FilePlus size={16} aria-hidden="true" /> Create page
+      description="Create operational Pages, pin exact task context, and keep revision history explicit."
+      actions={
+        <Button variant="primary" onClick={() => setCreateOpen(true)}>
+          <FilePlus size={16} aria-hidden="true" /> New Page
         </Button>
-      </form>
-      {error === null ? null : conflictRevision !== null ? (
-        <ErrorPanel
-          title="This page changed on the server"
-          message={`Current server revision: ${conflictRevision}. Your unsent draft is retained. Reload latest to replace the editor with server content, or cancel to keep editing this draft.`}
-          actions={
-            page === null ? null : (
-              <>
-                <Button
-                  variant="quiet"
-                  onClick={() => {
-                    setError(null)
-                    setConflictRevision(null)
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={() => void openPage(page.id)}>Reload latest</Button>
-              </>
-            )
-          }
-        />
-      ) : (
-        <ErrorPanel message={error} />
-      )}
+      }
+    >
+      <CreatePageDialog
+        session={session}
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={openCreated}
+      />
+      <TaskContextWorkflow
+        session={session}
+        announce={announce}
+        onCreated={openCreated}
+        draft={workflowDraft}
+        onDraftChange={onWorkflowDraftChange}
+      />
+      <PageLoadError
+        error={error}
+        conflictRevision={conflictRevision}
+        {...(page === null ? {} : { pageId: page.id })}
+        onCancel={() => {
+          setError(null)
+          setConflictRevision(null)
+        }}
+        onReload={(pageId) => void openPage(pageId)}
+      />
       <div className="master-detail">
-        <nav className="data-list" aria-label="Pages">
-          {pages.length === 0 ? (
-            <EmptyState
-              title="No pages yet"
-              body="Create a page above to add it to this workspace."
-            />
-          ) : (
-            pages.map((item) => (
-              <button
-                type="button"
-                className="search-result"
-                aria-current={page?.id === item.id ? "page" : undefined}
-                key={item.id}
-                onClick={() => void openPage(item.id)}
-              >
-                <Badge tone={item.lifecycle === "active" ? "info" : "neutral"}>
-                  {item.lifecycle}
-                </Badge>
-                <strong title={item.title}>{item.title}</strong>
-                <span className="mono">rev {item.revision}</span>
-              </button>
-            ))
-          )}
-        </nav>
+        <PageList
+          pages={pages}
+          {...(page === null ? {} : { selectedId: page.id })}
+          onOpen={(pageId) => {
+            onLocationChange(pageId)
+            void openPage(pageId)
+          }}
+        />
         {page === null ? (
           <EmptyState title="Select a page" body="Open a visible page or create a new one." />
         ) : (
-          <section className="document-workspace">
-            <div className="panel__header">
-              <Field
-                label="Title"
-                name="page-title"
-                value={title}
-                onChange={(event) => setTitle(event.currentTarget.value)}
-              />
-              <Button variant="primary" onClick={() => void save()}>
-                <FloppyDisk size={16} aria-hidden="true" /> Save
-              </Button>
-            </div>
-            <div className="blocks-surface">
-              <BlocksEditor
-                key={`${page.id}:${page.revision}`}
-                label={`Edit ${page.title}`}
-                value={page.document}
-                onChange={(document) => {
-                  documentRef.current = document
-                }}
-              />
-            </div>
-            <section className="section-stack">
-              <h2>
-                <ClockCounterClockwise size={20} aria-hidden="true" /> History
-              </h2>
-              <div className="data-list">
-                {history.map((entry) => (
-                  <div className="record-row" key={entry.revision}>
-                    <strong>{entry.title}</strong>
-                    <span className="mono">rev {entry.revision}</span>
-                    <Button
-                      variant="quiet"
-                      disabled={entry.revision === page.revision}
-                      onClick={() => void restore(entry.revision)}
-                    >
-                      Restore
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </section>
+          <PageWorkspace
+            page={page}
+            title={title}
+            historical={viewRevision !== undefined}
+            history={history}
+            onTitleChange={setTitle}
+            onDocumentChange={(document) => {
+              documentRef.current = document
+            }}
+            onSave={() => void save()}
+            onOpenLatest={() => {
+              onLocationChange(page.id)
+              void openPage(page.id)
+            }}
+            onView={(revision) => {
+              onLocationChange(page.id, revision)
+              void openPage(page.id, revision)
+            }}
+            onRestore={(revision) => void restore(revision)}
+          />
         )}
       </div>
     </ScreenLayout>

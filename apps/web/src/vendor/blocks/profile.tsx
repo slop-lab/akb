@@ -1,5 +1,5 @@
-import type { BlockRenderer, BlockSnapshot } from "@block-editor/model"
-import { defaultBlocks, defaultProfile } from "@block-editor/prosemirror/preset"
+import type { BlockRenderer, BlockSnapshot } from "@slop-lab/blocks"
+import { defaultBlocks, defaultProfile } from "@slop-lab/blocks-prosemirror/preset"
 
 export const blocksProfile = defaultProfile
 

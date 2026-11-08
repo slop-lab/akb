@@ -1,3 +1,4 @@
+// @ts-check
 export function automationWorkerConfiguration(environment) {
   return {
     limit: boundedInteger(

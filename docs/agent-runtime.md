@@ -5,7 +5,8 @@
 This is a trusted local CLI/embedded host and ACP stdio adapter, not completion of R6.
 It uses exactly pinned `@slop-lab/part`, `@slop-lab/part-plugins`, and
 `@slop-lab/part-node` version `0.1.0`. These APIs are experimental.
-Use Node.js **24.22.0 or newer** and run `npm ci`.
+The adapter requires Node.js **24.22.0 or newer**; this repository selects exact Node.js **26.12.1**
+in `.node-version`. Use that toolchain and run `pnpm install --frozen-lockfile` with pnpm 10.17.1.
 
 The runtime reuses the authenticated R4 HTTP API and its existing credential authority.
 It does not mint Run-scoped credentials or implement durable Runs, leases, generations,
@@ -15,10 +16,10 @@ administrator credentials or expose its stdio to an untrusted client.
 ## Local commands
 
 ```sh
-npm run agent -- help
-npm run agent -- tools
-npm run agent -- demo
-npm run test:agent
+pnpm run agent help
+pnpm run agent tools
+pnpm run agent demo
+pnpm run test:agent
 ```
 
 `demo` uses Part's deterministic local fake model. It makes no provider or Workspace requests.
@@ -43,9 +44,9 @@ URLs, source control, or captured command output. Workspace credentials remain i
 closures and are not part of tool schemas. Provider credentials are separate.
 
 ```sh
-npm run agent -- run 'List the visible spaces.'
-npm run agent -- tools --allow-action comment.create
-npm run agent -- run 'Add the requested comment after reading the item.' --allow-action comment.create
+pnpm run agent run 'List the visible spaces.'
+pnpm run agent tools --allow-action comment.create
+pnpm run agent run 'Add the requested comment after reading the item.' --allow-action comment.create
 node app/agent-runtime.mjs acp
 ```
 
@@ -76,15 +77,15 @@ deadline. ACP applies the same model/tool budgets, limits connections to sixteen
 thirty-two history turns per session, and requests client permission for writes in addition
 to the host action allowlist. ACP stdout belongs exclusively to the protocol. No shell,
 filesystem, arbitrary HTTP, or MCP execution tools are installed.
-Launch ACP directly with `node`, or use `npm run --silent agent -- acp`; npm's ordinary
+Launch ACP directly with `node`, or use `pnpm --silent run agent acp`; ordinary package-manager
 script banners would otherwise contaminate the protocol stream.
 
 ## Verification and limitations
 
-`npm run test:agent` exercises the real Part SDK with deterministic models, localhost HTTP
+`pnpm run test:agent` exercises the real Part SDK with deterministic models, localhost HTTP
 fixtures, strict input/allowlist checks, redirect and size/timeout rejection, cancellation,
-snapshot cleanup, and ACP write permission decisions. It also runs as part of `npm test` and
-`npm run check`. These local tests do not prove compatibility
+snapshot cleanup, and ACP write permission decisions. It also runs as part of `pnpm test` and
+`pnpm run check`. These local tests do not prove compatibility
 with every hosted provider or establish production operational readiness.
 
 The full planned protocol remains in [agent-protocol.md](agent-protocol.md). This adapter

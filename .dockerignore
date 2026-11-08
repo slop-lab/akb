@@ -2,11 +2,15 @@
 .gitignore
 .dim
 .codegraph
+.deps
+.omo
+.local
 .env
 .env.*
 !.env.example
 build
 node_modules
+packages/*/dist
 playwright-report
 test-results
 coverage

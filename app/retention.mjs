@@ -1,3 +1,4 @@
+// @ts-check
 import { runRetentionCli } from "../src/operations/retention/cli.ts"
 
 try {

@@ -1,3 +1,4 @@
+import type { BlockDocument } from "@slop-lab/blocks"
 import { act, type ReactNode } from "react"
 import { createRoot } from "react-dom/client"
 import { afterEach, expect, test, vi } from "vitest"
@@ -51,6 +52,47 @@ test("preserves the project document when the Blocks profile cannot edit a block
 
   // Then
   expect(restored).toEqual(document)
+})
+
+test("rejects marked inline content that the canonical document cannot preserve", () => {
+  // Given
+  const upstream = toBlocksDocument(document)
+  const first = upstream.blocks[0]
+  if (first === undefined) throw new TypeError("expected a block fixture")
+  const marked = {
+    ...upstream,
+    blocks: [
+      {
+        ...first,
+        content: [{ kind: "text", text: "Working brief", marks: [{ type: "strong" }] }] as const,
+      },
+      ...upstream.blocks.slice(1),
+    ],
+  } satisfies BlockDocument
+
+  // When / Then
+  expect(() => fromBlocksDocument(marked)).toThrowError(
+    "This document contains inline formatting that Pages cannot safely edit yet.",
+  )
+})
+
+test("rejects opaque inline content that the canonical document cannot preserve", () => {
+  // Given
+  const upstream = toBlocksDocument(document)
+  const first = upstream.blocks[0]
+  if (first === undefined) throw new TypeError("expected a block fixture")
+  const opaque = {
+    ...upstream,
+    blocks: [
+      { ...first, content: [{ kind: "opaque", raw: { mention: "actor-1" } }] as const },
+      ...upstream.blocks.slice(1),
+    ],
+  } satisfies BlockDocument
+
+  // When / Then
+  expect(() => fromBlocksDocument(opaque)).toThrowError(
+    "This document contains inline content that Pages cannot safely edit yet.",
+  )
 })
 
 test("renders canonical content through the real upstream Blocks viewer", () => {

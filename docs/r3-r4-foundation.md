@@ -6,17 +6,20 @@ This document records locally implemented source and executable evidence. It doe
 R3, or R4 complete. CI is deferred and the canonical phase gates remain open. Recorded native Node
 24 live export/import/archive checks and all 11 Chrome scenarios pass their bounded paths.
 Independent named local gates and all five review lanes passed at source commit `260812d`.
+Test paths in this historical inventory are preserved as recorded at that commit. Current
+PostgreSQL tests live under `test/postgres/`; the old paths below are evidence labels, not current
+operator commands or live Markdown targets.
 
 ## Additive storage foundation
 
 | Migration | Delivered responsibility | Primary evidence |
 | --- | --- | --- |
-| `005_entity_registry_acl.sql` | Entity/revision registry, permission atoms, restrictive ACL, authority epochs, legacy backfill | [`migrations/005_entity_registry_acl.sql`](../migrations/005_entity_registry_acl.sql), [`test/postgres-r4-foundation.test.ts`](../test/postgres-r4-foundation.test.ts) |
-| `006_entity_event_outbox.sql` | Versioned generic event, outbox, jobs, inbox, and command idempotency | [`migrations/006_entity_event_outbox.sql`](../migrations/006_entity_event_outbox.sql), [`test/postgres-r4-operations-outbox.test.ts`](../test/postgres-r4-operations-outbox.test.ts) |
-| `007_r4_pm_core.sql` | Space configuration, workflows/states, Projects, Work metadata, labels, relations, comments, Saved Views, search documents | [`migrations/007_r4_pm_core.sql`](../migrations/007_r4_pm_core.sql), [`test/postgres-r4-commands.test.ts`](../test/postgres-r4-commands.test.ts) |
-| `008_human_query_import_retention.sql` | Human Query snapshots, stable import IDs, import batches, and retention policy data | [`migrations/008_human_query_import_retention.sql`](../migrations/008_human_query_import_retention.sql), [`test/postgres-r4-query-security.test.ts`](../test/postgres-r4-query-security.test.ts) |
-| `009_legacy_workflow_revision_history.sql` | Deterministic revision-1 workflow/state history for legacy Spaces; unresolved actors stay null and later history is untouched | [`migrations/009_legacy_workflow_revision_history.sql`](../migrations/009_legacy_workflow_revision_history.sql), [`test/postgres-r4-legacy-workflow-history.test.ts`](../test/postgres-r4-legacy-workflow-history.test.ts) |
-| `010_legacy_work_query_projection.sql` | Nullable schema-tagged snapshot-item sidecar for frozen legacy PM query projections; incompatible transient snapshots are discarded | [`migrations/010_legacy_work_query_projection.sql`](../migrations/010_legacy_work_query_projection.sql), [`test/postgres-r4-legacy-work-projection-migration.test.ts`](../test/postgres-r4-legacy-work-projection-migration.test.ts) |
+| `005_entity_registry_acl.sql` | Entity/revision registry, permission atoms, restrictive ACL, authority epochs, legacy backfill | [`migrations/005_entity_registry_acl.sql`](../migrations/005_entity_registry_acl.sql), `test/postgres-r4-foundation.test.ts` |
+| `006_entity_event_outbox.sql` | Versioned generic event, outbox, jobs, inbox, and command idempotency | [`migrations/006_entity_event_outbox.sql`](../migrations/006_entity_event_outbox.sql), `test/postgres-r4-operations-outbox.test.ts` |
+| `007_r4_pm_core.sql` | Space configuration, workflows/states, Projects, Work metadata, labels, relations, comments, Saved Views, search documents | [`migrations/007_r4_pm_core.sql`](../migrations/007_r4_pm_core.sql), `test/postgres-r4-commands.test.ts` |
+| `008_human_query_import_retention.sql` | Human Query snapshots, stable import IDs, import batches, and retention policy data | [`migrations/008_human_query_import_retention.sql`](../migrations/008_human_query_import_retention.sql), `test/postgres-r4-query-security.test.ts` |
+| `009_legacy_workflow_revision_history.sql` | Deterministic revision-1 workflow/state history for legacy Spaces; unresolved actors stay null and later history is untouched | [`migrations/009_legacy_workflow_revision_history.sql`](../migrations/009_legacy_workflow_revision_history.sql), `test/postgres-r4-legacy-workflow-history.test.ts` |
+| `010_legacy_work_query_projection.sql` | Nullable schema-tagged snapshot-item sidecar for frozen legacy PM query projections; incompatible transient snapshots are discarded | [`migrations/010_legacy_work_query_projection.sql`](../migrations/010_legacy_work_query_projection.sql), `test/postgres-r4-legacy-work-projection-migration.test.ts` |
 
 The registry gives each first-class object a stable ID, kind, Workspace, optional Space scope,
 lifecycle, current revision, and timestamps. Specialized tables remain canonical for domain
@@ -39,7 +42,7 @@ eligible by a `purge_after` policy.
 
 The generic worker CLI accepts `--stream entity-v1`, defaults to the compatible `work-item-v1`
 stream, and emits a machine-readable summary. See [`src/outbox/cli.ts`](../src/outbox/cli.ts) and
-[`test/postgres-r4-operations-outbox.test.ts`](../test/postgres-r4-operations-outbox.test.ts).
+`test/postgres-r4-operations-outbox.test.ts`.
 
 ## PM and Human Query registry
 
@@ -63,18 +66,18 @@ ranges to at most 50 explicit typed references while preserving null, negation, 
 semantics. Unauthorized and scope-irrelevant views are omitted before output; duplicate IDs,
 out-of-scope relevant views, unresolved references, AST-budget overflow, and nonportable graphs fail
 with typed errors. Primary evidence includes
-[`test/postgres-r4-command-assignment-authorization.test.ts`](../test/postgres-r4-command-assignment-authorization.test.ts),
-[`test/postgres-r4-saved-view-transfer-results.test.ts`](../test/postgres-r4-saved-view-transfer-results.test.ts),
-[`test/postgres-r4-saved-view-scope-export.test.ts`](../test/postgres-r4-saved-view-scope-export.test.ts),
-and [`test/postgres-r4-legacy-work-query.test.ts`](../test/postgres-r4-legacy-work-query.test.ts).
+`test/postgres-r4-command-assignment-authorization.test.ts`,
+`test/postgres-r4-saved-view-transfer-results.test.ts`,
+`test/postgres-r4-saved-view-scope-export.test.ts`, and
+`test/postgres-r4-legacy-work-query.test.ts`.
 
 Workflow interchange distinguishes markerless partial additive files from complete
 `workflowStateScope: "active" | "all"` files. Complete workflows require exactly one active default
 in any canonical category and at least one active state in every canonical category. Default
 handover emits a canonical revision/event for the former state and rolls back atomically. See
 [`test/r4-import-workflow-validation.test.ts`](../test/r4-import-workflow-validation.test.ts),
-[`test/postgres-r4-workflow-default-handover.test.ts`](../test/postgres-r4-workflow-default-handover.test.ts),
-and [`test/postgres-r4-workflow-partial-default.test.ts`](../test/postgres-r4-workflow-partial-default.test.ts).
+`test/postgres-r4-workflow-default-handover.test.ts`, and
+`test/postgres-r4-workflow-partial-default.test.ts`.
 
 ## Backup profile registry
 
@@ -99,17 +102,15 @@ Backup tests cover restore under an ordinary database owner, every older registe
 to `r4-schema-010-public-v1`, catalog equivalence, and preservation of existing grant boundaries.
 The 009 and 010 migration checksums and schema fingerprints are pinned in
 [`src/operations/backup/profiles.ts`](../src/operations/backup/profiles.ts). Evidence is in
-[`test/postgres-backup.test.ts`](../test/postgres-backup.test.ts),
-[`test/postgres-backup-legacy.test.ts`](../test/postgres-backup-legacy.test.ts), and
-[`test/postgres-backup-profile-009.test.ts`](../test/postgres-backup-profile-009.test.ts).
+`test/postgres-backup.test.ts`, `test/postgres-backup-legacy.test.ts`, and
+`test/postgres-backup-profile-009.test.ts`.
 
 ## Runtime and scale evidence
 
 [`test/r4-native-runtime.test.ts`](../test/r4-native-runtime.test.ts) imports production TypeScript
 through native Node 24 strip-only loading. [`test/utc-datetime.test.ts`](../test/utc-datetime.test.ts)
 checks UTC normalization. The public 100,000-item snapshot boundary and list/board traversal are
-covered by [`test/postgres-r4-scale.test.ts`](../test/postgres-r4-scale.test.ts) and
-[`test/postgres-r4-query-scale.test.ts`](../test/postgres-r4-query-scale.test.ts); both passed in
+covered by `test/postgres-r4-scale.test.ts` and `test/postgres-r4-query-scale.test.ts`; both passed in
 individual recorded runs.
 
 Independent acceptance at source commit `260812d` passed `npm run check` (66 unit and 40

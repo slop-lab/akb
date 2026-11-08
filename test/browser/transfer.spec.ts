@@ -53,7 +53,7 @@ test("transfer exports an owned portable graph and imports exact Project bytes s
     expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
   }
   await app.page.setViewportSize({ width: 1280, height: 900 })
-  await app.page.getByRole("button", { name: "Workspace data" }).click()
+  await app.page.getByRole("link", { name: "Workspace data" }).click()
   await expect(app.page.getByRole("heading", { name: "Import and export" })).toBeVisible()
   const scope = app.page.getByLabel("Scope")
   await scope.selectOption({ label: `Space: ${spaceName}` })
@@ -157,7 +157,7 @@ test("transfer exports an owned portable graph and imports exact Project bytes s
   const projectsResponse = app.page.waitForResponse((response) =>
     response.url().endsWith("/projects/query"),
   )
-  await app.page.getByRole("button", { name: "Projects", exact: true }).click()
+  await app.page.getByRole("link", { name: "Projects", exact: true }).click()
   expect((await projectsResponse).status()).toBe(200)
   const loadMore = app.page.getByRole("button", { name: "Load more projects" })
   while ((await loadMore.count()) > 0) {
@@ -175,7 +175,7 @@ test("transfer exports an owned portable graph and imports exact Project bytes s
   }
   const projectCards = app.page.locator("article").filter({ hasText: projectName })
   await expect(projectCards).toHaveCount(2)
-  await app.page.getByRole("button", { name: "Workspace data" }).click()
+  await app.page.getByRole("link", { name: "Workspace data" }).click()
 
   // When: malformed NDJSON bytes separately cross the import boundary.
   const validationResponse = app.page.waitForResponse((response) =>

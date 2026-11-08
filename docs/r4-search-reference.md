@@ -124,11 +124,11 @@ workspace, query, kind set, or page size.
 The focused tests require a disposable PostgreSQL database through `DATABASE_URL`:
 
 ```sh
-npm run typecheck
-npm run build
+pnpm run typecheck
+pnpm run build
 node --test --test-concurrency=1 \
-  build/test/postgres-r4-search-security.test.js \
-  build/test/postgres-r4-search-http.test.js
+  build/test/postgres/postgres-r4-search-security.test.js \
+  build/test/postgres/postgres-r4-search-http.test.js
 ```
 
 The HTTP test composes `createR4CommandRouter` and `createR4SearchRouter` through

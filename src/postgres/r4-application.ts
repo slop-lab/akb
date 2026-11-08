@@ -14,6 +14,7 @@ import {
 import { createR4SearchRouter } from "../http/human-v1/search-router.ts"
 import { createKnowledgeRoutes } from "../http/knowledge/index.ts"
 import { createPlanningRoutes } from "../http/planning/index.ts"
+import { createProjectKbRoutes } from "../http/project-kb/index.ts"
 import { internalError } from "../http/responses.ts"
 import { createRuntimeRequestHandler, createRuntimeWorkspaceRoutes } from "../http/runtime/index.ts"
 import { createR4ImportDispatcher } from "../import-export/command-dispatcher.ts"
@@ -49,6 +50,7 @@ export function createR4Application(environment: NodeJS.ProcessEnv): R4Applicati
     ...createAutomationRoutes(sql),
     ...createPlanningRoutes(sql),
     ...createContentRoutes(sql),
+    ...createProjectKbRoutes(sql),
     ...createKnowledgeRoutes(sql),
     ...createRuntimeWorkspaceRoutes(sql, signingKey),
     createEntityEventRouter(sql),

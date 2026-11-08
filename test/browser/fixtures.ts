@@ -15,6 +15,8 @@ const EnvironmentSchema = z.object({
   R4_WORKSPACE_ID: z.string().min(1),
   R4_OWNER_TOKEN: z.string().min(1),
   R4_VIEWER_TOKEN: z.string().min(1),
+  R4_CONNECTOR_TOKEN: z.string().min(1).optional(),
+  R4_REVIEWER_TOKEN: z.string().min(1).optional(),
 })
 
 const environment = EnvironmentSchema.parse(process.env)
@@ -22,17 +24,19 @@ const SnapshotResponseSchema = z.object({
   snapshot: z.object({ id: z.string().min(1) }).optional(),
 })
 
-type Role = "owner" | "viewer"
+type Role = "owner" | "viewer" | "connector" | "reviewer"
 
 export type AppFixture = {
   readonly context: BrowserContext
   readonly page: Page
-  readonly signIn: (role?: Role) => Promise<SignedInIdentity>
+  readonly signIn: (role?: Role, path?: string) => Promise<SignedInIdentity>
   readonly expectEmptyBrowserStorage: () => Promise<void>
   readonly ownerCommand: (request: CommandRequest) => Promise<APIResponse>
   readonly ownerFeatureCommand: (request: FeatureCommandRequest) => Promise<APIResponse>
   readonly ownerExport: (payload: Readonly<Record<string, unknown>>) => Promise<APIResponse>
   readonly ownerRead: (path: string) => Promise<APIResponse>
+  readonly featureCommand: (role: Role, request: FeatureCommandRequest) => Promise<APIResponse>
+  readonly featureRead: (role: Role, path: string) => Promise<APIResponse>
 }
 
 type SignedInIdentity = {
@@ -81,12 +85,32 @@ export const test = base.extend<BrowserFixtures>({
       )
     })
 
-    async function signIn(role: Role = "owner"): Promise<SignedInIdentity> {
-      const token = role === "owner" ? environment.R4_OWNER_TOKEN : environment.R4_VIEWER_TOKEN
+    function tokenFor(role: Role): string {
+      switch (role) {
+        case "owner":
+          return environment.R4_OWNER_TOKEN
+        case "viewer":
+          return environment.R4_VIEWER_TOKEN
+        case "connector":
+          if (environment.R4_CONNECTOR_TOKEN !== undefined) return environment.R4_CONNECTOR_TOKEN
+          throw new TypeError("R4_CONNECTOR_TOKEN is required for connector browser flows")
+        case "reviewer":
+          if (environment.R4_REVIEWER_TOKEN !== undefined) return environment.R4_REVIEWER_TOKEN
+          throw new TypeError("R4_REVIEWER_TOKEN is required for reviewer browser flows")
+        default:
+          return assertNever(role)
+      }
+    }
+
+    async function signIn(role: Role = "owner", path = "/"): Promise<SignedInIdentity> {
+      const token = tokenFor(role)
       activeToken = token
-      await page.goto("/")
+      await page.goto(path)
       await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible()
-      await page.getByLabel("Workspace ID").fill(environment.R4_WORKSPACE_ID)
+      const workspaceField = page.getByLabel("Workspace ID")
+      if ((await workspaceField.inputValue()).length === 0)
+        await workspaceField.fill(environment.R4_WORKSPACE_ID)
+      else expect(await workspaceField.inputValue()).toBe(environment.R4_WORKSPACE_ID)
       await page.getByLabel("Bearer token").fill(token)
       const bootstrap = page.waitForResponse(
         (response) =>
@@ -96,7 +120,7 @@ export const test = base.extend<BrowserFixtures>({
       const response = await bootstrap
       expect(response.status()).toBe(200)
       const authenticated = BootstrapSchema.parse(await response.json())
-      await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible()
+      await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible()
       return {
         workspaceId: authenticated.workspace.id,
         principalId: authenticated.principal.id,
@@ -131,11 +155,18 @@ export const test = base.extend<BrowserFixtures>({
     }
 
     async function ownerFeatureCommand(request: FeatureCommandRequest): Promise<APIResponse> {
+      return featureCommand("owner", request)
+    }
+
+    async function featureCommand(
+      role: Role,
+      request: FeatureCommandRequest,
+    ): Promise<APIResponse> {
       const commandId = crypto.randomUUID()
       return context.request[request.method](
         `/api/${encodeURIComponent(request.feature)}/v1/workspaces/${encodeURIComponent(environment.R4_WORKSPACE_ID)}${request.path}`,
         {
-          headers: { authorization: `Bearer ${environment.R4_OWNER_TOKEN}` },
+          headers: { authorization: `Bearer ${tokenFor(role)}` },
           data: {
             commandId,
             idempotencyKey: `browser-${commandId}`,
@@ -144,6 +175,12 @@ export const test = base.extend<BrowserFixtures>({
           },
         },
       )
+    }
+
+    function featureRead(role: Role, path: string): Promise<APIResponse> {
+      return context.request.get(path, {
+        headers: { authorization: `Bearer ${tokenFor(role)}` },
+      })
     }
 
     function ownerRead(path: string): Promise<APIResponse> {
@@ -172,6 +209,8 @@ export const test = base.extend<BrowserFixtures>({
       ownerFeatureCommand,
       ownerExport,
       ownerRead,
+      featureCommand,
+      featureRead,
     })
     await Promise.all(snapshotReads)
     if (activeToken !== null) {
@@ -189,5 +228,9 @@ export const test = base.extend<BrowserFixtures>({
     if (!connected) await browser.close()
   },
 })
+
+function assertNever(value: never): never {
+  throw new TypeError(`Unsupported browser role: ${JSON.stringify(value)}`)
+}
 
 export { expect }

@@ -1,9 +1,10 @@
-import { type FormEvent, useRef, useState } from "react"
+import { type FormEvent, useEffect, useRef, useState } from "react"
 import type { Bootstrap } from "../../../../src/contracts/r4/index.ts"
 import { Button, ErrorPanel, Field } from "../components/primitives.tsx"
 import { ApiError, R4Api } from "../lib/api.ts"
 
 type LoginProps = {
+  readonly initialWorkspace?: string
   readonly onAuthenticated: (session: {
     readonly api: R4Api
     readonly bootstrap: Bootstrap
@@ -11,12 +12,16 @@ type LoginProps = {
   readonly onUnauthorized: () => void
 }
 
-export function Login({ onAuthenticated, onUnauthorized }: LoginProps) {
-  const [workspace, setWorkspace] = useState("")
+export function Login({ initialWorkspace, onAuthenticated, onUnauthorized }: LoginProps) {
+  const [workspace, setWorkspace] = useState(initialWorkspace ?? "")
   const [token, setToken] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (error !== null) errorRef.current?.focus()
+  }, [error])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -32,7 +37,6 @@ export function Login({ onAuthenticated, onUnauthorized }: LoginProps) {
       setError(
         caught instanceof ApiError ? caught.message : "The server response could not be read.",
       )
-      requestAnimationFrame(() => errorRef.current?.focus())
     } finally {
       setBusy(false)
     }
@@ -56,6 +60,10 @@ export function Login({ onAuthenticated, onUnauthorized }: LoginProps) {
           name="workspace"
           autoComplete="organization"
           required
+          readOnly={initialWorkspace !== undefined}
+          {...(initialWorkspace === undefined
+            ? {}
+            : { help: "This Workspace is fixed by the shared link." })}
           value={workspace}
           onChange={(event) => setWorkspace(event.currentTarget.value)}
         />

@@ -1,3 +1,4 @@
+// @ts-check
 import { createServer } from "../src/server.ts"
 
 const server = createServer()

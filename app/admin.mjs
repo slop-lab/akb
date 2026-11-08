@@ -1,3 +1,4 @@
+// @ts-check
 import { runAdminCli } from "../src/identity/admin-cli.ts"
 
 try {

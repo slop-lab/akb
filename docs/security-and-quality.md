@@ -130,24 +130,26 @@ default. Durable semantic activity contains only the minimum reviewed facts need
 
 ## Exact change gates
 
-Once the strict TypeScript product scaffold exists, CI must expose and run these stable npm
-entrypoints in this order on a clean checkout using Node.js 24 and the committed lockfile:
+On a clean checkout, use exact Node.js 26.12.1 and pnpm 10.17.1 with the committed lockfile:
 
 ```sh
-npm ci
-npm run format:check
-npm run lint
-npm run typecheck
-npm test
-npm run build
+pnpm install --frozen-lockfile
+pnpm run check
 ```
 
-`npm test` must use Node's native test runner (`node --test`) directly or through an npm script.
+The QG CLI always applies its `recommendedRules` base. The root `.qg.yaml` adds the installed
+optional `js` preset, enforces public names matching `@slop-lab/akb(-.*)?` and private names matching
+`@this-project/.*`, and runs a `package-scopes` check over the pnpm workspace inventory. That check
+uses each package's `private` flag to reject publishable `@this-project` packages and private
+`@slop-lab` packages even though both shapes appear in the general allowlist. The code tools gate
+runs `pnpm run check:code` for formatting, lint, strict TypeScript, the build, and native Node tests.
+QG's recommended rules do not mean that every available formatter or ecosystem tool runs
+automatically.
+
 Product execution uses the native `node` executable; alternative runtimes are not a hidden CI or
-production requirement. `typecheck` runs strict TypeScript with no emitted output. Every command
-must exit zero with no ignored type errors, lint errors, focused tests, or silently skipped required
-suites. The repository exposes these entrypoints plus `test:unit` and `test:integration`. Their
-current success is evidence for the bounded slice, not a claim that R1 or R2 has passed.
+production requirement. Every required command must exit zero with no ignored type errors, lint
+errors, focused tests, or silently skipped suites. Local success is bounded evidence, not a CI result
+or a claim that a roadmap phase passed.
 
 The current OpenAPI contract is checked structurally against the exact representable constraints of
 the shared Zod input and response schemas. Integration tests exercise stable HTTP statuses and

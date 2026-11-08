@@ -7,7 +7,7 @@ import { createRuntimeWorkspaceRoutes } from "../src/http/runtime/workspace-rout
 import { IdentityAdmin } from "../src/identity/admin.ts"
 import { createAuthenticatedPostgresServer } from "../src/postgres/authenticated-server.ts"
 import { eventId, workItemId } from "../src/work-items/identifiers.ts"
-import { createPostgresTestFixture } from "./postgres-fixture.ts"
+import { createPostgresTestFixture } from "./postgres/postgres-fixture.ts"
 import { close, listen, RuntimeHttpClient } from "./runtime-http-support.ts"
 
 export type RuntimeRunAccess = {

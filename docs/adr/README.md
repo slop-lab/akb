@@ -8,9 +8,9 @@ explicitly does not approve them. A candidate becomes an accepted architecture d
 its dedicated ADR is reviewed, records consequences and alternatives, and changes status to
 `accepted` in this registry.
 
-Dedicated records accept ADR-002 and the current-HTTP portion of ADR-004. ADR-013 proposes the
-implemented PostgreSQL Work Item persistence boundary for review. Acceptance is a binding decision,
-not a claim that R1, R2, R3, or any future roadmap gate is complete.
+Dedicated records accept ADR-002, the current-HTTP portion of ADR-004, and ADR-021. ADR-013 proposes
+the implemented PostgreSQL Work Item persistence boundary for review. Acceptance is a binding
+decision, not a claim that R1, R2, R3, or any future roadmap gate is complete.
 
 ## Status vocabulary
 
@@ -50,6 +50,7 @@ behavior conflicts with an accepted ADR, the code or the decision must be reconc
 | [ADR-018](ADR-018-project-management-command-boundary.md) | Project-management command boundary | `proposed` |
 | [ADR-019](ADR-019-human-query-snapshots.md) | Human Query materialized snapshots | `proposed` |
 | [ADR-020](ADR-020-versioned-backup-profiles.md) | Versioned current backup profiles | `proposed` |
+| [ADR-021](ADR-021-pnpm-workspace-and-quality-gate.md) | pnpm workspace and QG quality gate | `accepted` |
 
 The accepted ADR-004 scope is intentionally partial: current HTTP OpenAPI is accepted and present;
 agent retrieval remains future R6 work. The other entries preserve their proposed status.
@@ -62,9 +63,10 @@ numbered ADRs.
 | Decision | Status | Scope and consequence |
 | --- | --- | --- |
 | Node.js 24 | `accepted` | Node.js 24 is the supported execution and CI major version for product work. Pinning and upgrade policy must preserve this major-version contract. |
-| npm | `accepted` | npm is the package manager. Dependency installation uses the committed npm lockfile and `npm ci` in CI; another package manager must not create a competing lockfile. |
+| npm (historical bootstrap) | `superseded` | The original npm, npm lockfile, and `npm ci` decision is preserved as historical evidence and replaced by [ADR-021](ADR-021-pnpm-workspace-and-quality-gate.md). |
+| pnpm 10.17.1 | `accepted` | [ADR-021](ADR-021-pnpm-workspace-and-quality-gate.md) defines the pnpm workspace, frozen-lockfile install, package-name policy, and QG gate. |
 | Native Node.js execution | `accepted` | Product entrypoints run with the native `node` executable. `app/server.mjs` composes the current TypeScript server but does not define the future product architecture. |
-| Native Node.js tests | `accepted` | The test harness uses Node's native test runner, `node --test`, directly or behind `npm test`. Introducing another test runner requires a decision change. |
+| Native Node.js tests | `accepted` | The test harness uses Node's native test runner, `node --test`, directly or behind a package script. Introducing another test runner requires a decision change. |
 | Strict TypeScript | `accepted` | Product source and tests use strict TypeScript; the small `.mjs` entrypoint only composes the server. |
 | No database in the first slice | `accepted` | The first vertical slice uses an in-memory persistence adapter behind application ports. Data is disposable and this does not satisfy durability or production-readiness requirements. PostgreSQL remains the planned durable adapter. |
 

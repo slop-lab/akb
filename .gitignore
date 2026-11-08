@@ -13,3 +13,6 @@ playwright-report/
 test-results/
 .deps/
 .pnpm-store/
+secrets/
+.local/
+packages/*/dist/

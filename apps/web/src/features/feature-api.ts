@@ -14,7 +14,7 @@ export const EntityFeatureMutationSchema = FeatureMutationSchema.extend({
 export type EntityFeatureMutation = z.infer<typeof EntityFeatureMutationSchema>
 
 export function workspaceFeaturePath(session: Session, feature: string, path: string): string {
-  return `api/${feature}/v1/workspaces/${encodeURIComponent(session.bootstrap.workspace.id)}${path}`
+  return `/api/${feature}/v1/workspaces/${encodeURIComponent(session.bootstrap.workspace.id)}${path}`
 }
 
 export function featureCommand(

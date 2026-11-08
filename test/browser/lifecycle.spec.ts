@@ -179,7 +179,7 @@ test("owner completes Project, Work, collaboration, view, board, and Work lifecy
   const projectsResponse = app.page.waitForResponse((response) =>
     response.url().endsWith("/projects/query"),
   )
-  await activate(app.page.getByRole("button", { name: "Projects", exact: true }))
+  await activate(app.page.getByRole("link", { name: "Projects", exact: true }))
   expect((await projectsResponse).status()).toBe(200)
   const restoredProjectCard = app.page.locator("article").filter({ hasText: projectName })
   await expect(restoredProjectCard.getByRole("heading", { name: projectName })).toBeVisible()
@@ -226,7 +226,7 @@ test("revision conflict retains the local title draft", async ({ app }) => {
   const title = `E2E conflict ${suffix}`
   const localDraft = `${title} local`
   await app.signIn()
-  await app.page.getByRole("button", { name: "Work", exact: true }).click()
+  await app.page.getByRole("link", { name: "Work", exact: true }).click()
   await app.page.getByRole("button", { name: "Create work" }).click()
   await app.page.getByLabel("Title", { exact: true }).fill(title)
   const createResponsePromise = app.page.waitForResponse((response) =>

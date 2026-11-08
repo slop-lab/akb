@@ -28,6 +28,8 @@ export async function requireAuthorizedProvenance(
         if (rows.length !== 1) throw new EntityNotFoundError(source.artifactId)
         break
       }
+      case "external":
+        break
       default:
         assertNever(source)
     }
@@ -62,6 +64,7 @@ export async function persistRevisionProvenance(
   },
 ): Promise<void> {
   for (const [ordinal, source] of input.sources.entries()) {
+    if (source.kind === "external") continue
     const sourceRef = source.kind === "entity" ? source.entityId : source.artifactId
     const sourceRevision = source.kind === "entity" ? source.revision : null
     await transaction`insert into knowledge_revision_sources

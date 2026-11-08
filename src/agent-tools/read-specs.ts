@@ -18,6 +18,7 @@ import {
   WorkItemDetailSchema,
 } from "../contracts/r4/index.ts"
 import { SearchPageSchema, SearchRequestPagedSchema } from "../contracts/r4/search.ts"
+import { DOCUMENT_READ_TOOL_SPECS } from "./document-read-specs.ts"
 import {
   EmptyInputSchema,
   EntityInputSchema,
@@ -124,6 +125,7 @@ export const READ_TOOL_SPECS: readonly ReadToolSpec[] = [
     (input) => post("search", input),
     true,
   ),
+  ...DOCUMENT_READ_TOOL_SPECS,
   read("snapshot_release", "Release a query snapshot", SnapshotInputSchema, z.null(), () =>
     get(""),
   ),

@@ -74,20 +74,29 @@ export class KnowledgeReader {
         where object.workspace_id=${workspaceId} and object.id=${knowledgeId}`
       const value = rows[0]
       if (value === undefined) return undefined
-      const row = CurrentRowSchema.parse(value)
-      const snapshot = SnapshotSchema.parse(row.canonical_snapshot)
-      return KnowledgeObjectSchema.parse({
-        id: row.id,
-        revision: row.current_revision,
-        lifecycle: row.lifecycle,
-        candidate: snapshot.candidate,
-        acceptedProposalId: row.accepted_proposal_id,
-        acceptedReviewId: row.accepted_review_id,
-        reviewedBy: row.reviewed_by,
-        reviewedAt: row.reviewed_at.toISOString(),
-        sources: snapshot.sources,
-        relations: snapshot.relations,
-      })
+      return objectFromRow(value)
+    })
+  }
+
+  getRevision(
+    workspaceId: string,
+    knowledgeId: string,
+    revision: number,
+  ): Promise<KnowledgeObject | undefined> {
+    return this.#sql.begin(async (transaction) => {
+      await authorize(transaction, this.#principal, workspaceId, knowledgeId, "knowledge.read")
+      const rows = await transaction`select object.id,revision.revision current_revision,
+          object.lifecycle,revision.canonical_snapshot,
+          revision.canonical_snapshot->>'acceptedProposalId' accepted_proposal_id,
+          revision.canonical_snapshot->>'acceptedReviewId' accepted_review_id,
+          review.reviewer_id reviewed_by,review.created_at reviewed_at
+        from knowledge_objects object join entity_revisions revision on revision.entity_id=object.id
+        join knowledge_reviews review
+          on review.id=revision.canonical_snapshot->>'acceptedReviewId'
+        where object.workspace_id=${workspaceId} and object.id=${knowledgeId}
+          and revision.revision=${revision} and revision.schema_version='knowledge-object.r7.v1'`
+      const value = rows[0]
+      return value === undefined ? undefined : objectFromRow(value)
     })
   }
 
@@ -96,7 +105,7 @@ export class KnowledgeReader {
       await authorize(transaction, this.#principal, workspaceId, knowledgeId, "knowledge.read")
       const rows = await transaction`select revision,schema_version,canonical_snapshot,created_at
         from entity_revisions where entity_id=${knowledgeId}
-          and schema_version='knowledge-object.r7.v1' order by revision desc`
+          and schema_version='knowledge-object.r7.v1' order by revision desc limit 500`
       return rows.map((value) => {
         const row = HistoryRowSchema.parse(value)
         const snapshot = SnapshotSchema.parse(row.canonical_snapshot)
@@ -191,4 +200,21 @@ async function authorizeWorkspace(
 
 function isKnowledgeObject(value: KnowledgeObject | undefined): value is KnowledgeObject {
   return value !== undefined
+}
+
+function objectFromRow(value: unknown): KnowledgeObject {
+  const row = CurrentRowSchema.parse(value)
+  const snapshot = SnapshotSchema.parse(row.canonical_snapshot)
+  return KnowledgeObjectSchema.parse({
+    id: row.id,
+    revision: row.current_revision,
+    lifecycle: row.lifecycle,
+    candidate: snapshot.candidate,
+    acceptedProposalId: row.accepted_proposal_id,
+    acceptedReviewId: row.accepted_review_id,
+    reviewedBy: row.reviewed_by,
+    reviewedAt: row.reviewed_at.toISOString(),
+    sources: snapshot.sources,
+    relations: snapshot.relations,
+  })
 }

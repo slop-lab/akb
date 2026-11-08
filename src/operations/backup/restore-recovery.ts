@@ -2,7 +2,14 @@ import type { TransactionSql } from "postgres"
 import { digestTables, validateApplicationDatabase } from "./database.ts"
 import { backupError } from "./errors.ts"
 import type { BackupManifest, TableDigest } from "./manifest.ts"
-import { type BackupProfile, PROFILE_004, PROFILE_016, profileFromId } from "./profiles.ts"
+import {
+  type BackupProfile,
+  PROFILE_004,
+  PROFILE_016,
+  PROFILE_017,
+  PROFILE_018,
+  profileFromId,
+} from "./profiles.ts"
 import { type QuarantineResult, quarantineAuthority, type RecoveryCountsV2 } from "./quarantine.ts"
 import { quarantineCurrentAuthority } from "./quarantine-r8.ts"
 import type { QuarantineAssertionsV3 } from "./recovery.ts"
@@ -37,11 +44,11 @@ export async function recoverRestoredDatabase(
     )
   }
 
-  if (sourceProfile.id === PROFILE_016.id) {
-    const protectedBefore = await digestTables(transaction, "protected", PROFILE_016)
+  if (sourceProfile.id === PROFILE_018.id) {
+    const protectedBefore = await digestTables(transaction, "protected", PROFILE_018)
     const quarantine = await quarantineCurrentAuthority(transaction, recoveryAt)
-    const postRecovery = await digestTables(transaction, "full", PROFILE_016)
-    const protectedAfter = await digestTables(transaction, "protected", PROFILE_016)
+    const postRecovery = await digestTables(transaction, "full", PROFILE_018)
+    const protectedAfter = await digestTables(transaction, "protected", PROFILE_018)
     assertProtectedTransformation(
       sourceBaseline,
       postRecovery,
@@ -51,7 +58,7 @@ export async function recoverRestoredDatabase(
     )
     return {
       sourceProfile,
-      finalProfile: PROFILE_016,
+      finalProfile: PROFILE_018,
       sourceBaseline,
       finalBaseline: sourceBaseline,
       postRecovery,
@@ -62,7 +69,13 @@ export async function recoverRestoredDatabase(
 
   const includeR4 = sourceProfile.id !== PROFILE_004.id
   const legacyProtected = await digestTables(transaction, "protected", sourceProfile)
-  const legacyQuarantine = await quarantineAuthority(transaction, recoveryAt, includeR4)
+  const includesR8Authority =
+    sourceProfile.id === PROFILE_016.id || sourceProfile.id === PROFILE_017.id
+  const sourceCurrentQuarantine = includesR8Authority
+    ? await quarantineCurrentAuthority(transaction, recoveryAt)
+    : undefined
+  const legacyQuarantine =
+    sourceCurrentQuarantine ?? (await quarantineAuthority(transaction, recoveryAt, includeR4))
   const legacyPost = await digestTables(transaction, "full", sourceProfile)
   const legacyProtectedPost = await digestTables(transaction, "protected", sourceProfile)
   assertProtectedTransformation(
@@ -73,16 +86,27 @@ export async function recoverRestoredDatabase(
     includeR4,
   )
   await upgradeSchemaToCurrent(transaction, sourceProfile)
-  await validateApplicationDatabase(transaction, PROFILE_016.migrations)
+  await validateApplicationDatabase(transaction, PROFILE_018.migrations)
   await lockTables(
     transaction,
-    PROFILE_016.tables.slice(sourceProfile.tables.length).map(({ name }) => name),
+    PROFILE_018.tables.slice(sourceProfile.tables.length).map(({ name }) => name),
   )
-  const finalBaseline = await digestTables(transaction, "full", PROFILE_016)
-  const finalProtected = await digestTables(transaction, "protected", PROFILE_016)
+  const finalBaseline = await digestTables(transaction, "full", PROFILE_018)
+  if (sourceCurrentQuarantine !== undefined) {
+    return {
+      sourceProfile,
+      finalProfile: PROFILE_018,
+      sourceBaseline,
+      finalBaseline,
+      postRecovery: finalBaseline,
+      counts: sourceCurrentQuarantine.counts,
+      assertions: sourceCurrentQuarantine.assertions,
+    }
+  }
+  const finalProtected = await digestTables(transaction, "protected", PROFILE_018)
   const currentQuarantine = await quarantineCurrentAuthority(transaction, recoveryAt)
-  const postRecovery = await digestTables(transaction, "full", PROFILE_016)
-  const finalProtectedPost = await digestTables(transaction, "protected", PROFILE_016)
+  const postRecovery = await digestTables(transaction, "full", PROFILE_018)
+  const finalProtectedPost = await digestTables(transaction, "protected", PROFILE_018)
   assertProtectedTransformation(
     finalBaseline,
     postRecovery,
@@ -92,7 +116,7 @@ export async function recoverRestoredDatabase(
   )
   return {
     sourceProfile,
-    finalProfile: PROFILE_016,
+    finalProfile: PROFILE_018,
     sourceBaseline,
     finalBaseline,
     postRecovery,
@@ -164,21 +188,30 @@ function combineCounts(legacy: QuarantineResult, r4: QuarantineResult): Recovery
     leasedToPending: legacy.counts.leasedToPending + r4.counts.leasedToPending,
     leasedToDeadLetter: legacy.counts.leasedToDeadLetter + r4.counts.leasedToDeadLetter,
     generationIncrements: legacy.counts.generationIncrements + r4.counts.generationIncrements,
-    genericLeasedToPending: r4.counts.genericLeasedToPending,
-    genericLeasedToDeadLetter: r4.counts.genericLeasedToDeadLetter,
-    genericGenerationIncrements: r4.counts.genericGenerationIncrements,
-    clearedQuerySnapshots: r4.counts.clearedQuerySnapshots,
-    clearedQuerySnapshotItems: r4.counts.clearedQuerySnapshotItems,
-    clearedValidatedImports: r4.counts.clearedValidatedImports,
-    clearedValidatedImportRecordIds: r4.counts.clearedValidatedImportRecordIds,
-    revokedRunCredentials: r4.counts.revokedRunCredentials,
-    expiredRuntimeLeases: r4.counts.expiredRuntimeLeases,
-    disabledRuntimeCapabilities: r4.counts.disabledRuntimeCapabilities,
-    clearedRuntimeContextSnapshots: r4.counts.clearedRuntimeContextSnapshots,
-    clearedContentPresence: r4.counts.clearedContentPresence,
-    rotatedIntegrationCredentials: r4.counts.rotatedIntegrationCredentials,
-    disabledRecurrences: r4.counts.disabledRecurrences,
-    disabledAutomations: r4.counts.disabledAutomations,
-    quarantinedDeliveryJobs: r4.counts.quarantinedDeliveryJobs,
+    genericLeasedToPending: legacy.counts.genericLeasedToPending + r4.counts.genericLeasedToPending,
+    genericLeasedToDeadLetter:
+      legacy.counts.genericLeasedToDeadLetter + r4.counts.genericLeasedToDeadLetter,
+    genericGenerationIncrements:
+      legacy.counts.genericGenerationIncrements + r4.counts.genericGenerationIncrements,
+    clearedQuerySnapshots: legacy.counts.clearedQuerySnapshots + r4.counts.clearedQuerySnapshots,
+    clearedQuerySnapshotItems:
+      legacy.counts.clearedQuerySnapshotItems + r4.counts.clearedQuerySnapshotItems,
+    clearedValidatedImports:
+      legacy.counts.clearedValidatedImports + r4.counts.clearedValidatedImports,
+    clearedValidatedImportRecordIds:
+      legacy.counts.clearedValidatedImportRecordIds + r4.counts.clearedValidatedImportRecordIds,
+    revokedRunCredentials: legacy.counts.revokedRunCredentials + r4.counts.revokedRunCredentials,
+    expiredRuntimeLeases: legacy.counts.expiredRuntimeLeases + r4.counts.expiredRuntimeLeases,
+    disabledRuntimeCapabilities:
+      legacy.counts.disabledRuntimeCapabilities + r4.counts.disabledRuntimeCapabilities,
+    clearedRuntimeContextSnapshots:
+      legacy.counts.clearedRuntimeContextSnapshots + r4.counts.clearedRuntimeContextSnapshots,
+    clearedContentPresence: legacy.counts.clearedContentPresence + r4.counts.clearedContentPresence,
+    rotatedIntegrationCredentials:
+      legacy.counts.rotatedIntegrationCredentials + r4.counts.rotatedIntegrationCredentials,
+    disabledRecurrences: legacy.counts.disabledRecurrences + r4.counts.disabledRecurrences,
+    disabledAutomations: legacy.counts.disabledAutomations + r4.counts.disabledAutomations,
+    quarantinedDeliveryJobs:
+      legacy.counts.quarantinedDeliveryJobs + r4.counts.quarantinedDeliveryJobs,
   }
 }

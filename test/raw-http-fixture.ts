@@ -1,4 +1,4 @@
-import { request } from "node:http"
+import { type IncomingHttpHeaders, request } from "node:http"
 
 export type RawRequest = {
   readonly port: number
@@ -11,6 +11,7 @@ export type RawRequest = {
 export type RawResponse = {
   readonly status: number
   readonly body: string
+  readonly headers: Readonly<IncomingHttpHeaders>
 }
 
 export function sendRawRequest(input: RawRequest): Promise<RawResponse> {
@@ -30,6 +31,7 @@ export function sendRawRequest(input: RawRequest): Promise<RawResponse> {
           resolve({
             status: response.statusCode ?? 0,
             body: Buffer.concat(chunks).toString("utf8"),
+            headers: response.headers,
           }),
         )
       },

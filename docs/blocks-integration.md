@@ -2,7 +2,7 @@
 
 The web application consumes a pinned local checkout of
 [`slop-lab/blocks`](https://github.com/slop-lab/blocks) at
-`c2eb16e929a99a9d9660900ea5c669b0daa2a167`. The checkout is development input, not vendored
+`df6f800828cd58acd2af65c32e7341609601be89`. The checkout is development input, not vendored
 source: it lives under ignored `.deps/blocks`, and generated package output stays there.
 
 ## Bootstrap
@@ -10,19 +10,19 @@ source: it lives under ignored `.deps/blocks`, and generated package output stay
 Run the bootstrap before web typechecking, testing, or building:
 
 ```sh
-npm run setup:blocks
+pnpm run setup:blocks
 ```
 
 `script/setup-blocks.mjs` clones only when `.deps/blocks` is absent, verifies the expected origin,
 and refuses to touch an existing non-Git path or a checkout with tracked or untracked changes. When
 the checkout already has the pinned commit, it does not fetch or checkout again. Otherwise it
 fetches the exact commit only when the object is unavailable locally and checks it out detached
-without force or reset. Installation uses the checkout's pinned pnpm version with lifecycle scripts
+without force or reset. Installation uses bootstrap-pinned pnpm `10.17.1` with lifecycle scripts
 disabled; package builds then run explicitly.
 
 The root installation is independent of this checkout. TypeScript and Vite aliases resolve the
-generated `@block-editor/model`, `@block-editor/prosemirror`, and ProseMirror files directly from
-`.deps/blocks`. A fresh `npm ci` therefore does not attempt to install an unavailable workspace
+generated `@slop-lab/blocks`, `@slop-lab/blocks-prosemirror`, and ProseMirror files directly from
+`.deps/blocks`. A fresh `pnpm install --frozen-lockfile` therefore does not attempt to install an unavailable workspace
 package; Blocks-dependent web commands intentionally require the bootstrap first.
 
 ## Project-owned boundary
@@ -45,17 +45,21 @@ The pinned profile edits its supported paragraph, heading, quote, and code shape
 types pass through the upstream opaque-node path and render as named read-only content, preserving
 their project data rather than inventing an editable approximation.
 
-This integration provides rendering and local editing only. Persistence, collaboration,
-authorization, revision conflict handling, and product routes remain owned by their later-phase
-contracts.
+Pages persist through the authenticated content API, with explicit revision conflicts and direct
+immutable revision reads. The canonical format currently stores unmarked text. The adapter rejects
+marked or non-text inline content instead of flattening it, and the editor refuses that transaction
+without changing the saved document. Rich-inline canonical persistence is not claimed.
+
+Application persistence, authorization, and product routes remain AKB-owned; no Blocks source is
+modified. See [the connector contract](work-hub-integration.md) for revision and proposal integration.
 
 ## Verification
 
 ```sh
-npm run setup:blocks
-npm run web:test
-npm run web:typecheck
-npm run web:build
+pnpm run setup:blocks
+pnpm run web:test
+pnpm run web:typecheck
+pnpm run web:build
 ```
 
 The development showcase is available at `/?showcase`. Its block section must be exercised in a

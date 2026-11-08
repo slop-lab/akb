@@ -75,9 +75,38 @@ const ArtifactSourceSchema = z.strictObject({
   artifactId: Id,
   role: z.enum(["supporting", "contradicting", "context"]),
 })
+const ExternalVersionSchema = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("revision"), value: z.string().trim().min(1).max(200) }),
+  z.strictObject({
+    kind: z.literal("digest"),
+    algorithm: z.literal("sha256"),
+    value: z.string().regex(/^[a-f0-9]{64}$/),
+  }),
+])
+export const ExternalSourceSchema = z.strictObject({
+  kind: z.literal("external"),
+  serviceInstanceId: Id,
+  resourceKind: Id,
+  resourceId: Id,
+  version: ExternalVersionSchema,
+  permalink: z
+    .url()
+    .max(2_048)
+    .refine((value) => {
+      const url = new URL(value)
+      return (
+        (url.protocol === "https:" || url.protocol === "http:") &&
+        url.username.length === 0 &&
+        url.password.length === 0
+      )
+    }, "permalink must be HTTP(S) without credentials"),
+  excerpt: z.string().max(50_000).optional(),
+  role: z.enum(["supporting", "contradicting", "context"]),
+})
 export const ProposalSourceSchema = z.discriminatedUnion("kind", [
   EntitySourceSchema,
   ArtifactSourceSchema,
+  ExternalSourceSchema,
 ])
 export const ProposalRelationSchema = z.strictObject({
   entityId: Id,

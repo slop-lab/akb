@@ -1,3 +1,4 @@
+// @ts-check
 import { createPostgresApplication } from "../src/postgres/application.ts"
 
 const application = createPostgresApplication(process.env)

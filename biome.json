@@ -1,5 +1,30 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "files": {
+    "includes": [
+      "src/**",
+      "test/**",
+      "app/**",
+      "script/**",
+      "packages/project-kb/src/**",
+      "packages/project-kb/scripts/**",
+      "packages/project-kb/package.json",
+      "packages/project-kb/tsconfig.json",
+      "apps/web/src/**",
+      "apps/web/index.html",
+      "apps/web/vite.config.ts",
+      "playwright.config.ts",
+      "package.json",
+      "tsconfig*.json",
+      "biome.json",
+      "README.md",
+      "!!**/.deps",
+      "!!**/.omo",
+      "!!**/.local",
+      "!!**/.dim",
+      "!!**/.codegraph"
+    ]
+  },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
   "javascript": { "formatter": { "quoteStyle": "double", "semicolons": "asNeeded" } },
   "linter": {

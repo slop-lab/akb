@@ -8,7 +8,7 @@ x-app-environment: &app-environment
 
 services:
   postgres:
-    image: postgres:17.6-bookworm
+    image: postgres:17.6-bookworm@sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${AFW_POSTGRES_USER:-afw}
@@ -22,6 +22,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - postgres_wal_archive:/var/lib/postgresql/wal-archive
+    ports:
+      - "127.0.0.1:${AFW_POSTGRES_PORT:-5432}:5432"
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
@@ -59,9 +61,11 @@ services:
       - -ec
       - |
         export DATABASE_URL="postgres://${AFW_POSTGRES_USER:-afw}:$$(cat /run/secrets/postgres_password)@postgres:5432/${AFW_POSTGRES_DATABASE:-afw}"
-        exec npm run migrate:postgres
+        exec pnpm run migrate:postgres
 
   app:
+    build:
+      context: .
     image: agent-first-workspace:${AFW_IMAGE_TAG:-local}
     restart: unless-stopped
     environment: *app-environment
@@ -89,7 +93,7 @@ services:
       - |
         export DATABASE_URL="postgres://${AFW_POSTGRES_USER:-afw}:$$(cat /run/secrets/postgres_password)@postgres:5432/${AFW_POSTGRES_DATABASE:-afw}"
         export R4_CURSOR_SIGNING_KEY="$$(cat /run/secrets/cursor_signing_key)"
-        exec npm run start:r4
+        exec pnpm run start:r4
 
   automation-worker:
     image: agent-first-workspace:${AFW_IMAGE_TAG:-local}
@@ -157,8 +161,8 @@ services:
       - |
         export SOURCE_DATABASE_URL="postgres://${AFW_POSTGRES_USER:-afw}:$$(cat /run/secrets/postgres_password)@postgres:5432/${AFW_POSTGRES_DATABASE:-afw}"
         while true; do
-          npm run backup -- create --artifact-dir "/backups/$$(date -u +%Y%m%dT%H%M%SZ)"
-          npm run backup -- retention --backup-root /backups \
+          pnpm run backup -- create --artifact-dir "/backups/$$(date -u +%Y%m%dT%H%M%SZ)"
+          pnpm run backup -- retention --backup-root /backups \
             --maximum-age-days "$${BACKUP_MAXIMUM_AGE_DAYS}" \
             --minimum-retained "$${BACKUP_MINIMUM_RETAINED}" --mode apply
           sleep "$${BACKUP_INTERVAL_SECONDS}"

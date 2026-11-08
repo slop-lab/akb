@@ -10,6 +10,8 @@ import { RequestBodyError, readJson } from "../human-v1/body.ts"
 import { writeJson } from "../responses.ts"
 import type { WorkspaceAuthenticatedRoute } from "../route-types.ts"
 
+const RevisionSchema = z.coerce.number().int().positive()
+
 export function createContentReadRoute(
   sql: Sql,
   projectionProvider?: PageProjectionProvider,
@@ -32,6 +34,12 @@ export function createContentReadRoute(
       if (route === null) return false
       const pageId = segment(route[1])
       const suffix = route[2] ?? ""
+      const revisionRoute = /^\/revisions\/([^/]+)$/.exec(suffix)
+      if (request.method === "GET" && revisionRoute !== null) {
+        const revision = RevisionSchema.parse(segment(revisionRoute[1]))
+        writeJson(response, 200, { page: await reads.pageRevision(principal, pageId, revision) })
+        return true
+      }
       if (request.method === "GET" && suffix === "") {
         const page = await reads.page(principal, pageId)
         const projection =

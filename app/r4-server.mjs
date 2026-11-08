@@ -1,3 +1,4 @@
+// @ts-check
 import { createServer } from "node:http"
 import { createRequestTelemetryHandler } from "../src/http/request-telemetry.ts"
 import { createWebAssetsHandler } from "../src/http/web-assets.ts"

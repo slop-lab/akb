@@ -25,6 +25,8 @@ import {
   PROFILE_009,
   PROFILE_010,
   PROFILE_016,
+  PROFILE_017,
+  PROFILE_018,
   profileFromLedger,
   SCHEMA_008_FINGERPRINT,
 } from "../src/operations/backup/profiles.ts"
@@ -34,6 +36,7 @@ import {
 } from "../src/operations/backup/recovery.ts"
 import { SCHEMA_008_TABLES } from "../src/operations/backup/resources.ts"
 import { EXPECTED_SCHEMA_FINGERPRINT } from "../src/operations/backup/schema-policy.ts"
+import { planForwardUpgrade } from "../src/operations/backup/upgrade.ts"
 
 test("help is parsed without database configuration", () => {
   // Given
@@ -300,7 +303,7 @@ test("strict manifest detects semantic and serialized tampering", async () => {
   assert.throws(() => assertManifestMigrationCatalog(forged, migrations), /trusted catalog/)
 })
 
-test("format 2 selects exact immutable schema-008 through schema-010 profiles", () => {
+test("format 2 selects exact immutable schema-008 through schema-018 profiles", () => {
   // Given
   const emptyDigest = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   const input = {
@@ -334,6 +337,8 @@ test("format 2 selects exact immutable schema-008 through schema-010 profiles", 
   assert.equal(profileFromLedger(PROFILE_009.migrations), PROFILE_009)
   assert.equal(profileFromLedger(PROFILE_010.migrations), PROFILE_010)
   assert.equal(profileFromLedger(PROFILE_016.migrations), PROFILE_016)
+  assert.equal(profileFromLedger(PROFILE_017.migrations), PROFILE_017)
+  assert.equal(profileFromLedger(PROFILE_018.migrations), PROFILE_018)
   assert.throws(
     () =>
       profileFromLedger([
@@ -345,17 +350,17 @@ test("format 2 selects exact immutable schema-008 through schema-010 profiles", 
   const mixed = JSON.parse(serializeManifest(manifest))
   mixed.scope = "r3-schema-004-public"
   assert.throws(() => manifestFromJson(JSON.stringify(mixed)))
-  const latest = createManifest({
+  const profile009Manifest = createManifest({
     ...input,
     profile: "r4-schema-009-public-v1",
     sourceDatabase: "fixture009",
     migrations: PROFILE_009.migrations,
     migrationDigest: computeMigrationDigest(PROFILE_009.migrations),
   })
-  const parsedLatest = manifestFromJson(serializeManifest(latest))
-  assert.equal(parsedLatest.formatVersion, 2)
-  if (parsedLatest.formatVersion !== 2) throw new TypeError("format-2 manifest expected")
-  assert.equal(parsedLatest.profile, "r4-schema-009-public-v1")
+  const parsed009 = manifestFromJson(serializeManifest(profile009Manifest))
+  assert.equal(parsed009.formatVersion, 2)
+  if (parsed009.formatVersion !== 2) throw new TypeError("format-2 manifest expected")
+  assert.equal(parsed009.profile, "r4-schema-009-public-v1")
   const current = createManifest({
     ...input,
     profile: "r4-schema-010-public-v1",
@@ -368,4 +373,53 @@ test("format 2 selects exact immutable schema-008 through schema-010 profiles", 
   assert.equal(parsedCurrent.formatVersion, 2)
   if (parsedCurrent.formatVersion !== 2) throw new TypeError("format-2 manifest expected")
   assert.equal(parsedCurrent.profile, "r4-schema-010-public-v1")
+  const profile017Manifest = createManifest({
+    ...input,
+    profile: "project-kb-schema-017-public-v1",
+    sourceDatabase: "fixture017",
+    migrations: PROFILE_017.migrations,
+    migrationDigest: computeMigrationDigest(PROFILE_017.migrations),
+    schemaFingerprint: PROFILE_017.schemaFingerprint,
+    tables: PROFILE_017.tables.map(({ name, order }) => ({
+      name,
+      order: order.map(({ column, kind }) => ({ column, kind })),
+      rowCount: 0,
+      sha256: emptyDigest,
+    })),
+  })
+  const parsed017 = manifestFromJson(serializeManifest(profile017Manifest))
+  assert.equal(parsed017.formatVersion, 2)
+  if (parsed017.formatVersion !== 2) throw new TypeError("format-2 manifest expected")
+  assert.equal(parsed017.profile, "project-kb-schema-017-public-v1")
+  const profile018Manifest = createManifest({
+    ...input,
+    profile: "project-kb-schema-018-public-v1",
+    sourceDatabase: "fixture018",
+    migrations: PROFILE_018.migrations,
+    migrationDigest: computeMigrationDigest(PROFILE_018.migrations),
+    schemaFingerprint: PROFILE_018.schemaFingerprint,
+    tables: PROFILE_018.tables.map(({ name, order }) => ({
+      name,
+      order: order.map(({ column, kind }) => ({ column, kind })),
+      rowCount: 0,
+      sha256: emptyDigest,
+    })),
+  })
+  const parsed018 = manifestFromJson(serializeManifest(profile018Manifest))
+  assert.equal(parsed018.formatVersion, 2)
+  if (parsed018.formatVersion !== 2) throw new TypeError("format-2 manifest expected")
+  assert.equal(parsed018.profile, "project-kb-schema-018-public-v1")
+})
+
+test("profiles 016 and 017 have exact registered upgrades to profile 018", () => {
+  // Given
+  const localCatalog = PROFILE_018.migrations
+
+  // When
+  const from016 = planForwardUpgrade(PROFILE_016, PROFILE_018, localCatalog)
+  const from017 = planForwardUpgrade(PROFILE_017, PROFILE_018, localCatalog)
+
+  // Then
+  assert.deepEqual(from016, PROFILE_018.migrations.slice(PROFILE_016.migrations.length))
+  assert.deepEqual(from017, [PROFILE_018.migrations.at(-1)])
 })

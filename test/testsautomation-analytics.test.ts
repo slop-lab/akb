@@ -5,7 +5,7 @@ import { AutomationAnalytics } from "../src/automation/analytics.ts"
 import { IdentityAdmin } from "../src/identity/admin.ts"
 import { authenticateToken } from "../src/identity/authenticate.ts"
 import { SpaceAdmin } from "../src/identity/space-admin.ts"
-import { createPostgresTestFixture } from "./postgres-fixture.ts"
+import { createPostgresTestFixture } from "./postgres/postgres-fixture.ts"
 
 const database = await createPostgresTestFixture()
 after(database.close)

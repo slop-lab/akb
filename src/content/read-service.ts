@@ -67,6 +67,21 @@ export class ContentReadService {
     return toPage(row.data)
   }
 
+  async pageRevision(
+    principal: AuthenticatedPrincipal,
+    pageId: string,
+    revision: number,
+  ): Promise<Page> {
+    const rows = await this.#sql`select d.id,d.workspace_id,d.space_id,d.parent_page_id,r.title,
+      r.revision current_revision,d.lifecycle,d.created_at,r.created_at updated_at,r.document
+      from content_documents d join content_document_revisions r on r.page_id=d.id
+      where d.workspace_id=${principal.workspaceId} and d.id=${pageId} and r.revision=${revision}
+        and entity_access_allowed(d.workspace_id,d.id,${principal.principalId},'content.read')`
+    const row = PageRowSchema.safeParse(rows[0])
+    if (!row.success) throw new EntityNotFoundError(pageId)
+    return toPage(row.data)
+  }
+
   async children(
     principal: AuthenticatedPrincipal,
     parentPageId: string | null,

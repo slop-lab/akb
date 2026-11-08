@@ -11,16 +11,16 @@ export default defineConfig({
     dedupe: ["react", "react-dom"],
     alias: [
       {
-        find: /^@block-editor\/model\/viewer$/,
+        find: /^@slop-lab\/blocks\/viewer$/,
         replacement: blocks("packages/model/dist/viewer.js"),
       },
-      { find: /^@block-editor\/model$/, replacement: blocks("packages/model/dist/index.js") },
+      { find: /^@slop-lab\/blocks$/, replacement: blocks("packages/model/dist/index.js") },
       {
-        find: /^@block-editor\/prosemirror\/preset$/,
+        find: /^@slop-lab\/blocks-prosemirror\/preset$/,
         replacement: blocks("packages/prosemirror/dist/preset.js"),
       },
       {
-        find: /^@block-editor\/prosemirror$/,
+        find: /^@slop-lab\/blocks-prosemirror$/,
         replacement: blocks("packages/prosemirror/dist/index.js"),
       },
       {
@@ -46,8 +46,8 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 5173,
     proxy: {
-      "/api": "http://127.0.0.1:33140",
-      "/health": "http://127.0.0.1:33140",
+      "/api": "http://127.0.0.1:3001",
+      "/health": "http://127.0.0.1:3001",
     },
   },
   test: {

@@ -9,7 +9,7 @@ import { createR4ImportDispatcher } from "../src/import-export/command-dispatche
 import { createAuthenticatedPostgresServer } from "../src/postgres/authenticated-server.ts"
 import { migrateDatabase } from "../src/postgres/migrate.ts"
 import { eventId, workItemId } from "../src/work-items/identifiers.ts"
-import { createUnmigratedPostgresTestFixture } from "./postgres-fixture.ts"
+import { createUnmigratedPostgresTestFixture } from "./postgres/postgres-fixture.ts"
 
 export async function createInterchangeHttpFixture() {
   const database = await createUnmigratedPostgresTestFixture()

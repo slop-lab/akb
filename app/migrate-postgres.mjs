@@ -1,3 +1,4 @@
+// @ts-check
 import { createPostgresClient, databaseUrlFromEnvironment } from "../src/postgres/client.ts"
 import { migrateDatabase } from "../src/postgres/migrate.ts"
 

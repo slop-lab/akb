@@ -124,7 +124,8 @@
   .search-form,
   .transfer-grid,
   .feature-columns,
-  .master-detail {
+  .master-detail,
+  .project-library-picker {
     grid-template-columns: 1fr;
   }
   .master-detail .search-result {
@@ -143,6 +144,26 @@
     grid-row: 2;
   }
   .form-columns {
+    grid-template-columns: 1fr;
+  }
+  .context-search,
+  .context-result {
+    grid-template-columns: 1fr;
+  }
+  .context-reference {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .context-reference > .cluster > * {
+    inline-size: 100%;
+  }
+  .context-reference > .cluster {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    inline-size: 100%;
+  }
+  .context-actions .inline-form {
+    display: grid;
     grid-template-columns: 1fr;
   }
 }

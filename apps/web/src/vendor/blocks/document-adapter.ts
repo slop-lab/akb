@@ -1,4 +1,4 @@
-import type { BlockDocument, BlockSnapshot } from "@block-editor/model"
+import type { BlockDocument, BlockSnapshot } from "@slop-lab/blocks"
 import type { ContentBlock, ContentDocument } from "../../../../../src/contracts/content/model.ts"
 import { ContentDocumentSchema } from "../../../../../src/contracts/content/model.ts"
 
@@ -17,6 +17,24 @@ const toBlockSnapshot = (block: ContentBlock): BlockSnapshot => ({
 
 const textFrom = (block: BlockSnapshot): string =>
   block.content.flatMap((inline) => (inline.kind === "text" ? [inline.text] : [])).join("")
+
+export class UnsupportedBlocksEditingError extends Error {
+  override readonly name = "UnsupportedBlocksEditingError"
+}
+
+const assertCanonicalInlineContent = (block: BlockSnapshot): void => {
+  for (const inline of block.content) {
+    if (inline.kind !== "text")
+      throw new UnsupportedBlocksEditingError(
+        "This document contains inline content that Pages cannot safely edit yet.",
+      )
+    if (inline.marks.length > 0)
+      throw new UnsupportedBlocksEditingError(
+        "This document contains inline formatting that Pages cannot safely edit yet.",
+      )
+  }
+  for (const child of block.children ?? []) assertCanonicalInlineContent(child)
+}
 
 const fromBlockSnapshot = (block: BlockSnapshot): unknown => {
   const { level, language, entityId, artifactId } = block.attrs
@@ -38,4 +56,10 @@ export const toBlocksDocument = (document: ContentDocument): BlockDocument => ({
 })
 
 export const fromBlocksDocument = (document: BlockDocument): ContentDocument =>
-  ContentDocumentSchema.parse({ version: 1, blocks: document.blocks.map(fromBlockSnapshot) })
+  ContentDocumentSchema.parse({
+    version: 1,
+    blocks: document.blocks.map((block) => {
+      assertCanonicalInlineContent(block)
+      return fromBlockSnapshot(block)
+    }),
+  })

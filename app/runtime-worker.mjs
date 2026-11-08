@@ -1,3 +1,4 @@
+// @ts-check
 import { createServer } from "node:http"
 import { createRuntimeRequestHandler } from "../build/src/http/runtime/index.js"
 import { createPostgresClient, databaseUrlFromEnvironment } from "../build/src/postgres/client.js"

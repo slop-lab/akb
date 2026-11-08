@@ -1,20 +1,10 @@
-import {
-  ArrowSquareOut,
-  BookOpenText,
-  Briefcase,
-  CalendarCheck,
-  Database,
-  FolderSimple,
-  Graph,
-  ListChecks,
-  MagnifyingGlass,
-  Robot,
-  SignOut,
-  SlidersHorizontal,
-  TerminalWindow,
-} from "@phosphor-icons/react"
-import { lazy, Suspense, useEffect, useId, useRef, useState } from "react"
+import { SignOut } from "@phosphor-icons/react"
+import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from "react"
 import { Button } from "../components/primitives.tsx"
+import {
+  type ContentWorkflowDraft,
+  EMPTY_CONTENT_WORKFLOW_DRAFT,
+} from "../features/content/content-workflow-state.ts"
 import { KnowledgeScreen } from "../features/knowledge/KnowledgeScreen.tsx"
 import { PlanningScreen } from "../features/planning/PlanningScreen.tsx"
 import { ProjectsScreen } from "../features/projects/ProjectsScreen.tsx"
@@ -23,7 +13,9 @@ import { SearchScreen } from "../features/search/SearchScreen.tsx"
 import { SpacesScreen } from "../features/spaces/SpacesScreen.tsx"
 import { TransferScreen } from "../features/transfer/TransferScreen.tsx"
 import { WorkScreen } from "../features/work/WorkScreen.tsx"
-import type { Route, Session } from "./types.ts"
+import { type AppLocation, hrefForLocation, parseLocation, withWorkspace } from "./navigation.ts"
+import type { Session } from "./types.ts"
+import { WorkspaceNavigation } from "./WorkspaceNavigation.tsx"
 
 const ContentScreen = lazy(async () => {
   const module = await import("../features/content/ContentScreen.tsx")
@@ -33,20 +25,10 @@ const AutomationScreen = lazy(async () => {
   const module = await import("../features/automation/AutomationScreen.tsx")
   return { default: module.AutomationScreen }
 })
-
-const NAVIGATION = [
-  { route: "projects", label: "Projects", icon: Briefcase },
-  { route: "work", label: "Work", icon: ListChecks },
-  { route: "search", label: "Search", icon: MagnifyingGlass },
-  { route: "planning", label: "Planning", icon: CalendarCheck },
-  { route: "content", label: "Pages", icon: BookOpenText },
-  { route: "runtime", label: "Runs", icon: TerminalWindow },
-  { route: "knowledge", label: "Knowledge", icon: Graph },
-  { route: "automation", label: "Automation", icon: Robot },
-  { route: "spaces", label: "Spaces", icon: FolderSimple },
-  { route: "saved", label: "Saved views", icon: SlidersHorizontal },
-  { route: "transfer", label: "Workspace data", icon: Database },
-] as const
+const ProjectLibraryScreen = lazy(async () => {
+  const module = await import("../features/project-kb/ProjectLibraryScreen.tsx")
+  return { default: module.ProjectLibraryScreen }
+})
 
 export function Workspace({
   session,
@@ -55,14 +37,29 @@ export function Workspace({
   readonly session: Session
   readonly onLogout: () => void
 }) {
-  const [route, setRoute] = useState<Route>("projects")
+  const [location, setLocation] = useState<AppLocation>(() =>
+    parseLocation(new URL(window.location.href)),
+  )
   const [announcement, setAnnouncement] = useState("")
   const [navOpen, setNavOpen] = useState(false)
   const [workProjectId, setWorkProjectId] = useState("")
   const [workSpaceId, setWorkSpaceId] = useState("")
+  const [contentWorkflowDraft, setContentWorkflowDraft] = useState<ContentWorkflowDraft>(
+    EMPTY_CONTENT_WORKFLOW_DRAFT,
+  )
   const navigationId = useId()
-  const navigationRef = useRef<HTMLElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const route = location.route
+
+  const navigate = useCallback(
+    (next: AppLocation, replace = false) => {
+      const scoped = withWorkspace(next, session.bootstrap.workspace.id)
+      const href = hrefForLocation(scoped)
+      window.history[replace ? "replaceState" : "pushState"](null, "", href)
+      setLocation(scoped)
+    },
+    [session.bootstrap.workspace.id],
+  )
 
   function closeNavigation() {
     setNavOpen(false)
@@ -71,6 +68,7 @@ export function Workspace({
 
   useEffect(() => {
     function shortcuts(event: KeyboardEvent) {
+      if (document.querySelector("dialog[open]") !== null) return
       const target = event.target
       if (
         target instanceof HTMLInputElement ||
@@ -82,44 +80,20 @@ export function Workspace({
         return
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault()
-        setRoute("search")
+        navigate({ route: "search" })
       }
       if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === "b") {
-        setRoute("work")
+        navigate({ route: "work" })
       }
     }
     window.addEventListener("keydown", shortcuts)
     return () => window.removeEventListener("keydown", shortcuts)
-  }, [])
+  }, [navigate])
   useEffect(() => {
-    if (!navOpen) return
-    const navigation = navigationRef.current
-    if (navigation === null) return
-    const focusable = navigation.querySelectorAll<HTMLElement>("button, a[href]")
-    focusable[0]?.focus()
-    function handleNavigationKeys(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault()
-        setNavOpen(false)
-        requestAnimationFrame(() => menuButtonRef.current?.focus())
-        return
-      }
-      if (event.key !== "Tab" || focusable.length === 0) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (first === undefined || last === undefined) return
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-    navigation.addEventListener("keydown", handleNavigationKeys)
-    return () => navigation.removeEventListener("keydown", handleNavigationKeys)
-  }, [navOpen])
-
+    const handlePopState = () => setLocation(parseLocation(new URL(window.location.href)))
+    window.addEventListener("popstate", handlePopState)
+    return () => window.removeEventListener("popstate", handlePopState)
+  }, [])
   const props = { session, announce: setAnnouncement }
   return (
     <div className="shell">
@@ -144,72 +118,19 @@ export function Workspace({
           <SignOut size={16} aria-hidden="true" /> Sign out
         </Button>
       </header>
-      {navOpen ? (
-        <button
-          type="button"
-          className="sidebar-backdrop"
-          aria-label="Close navigation"
-          onClick={closeNavigation}
-        />
-      ) : null}
-      <aside
-        id={navigationId}
-        ref={navigationRef}
-        className={`sidebar${navOpen ? " sidebar--open" : ""}`}
-        aria-label="Workspace navigation"
-        {...(navOpen ? { "aria-modal": true, role: "dialog" } : {})}
-      >
-        <div className="sidebar__mobile-header">
-          <strong>Navigate</strong>
-          <Button variant="quiet" onClick={closeNavigation}>
-            Close
-          </Button>
-        </div>
-        <nav>
-          {NAVIGATION.map(({ route: destination, label, icon: Icon }) => (
-            <button
-              type="button"
-              key={destination}
-              className="nav-item"
-              aria-label={label}
-              title={label}
-              aria-current={route === destination ? "page" : undefined}
-              onClick={() => {
-                if (destination === "work") setWorkProjectId("")
-                setRoute(destination)
-                closeNavigation()
-              }}
-            >
-              <Icon size={16} aria-hidden="true" />
-              <span>{label}</span>
-            </button>
-          ))}
-        </nav>
-        <section className="sidebar__spaces">
-          <p className="sidebar__label">Spaces</p>
-          {session.bootstrap.spaces.map((space) => (
-            <button
-              type="button"
-              key={space.id}
-              className="nav-item nav-item--space"
-              title={`${space.key} · ${space.name}`}
-              onClick={() => {
-                setRoute("work")
-                closeNavigation()
-              }}
-            >
-              <span className="space-key space-key--full mono">{space.key}</span>
-              <span className="space-key space-key--rail mono" aria-hidden="true">
-                {space.key.slice(0, 1)}
-              </span>
-              <span>{space.name}</span>
-            </button>
-          ))}
-        </section>
-        <a className="api-status" href="/health" target="_blank" rel="noreferrer">
-          <ArrowSquareOut size={14} aria-hidden="true" /> API health
-        </a>
-      </aside>
+      <WorkspaceNavigation
+        bootstrap={session.bootstrap}
+        currentRoute={route}
+        workspaceId={session.bootstrap.workspace.id}
+        open={navOpen}
+        navigationId={navigationId}
+        onClose={closeNavigation}
+        onNavigate={(next) => {
+          if (next.route === "work") setWorkProjectId("")
+          navigate(next)
+          closeNavigation()
+        }}
+      />
       <main className="work-plane" inert={navOpen || undefined}>
         {route === "projects" ? (
           <ProjectsScreen
@@ -217,7 +138,7 @@ export function Workspace({
             onOpenWork={(project) => {
               setWorkProjectId(project.id)
               setWorkSpaceId(project.participatingSpaceIds[0] ?? "")
-              setRoute("work")
+              navigate({ route: "work" })
             }}
           />
         ) : null}
@@ -232,13 +153,81 @@ export function Workspace({
         ) : null}
         {route === "search" ? <SearchScreen {...props} /> : null}
         {route === "planning" ? <PlanningScreen {...props} /> : null}
+        {route === "library" ? (
+          <Suspense fallback={<p role="status">Loading Project library...</p>}>
+            <ProjectLibraryScreen
+              {...props}
+              {...(location.route === "library" && location.projectId !== undefined
+                ? { projectId: location.projectId }
+                : {})}
+              {...(location.route === "library" && location.pageId !== undefined
+                ? { pageId: location.pageId }
+                : {})}
+              onLocationChange={(projectId, pageId) =>
+                navigate({
+                  route: "library",
+                  ...(projectId === undefined ? {} : { projectId }),
+                  ...(pageId === undefined ? {} : { pageId }),
+                })
+              }
+              onOpenProjects={() => navigate({ route: "projects" })}
+            />
+          </Suspense>
+        ) : null}
         {route === "content" ? (
           <Suspense fallback={<p role="status">Loading page...</p>}>
-            <ContentScreen {...props} />
+            <ContentScreen
+              {...props}
+              {...(location.route === "content" && location.pageId !== undefined
+                ? { initialPageId: location.pageId }
+                : {})}
+              {...(location.route === "content" && location.revision !== undefined
+                ? { initialRevision: location.revision }
+                : {})}
+              {...(location.route === "content" && location.revisionError !== undefined
+                ? { initialRevisionError: location.revisionError }
+                : {})}
+              onLocationChange={(pageId, revision) =>
+                navigate({
+                  route: "content",
+                  pageId,
+                  ...(revision === undefined ? {} : { revision }),
+                })
+              }
+              workflowDraft={contentWorkflowDraft}
+              onWorkflowDraftChange={setContentWorkflowDraft}
+            />
           </Suspense>
         ) : null}
         {route === "runtime" ? <RuntimeScreen {...props} /> : null}
-        {route === "knowledge" ? <KnowledgeScreen {...props} /> : null}
+        {route === "knowledge" || route === "proposals" ? (
+          <KnowledgeScreen
+            {...props}
+            mode={route === "proposals" ? "proposals" : "knowledge"}
+            {...(location.route === "knowledge" && location.knowledgeId !== undefined
+              ? { initialKnowledgeId: location.knowledgeId }
+              : {})}
+            {...(location.route === "knowledge" && location.revision !== undefined
+              ? { initialRevision: location.revision }
+              : {})}
+            {...(location.route === "knowledge" && location.revisionError !== undefined
+              ? { initialRevisionError: location.revisionError }
+              : {})}
+            {...(location.route === "proposals" && location.proposalId !== undefined
+              ? { initialProposalId: location.proposalId }
+              : {})}
+            onKnowledgeLocationChange={(knowledgeId, revision) =>
+              navigate({
+                route: "knowledge",
+                knowledgeId,
+                ...(revision === undefined ? {} : { revision }),
+              })
+            }
+            onProposalLocationChange={(proposalId) =>
+              navigate({ route: "proposals", ...(proposalId === undefined ? {} : { proposalId }) })
+            }
+          />
+        ) : null}
         {route === "automation" ? (
           <Suspense fallback={<p role="status">Loading automation...</p>}>
             <AutomationScreen {...props} />
